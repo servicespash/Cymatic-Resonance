@@ -37,14 +37,20 @@ function GroupPage() {
       supabase.from("groups").select("id, name, code").eq("id", groupId).maybeSingle(),
       supabase
         .from("attendance")
-        .select("id, user_id, checked_in_at, profiles(full_name, position)")
+        .select("id, user_id, checked_in_at")
         .eq("group_id", groupId)
         .eq("attendance_date", today)
         .order("checked_in_at", { ascending: true }),
       supabase.from("group_members").select("*", { count: "exact", head: true }).eq("group_id", groupId),
     ]);
     setGroup(g);
-    setRows((att ?? []) as Row[]);
+    const ids = (att ?? []).map((a) => a.user_id);
+    let profMap: Record<string, { full_name: string; position: string | null }> = {};
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, position").in("id", ids);
+      profMap = Object.fromEntries((profs ?? []).map((p) => [p.id, { full_name: p.full_name, position: p.position }]));
+    }
+    setRows((att ?? []).map((a) => ({ ...a, profiles: profMap[a.user_id] ?? null })));
     setMemberCount(count ?? 0);
   };
 
