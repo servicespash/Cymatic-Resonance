@@ -10,12 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as GroupGroupIdRouteImport } from './routes/group.$groupId'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedPulseRouteImport } from './routes/_authenticated/pulse'
+import { Route as AuthenticatedDirectoryRouteImport } from './routes/_authenticated/directory'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCommsRouteImport } from './routes/_authenticated/comms'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -23,40 +32,96 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GroupGroupIdRoute = GroupGroupIdRouteImport.update({
-  id: '/group/$groupId',
-  path: '/group/$groupId',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPulseRoute = AuthenticatedPulseRouteImport.update({
+  id: '/pulse',
+  path: '/pulse',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDirectoryRoute = AuthenticatedDirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCommsRoute = AuthenticatedCommsRouteImport.update({
+  id: '/comms',
+  path: '/comms',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/group/$groupId': typeof GroupGroupIdRoute
+  '/comms': typeof AuthenticatedCommsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/directory': typeof AuthenticatedDirectoryRoute
+  '/pulse': typeof AuthenticatedPulseRoute
+  '/settings': typeof AuthenticatedSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/group/$groupId': typeof GroupGroupIdRoute
+  '/comms': typeof AuthenticatedCommsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/directory': typeof AuthenticatedDirectoryRoute
+  '/pulse': typeof AuthenticatedPulseRoute
+  '/settings': typeof AuthenticatedSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/group/$groupId': typeof GroupGroupIdRoute
+  '/_authenticated/comms': typeof AuthenticatedCommsRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/directory': typeof AuthenticatedDirectoryRoute
+  '/_authenticated/pulse': typeof AuthenticatedPulseRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/group/$groupId'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/comms'
+    | '/dashboard'
+    | '/directory'
+    | '/pulse'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/group/$groupId'
-  id: '__root__' | '/' | '/auth' | '/group/$groupId'
+  to:
+    | '/'
+    | '/auth'
+    | '/comms'
+    | '/dashboard'
+    | '/directory'
+    | '/pulse'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/comms'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/directory'
+    | '/_authenticated/pulse'
+    | '/_authenticated/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  GroupGroupIdRoute: typeof GroupGroupIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,6 +133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -75,21 +147,78 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/group/$groupId': {
-      id: '/group/$groupId'
-      path: '/group/$groupId'
-      fullPath: '/group/$groupId'
-      preLoaderRoute: typeof GroupGroupIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pulse': {
+      id: '/_authenticated/pulse'
+      path: '/pulse'
+      fullPath: '/pulse'
+      preLoaderRoute: typeof AuthenticatedPulseRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/directory': {
+      id: '/_authenticated/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof AuthenticatedDirectoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/comms': {
+      id: '/_authenticated/comms'
+      path: '/comms'
+      fullPath: '/comms'
+      preLoaderRoute: typeof AuthenticatedCommsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCommsRoute: typeof AuthenticatedCommsRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDirectoryRoute: typeof AuthenticatedDirectoryRoute
+  AuthenticatedPulseRoute: typeof AuthenticatedPulseRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCommsRoute: AuthenticatedCommsRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDirectoryRoute: AuthenticatedDirectoryRoute,
+  AuthenticatedPulseRoute: AuthenticatedPulseRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  GroupGroupIdRoute: GroupGroupIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
