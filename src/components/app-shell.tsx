@@ -16,13 +16,13 @@ type Profile = {
 };
 type Org = { id: string; name: string; access_code: string; org_type: string };
 
-const nav = [
+const nav: { to: string; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
   { to: "/pulse", label: "Sync Pulse", icon: Radio },
   { to: "/directory", label: "Team Directory", icon: Users },
   { to: "/comms", label: "Cymatic Comms", icon: MessageSquare },
   { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();

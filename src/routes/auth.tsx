@@ -58,9 +58,8 @@ function AuthPage() {
 
   const completeProfile = async (
     userId: string,
-    patch: Record<string, unknown>,
+    patch: { role?: "admin" | "member"; org_id?: string | null; category?: string | null },
   ) => {
-    // Wait briefly for trigger-created profile, then upsert role/org details
     for (let i = 0; i < 5; i++) {
       const { data } = await supabase.from("profiles").select("id").eq("id", userId).maybeSingle();
       if (data) break;
