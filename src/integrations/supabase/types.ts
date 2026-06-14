@@ -18,126 +18,210 @@ export type Database = {
         Row: {
           attendance_date: string
           checked_in_at: string
-          group_id: string
+          created_at: string
           id: string
+          note: string | null
+          org_id: string
+          status: string
           user_id: string
         }
         Insert: {
           attendance_date?: string
           checked_in_at?: string
-          group_id: string
+          created_at?: string
           id?: string
+          note?: string | null
+          org_id: string
+          status?: string
           user_id: string
         }
         Update: {
           attendance_date?: string
           checked_in_at?: string
-          group_id?: string
+          created_at?: string
           id?: string
+          note?: string | null
+          org_id?: string
+          status?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "attendance_group_id_fkey"
-            columns: ["group_id"]
+            foreignKeyName: "attendance_org_id_fkey"
+            columns: ["org_id"]
             isOneToOne: false
-            referencedRelation: "groups"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
       }
-      group_members: {
+      channels: {
         Row: {
-          group_id: string
+          created_at: string
+          created_by: string
           id: string
-          joined_at: string
-          role: string
-          user_id: string
+          kind: Database["public"]["Enums"]["channel_kind"]
+          name: string
+          org_id: string
         }
         Insert: {
-          group_id: string
+          created_at?: string
+          created_by: string
           id?: string
-          joined_at?: string
-          role?: string
-          user_id: string
+          kind?: Database["public"]["Enums"]["channel_kind"]
+          name: string
+          org_id: string
         }
         Update: {
-          group_id?: string
+          created_at?: string
+          created_by?: string
           id?: string
-          joined_at?: string
-          role?: string
-          user_id?: string
+          kind?: Database["public"]["Enums"]["channel_kind"]
+          name?: string
+          org_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "group_members_group_id_fkey"
-            columns: ["group_id"]
+            foreignKeyName: "channels_org_id_fkey"
+            columns: ["org_id"]
             isOneToOne: false
-            referencedRelation: "groups"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
       }
-      groups: {
+      messages: {
         Row: {
-          code: string
+          body: string
+          channel_id: string
+          created_at: string
+          id: string
+          org_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          channel_id: string
+          created_at?: string
+          id?: string
+          org_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          channel_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          access_code: string
           created_at: string
           created_by: string
           id: string
           name: string
+          org_type: string
+          updated_at: string
         }
         Insert: {
-          code: string
+          access_code: string
           created_at?: string
           created_by: string
           id?: string
           name: string
+          org_type?: string
+          updated_at?: string
         }
         Update: {
-          code?: string
+          access_code?: string
           created_at?: string
           created_by?: string
           id?: string
           name?: string
+          org_type?: string
+          updated_at?: string
         }
         Relationships: []
       }
       profiles: {
         Row: {
+          category: string | null
           created_at: string
-          full_name: string
+          full_name: string | null
           id: string
+          org_id: string | null
           phone: string | null
           position: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
-          full_name?: string
+          full_name?: string | null
           id: string
+          org_id?: string | null
           phone?: string | null
           position?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
         }
         Update: {
+          category?: string | null
           created_at?: string
-          full_name?: string
+          full_name?: string | null
           id?: string
+          org_id?: string | null
           phone?: string | null
           position?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      current_org_id: { Args: never; Returns: string }
+      gen_cym_code: { Args: never; Returns: string }
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      is_org_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "member"
+      channel_kind: "broadcast" | "dm"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -264,6 +348,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "member"],
+      channel_kind: ["broadcast", "dm"],
+    },
   },
 } as const
