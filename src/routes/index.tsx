@@ -1,17 +1,55 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
-import { ArrowRight, Radio, Activity, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Radio,
+  Activity,
+  ShieldCheck,
+  MessagesSquare,
+  Waves,
+  LineChart,
+  Check,
+} from "lucide-react";
+import ogAsset from "@/assets/og-image.jpg.asset.json";
+import logoAsset from "@/assets/logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
     meta: [
       { title: "Cymatic Resonance — Workspace presence & comms" },
-      { name: "description", content: "Track team presence in real-time and run elite internal comms — secured by CYM workspace codes." },
+      {
+        name: "description",
+        content:
+          "Elite, real-time attendance and team communications. One workspace, one CYM access code, total clarity.",
+      },
+      { property: "og:title", content: "Cymatic Resonance — Workspace presence & comms" },
+      {
+        property: "og:description",
+        content: "Track team presence in real-time and run elite internal comms.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: ogAsset.url },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: ogAsset.url },
+    ],
+    links: [
+      { rel: "icon", type: "image/png", href: logoAsset.url },
+      { rel: "apple-touch-icon", href: logoAsset.url },
     ],
   }),
 });
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
 
 function LandingPage() {
   const { user, loading } = useAuth();
@@ -26,8 +64,19 @@ function LandingPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
+      {/* Ambient backdrop */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-1/2 top-[-10%] size-[80vw] -translate-x-1/2 rounded-full bg-primary/15 blur-[120px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] size-[60vw] rounded-full bg-accent/10 blur-[120px]" />
+      </div>
+
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <CymaticLogo />
+        <nav className="hidden items-center gap-7 font-mono text-xs uppercase tracking-widest text-muted-foreground md:flex">
+          <a href="#features" className="transition hover:text-foreground">Features</a>
+          <a href="#pricing" className="transition hover:text-foreground">Pricing</a>
+          <a href="#faq" className="transition hover:text-foreground">FAQ</a>
+        </nav>
         <Link
           to="/auth"
           className="font-mono text-xs uppercase tracking-widest text-muted-foreground transition hover:text-foreground"
@@ -36,22 +85,46 @@ function LandingPage() {
         </Link>
       </header>
 
-      <section className="mx-auto max-w-4xl px-6 pt-16 pb-24 text-center">
-        <div className="glass mx-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground animate-fade-up">
+      {/* Hero */}
+      <section className="mx-auto max-w-4xl px-6 pb-24 pt-12 text-center md:pt-20">
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          className="glass mx-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
+        >
           <span className="inline-block size-1.5 rounded-full bg-accent animate-pulse-ring" />
           Workspace · Live · Secure
-        </div>
+        </motion.div>
 
-        <h1 className="mt-8 font-display text-5xl font-bold tracking-tight md:text-7xl animate-fade-up" style={{ animationDelay: "60ms" }}>
-          Presence,{" "}
-          <span className="text-gradient">in resonance.</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg animate-fade-up" style={{ animationDelay: "120ms" }}>
-          A precision-engineered attendance and comms surface for elite teams.
-          One workspace, one CYM access code, total clarity.
-        </p>
+        <motion.h1
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          custom={1}
+          className="mt-8 font-display text-5xl font-bold tracking-tight md:text-7xl"
+        >
+          Presence, <span className="text-gradient">in resonance.</span>
+        </motion.h1>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row animate-fade-up" style={{ animationDelay: "180ms" }}>
+        <motion.p
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          custom={2}
+          className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
+        >
+          A precision-engineered attendance and comms surface for elite teams. One workspace, one
+          CYM access code, total clarity.
+        </motion.p>
+
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          custom={3}
+          className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
+        >
           <Link
             to="/auth"
             className="group inline-flex items-center justify-center gap-2 rounded-xl bg-frequency px-6 py-3 text-sm font-semibold text-primary-foreground resonance-glow transition hover:brightness-110"
@@ -65,22 +138,212 @@ function LandingPage() {
           >
             Create organization
           </Link>
-        </div>
+        </motion.div>
 
-        <div className="mt-20 grid gap-4 md:grid-cols-3">
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          custom={4}
+          className="mt-10 flex items-center justify-center gap-6 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+        >
+          <span>SOC-grade isolation</span>
+          <span className="size-1 rounded-full bg-muted-foreground/40" />
+          <span>Realtime presence</span>
+          <span className="size-1 rounded-full bg-muted-foreground/40" />
+          <span>Zero-noise comms</span>
+        </motion.div>
+      </section>
+
+      {/* Bento features */}
+      <section id="features" className="mx-auto max-w-6xl px-6 pb-24">
+        <div className="mb-10 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">Surface</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold md:text-4xl">
+            Built for teams that move in sync.
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:grid-rows-2">
+          <Feature
+            i={0}
+            className="md:col-span-2 md:row-span-1"
+            icon={Radio}
+            title="Sync Pulse"
+            desc="One-tap daily check-in with cymatic confirmation. Late, early, and category-aware in a single gesture."
+          />
+          <Feature i={1} icon={ShieldCheck} title="CYM Isolation" desc="Each workspace sealed by its private access code." />
+          <Feature i={2} icon={LineChart} title="Command Center" desc="Live roll call, trends, and anomaly detection." />
+          <Feature i={3} icon={MessagesSquare} title="Resonant Comms" desc="Broadcast channels, DMs, and reactions — all realtime." />
+          <Feature i={4} icon={Waves} title="Frequency Insights" desc="Weekly patterns, category breakdowns, exportable to CSV." />
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="mx-auto max-w-6xl px-6 pb-24">
+        <div className="mb-10 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">Pricing</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold md:text-4xl">
+            Simple. Scaled to your signal.
+          </h2>
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
           {[
-            { icon: Radio, t: "Sync Pulse", d: "One-tap daily check-in with cymatic confirmation." },
-            { icon: Activity, t: "Command Center", d: "Live roll call, trends, and anomaly detection." },
-            { icon: ShieldCheck, t: "CYM Isolation", d: "Each workspace sealed by its private access code." },
-          ].map((f, i) => (
-            <div key={f.t} className="glass rounded-2xl p-6 text-left animate-fade-up" style={{ animationDelay: `${240 + i * 60}ms` }}>
-              <f.icon className="size-5 text-accent" />
-              <h3 className="mt-4 font-display text-lg font-semibold">{f.t}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{f.d}</p>
-            </div>
+            { name: "Pulse", price: "Free", desc: "For tight teams just getting in sync.", feats: ["Up to 10 members", "Sync Pulse check-in", "1 broadcast channel"] },
+            { name: "Resonance", price: "$12", suffix: "/seat", featured: true, desc: "For organizations running on rhythm.", feats: ["Unlimited members", "Full Command Center", "Unlimited channels & DMs", "CSV exports"] },
+            { name: "Frequency", price: "Custom", desc: "For enterprise with strict isolation needs.", feats: ["SSO & SAML", "Audit log", "Dedicated success engineer"] },
+          ].map((p, i) => (
+            <motion.div
+              key={p.name}
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-80px" }}
+              custom={i}
+              className={`glass relative rounded-2xl p-6 ${p.featured ? "ring-1 ring-accent/50" : ""}`}
+            >
+              {p.featured && (
+                <span className="absolute -top-2.5 left-6 rounded-full bg-frequency px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary-foreground">
+                  Most resonant
+                </span>
+              )}
+              <h3 className="font-display text-lg font-semibold">{p.name}</h3>
+              <div className="mt-3 flex items-baseline gap-1">
+                <span className="font-display text-4xl font-bold">{p.price}</span>
+                {p.suffix && <span className="font-mono text-xs text-muted-foreground">{p.suffix}</span>}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{p.desc}</p>
+              <ul className="mt-5 space-y-2.5">
+                {p.feats.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-accent" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/auth"
+                className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                  p.featured
+                    ? "bg-frequency text-primary-foreground resonance-glow hover:brightness-110"
+                    : "glass hover:bg-white/5"
+                }`}
+              >
+                Get started
+              </Link>
+            </motion.div>
           ))}
         </div>
       </section>
+
+      {/* FAQ */}
+      <section id="faq" className="mx-auto max-w-3xl px-6 pb-24">
+        <div className="mb-10 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">FAQ</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold md:text-4xl">
+            Tuned for the questions you'll ask.
+          </h2>
+        </div>
+        <div className="space-y-3">
+          {[
+            {
+              q: "What is a CYM access code?",
+              a: "Each workspace has a private CYM-XXXX code. Members join by entering it — no email invites required, and no cross-workspace data leakage.",
+            },
+            {
+              q: "Is data isolated per organization?",
+              a: "Yes. Row-level security enforces strict workspace isolation at the database layer, not just the UI.",
+            },
+            {
+              q: "Does Sync Pulse work on mobile?",
+              a: "Yes. The entire surface is responsive and works as a PWA on iOS and Android.",
+            },
+            {
+              q: "Can I export attendance data?",
+              a: "Resonance and Frequency plans include CSV exports across any date range and category.",
+            },
+          ].map((f, i) => (
+            <motion.details
+              key={f.q}
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              custom={i}
+              className="glass group rounded-2xl px-5 py-4 [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-4 font-display text-base font-semibold">
+                {f.q}
+                <span className="font-mono text-accent transition group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+            </motion.details>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="mx-auto max-w-4xl px-6 pb-24">
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          className="glass relative overflow-hidden rounded-3xl p-10 text-center md:p-16"
+        >
+          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/20 via-transparent to-accent/15" />
+          <h2 className="font-display text-3xl font-semibold md:text-5xl">
+            Get in <span className="text-gradient">resonance</span>.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm text-muted-foreground md:text-base">
+            Spin up your workspace in under a minute. Bring your team in with a single CYM code.
+          </p>
+          <Link
+            to="/auth"
+            className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-frequency px-6 py-3 text-sm font-semibold text-primary-foreground resonance-glow transition hover:brightness-110"
+          >
+            Start free <ArrowRight className="size-4" />
+          </Link>
+        </motion.div>
+      </section>
+
+      <footer className="border-t border-white/5">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 md:flex-row">
+          <CymaticLogo size={28} />
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            © {new Date().getFullYear()} Cymatic Resonance. All frequencies reserved.
+          </p>
+        </div>
+      </footer>
     </main>
+  );
+}
+
+function Feature({
+  icon: Icon,
+  title,
+  desc,
+  i,
+  className = "",
+}: {
+  icon: typeof Radio;
+  title: string;
+  desc: string;
+  i: number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-80px" }}
+      custom={i}
+      className={`glass group relative overflow-hidden rounded-2xl p-6 transition hover:bg-white/5 ${className}`}
+    >
+      <div className="absolute -right-10 -top-10 size-32 rounded-full bg-frequency/10 blur-3xl transition group-hover:bg-frequency/20" />
+      <Icon className="size-5 text-accent" />
+      <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+    </motion.div>
   );
 }
