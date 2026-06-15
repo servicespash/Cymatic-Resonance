@@ -211,6 +211,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_org_as_admin: {
+        Args: { _name: string; _org_type: string }
+        Returns: {
+          access_code: string
+          id: string
+          name: string
+          org_type: string
+        }[]
+      }
       current_org_id: { Args: never; Returns: string }
       gen_cym_code: { Args: never; Returns: string }
       is_group_member: {
@@ -218,6 +227,13 @@ export type Database = {
         Returns: boolean
       }
       is_org_admin: { Args: never; Returns: boolean }
+      join_org_with_code: {
+        Args: { _category: string; _code: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "member"
