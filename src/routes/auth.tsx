@@ -116,7 +116,7 @@ function AuthPage() {
     setBusy(true);
     const code = parsed.data.access_code.toUpperCase();
 
-    const { data: auth, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -128,18 +128,18 @@ function AuthPage() {
         },
       },
     });
-    if (error || !auth.user) { setBusy(false); return toast.error(error?.message ?? "Sign up failed"); }
+    if (error) { setBusy(false); return toast.error(error.message); }
 
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("id, name, access_code")
-      .eq("access_code", code)
-      .maybeSingle();
-    if (!org) { setBusy(false); return toast.error("Invalid CYM access code"); }
+    const ok = await ensureSession(parsed.data.email, parsed.data.password);
+    if (!ok) { setBusy(false); return toast.error("Could not establish session"); }
 
-    await completeProfile(auth.user.id, { role: "member", org_id: org.id, category: parsed.data.category });
+    const { data: org, error: joinErr } = await supabase
+      .rpc("join_org_with_code", { _code: code, _category: parsed.data.category })
+      .single();
+    if (joinErr || !org) { setBusy(false); return toast.error(joinErr?.message ?? "Invalid CYM access code"); }
+
     setBusy(false);
-    toast.success(`Joined ${org.name}`);
+    toast.success(`Joined ${(org as any).name}`);
     navigate({ to: "/pulse" });
   };
 
