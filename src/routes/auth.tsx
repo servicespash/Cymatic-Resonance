@@ -68,13 +68,20 @@ function AuthPage() {
     return supabase.from("profiles").update(patch).eq("id", userId);
   };
 
+  const ensureSession = async (email: string, password: string) => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return true;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return !error;
+  };
+
   const handleAdminSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const parsed = adminSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setBusy(true);
-    const { data: auth, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -86,20 +93,18 @@ function AuthPage() {
         },
       },
     });
-    if (error || !auth.user) { setBusy(false); return toast.error(error?.message ?? "Sign up failed"); }
+    if (error) { setBusy(false); return toast.error(error.message); }
 
-    // Generate CYM code via RPC fallback: gen via SQL function through a single insert
-    const code = "CYM-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+    const ok = await ensureSession(parsed.data.email, parsed.data.password);
+    if (!ok) { setBusy(false); return toast.error("Could not establish session"); }
+
     const { data: org, error: orgErr } = await supabase
-      .from("organizations")
-      .insert({ name: parsed.data.org_name, org_type: parsed.data.org_type, access_code: code, created_by: auth.user.id })
-      .select()
+      .rpc("create_org_as_admin", { _name: parsed.data.org_name, _org_type: parsed.data.org_type })
       .single();
     if (orgErr || !org) { setBusy(false); return toast.error(orgErr?.message ?? "Could not create workspace"); }
 
-    await completeProfile(auth.user.id, { role: "admin", org_id: org.id });
     setBusy(false);
-    toast.success(`Workspace created · ${org.access_code}`, { description: "Share this code with members." });
+    toast.success(`Workspace created · ${(org as any).access_code}`, { description: "Share this code with members." });
     navigate({ to: "/dashboard" });
   };
 
@@ -111,7 +116,7 @@ function AuthPage() {
     setBusy(true);
     const code = parsed.data.access_code.toUpperCase();
 
-    const { data: auth, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -123,18 +128,18 @@ function AuthPage() {
         },
       },
     });
-    if (error || !auth.user) { setBusy(false); return toast.error(error?.message ?? "Sign up failed"); }
+    if (error) { setBusy(false); return toast.error(error.message); }
 
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("id, name, access_code")
-      .eq("access_code", code)
-      .maybeSingle();
-    if (!org) { setBusy(false); return toast.error("Invalid CYM access code"); }
+    const ok = await ensureSession(parsed.data.email, parsed.data.password);
+    if (!ok) { setBusy(false); return toast.error("Could not establish session"); }
 
-    await completeProfile(auth.user.id, { role: "member", org_id: org.id, category: parsed.data.category });
+    const { data: org, error: joinErr } = await supabase
+      .rpc("join_org_with_code", { _code: code, _category: parsed.data.category })
+      .single();
+    if (joinErr || !org) { setBusy(false); return toast.error(joinErr?.message ?? "Invalid CYM access code"); }
+
     setBusy(false);
-    toast.success(`Joined ${org.name}`);
+    toast.success(`Joined ${(org as any).name}`);
     navigate({ to: "/pulse" });
   };
 
