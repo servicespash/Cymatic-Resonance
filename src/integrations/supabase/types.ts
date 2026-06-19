@@ -17,32 +17,44 @@ export type Database = {
       attendance: {
         Row: {
           attendance_date: string
+          break_started_at: string | null
           checked_in_at: string
+          checked_out_at: string | null
           created_at: string
           id: string
+          is_late: boolean
           note: string | null
           org_id: string
           status: string
+          total_break_minutes: number
           user_id: string
         }
         Insert: {
           attendance_date?: string
+          break_started_at?: string | null
           checked_in_at?: string
+          checked_out_at?: string | null
           created_at?: string
           id?: string
+          is_late?: boolean
           note?: string | null
           org_id: string
           status?: string
+          total_break_minutes?: number
           user_id: string
         }
         Update: {
           attendance_date?: string
+          break_started_at?: string | null
           checked_in_at?: string
+          checked_out_at?: string | null
           created_at?: string
           id?: string
+          is_late?: boolean
           note?: string | null
           org_id?: string
           status?: string
+          total_break_minutes?: number
           user_id?: string
         }
         Relationships: [
@@ -137,27 +149,33 @@ export type Database = {
           access_code: string
           created_at: string
           created_by: string
+          day_start_cutoff: string
           id: string
           name: string
           org_type: string
+          timezone: string
           updated_at: string
         }
         Insert: {
           access_code: string
           created_at?: string
           created_by: string
+          day_start_cutoff?: string
           id?: string
           name: string
           org_type?: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
           access_code?: string
           created_at?: string
           created_by?: string
+          day_start_cutoff?: string
           id?: string
           name?: string
           org_type?: string
+          timezone?: string
           updated_at?: string
         }
         Relationships: []
@@ -233,6 +251,75 @@ export type Database = {
           id: string
           name: string
         }[]
+      }
+      pulse_checkin: {
+        Args: { _note?: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+          status: string
+          total_break_minutes: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pulse_checkout: {
+        Args: { _id: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+          status: string
+          total_break_minutes: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pulse_toggle_break: {
+        Args: { _id: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+          status: string
+          total_break_minutes: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
