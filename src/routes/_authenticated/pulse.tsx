@@ -60,7 +60,7 @@ function PulsePage() {
 
   const checkIn = async () => {
     setBusy(true);
-    const { data, error } = await supabase.rpc("pulse_checkin", { _note: note || null });
+    const { data, error } = await supabase.rpc("pulse_checkin", { _note: note || undefined });
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Resonance recorded");
