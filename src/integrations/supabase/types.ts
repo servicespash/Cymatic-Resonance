@@ -102,6 +102,102 @@ export type Database = {
           },
         ]
       }
+      direct_threads: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          org_id?: string
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_threads_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reads: {
+        Row: {
+          channel_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reads_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -252,6 +348,24 @@ export type Database = {
           name: string
         }[]
       }
+      open_dm: {
+        Args: { _other: string }
+        Returns: {
+          channel_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "direct_threads"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       pulse_checkin: {
         Args: { _note?: string }
         Returns: {
@@ -320,6 +434,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      toggle_reaction: {
+        Args: { _emoji: string; _message: string }
+        Returns: boolean
       }
     }
     Enums: {
