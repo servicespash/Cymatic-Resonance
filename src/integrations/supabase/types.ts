@@ -17,32 +17,44 @@ export type Database = {
       attendance: {
         Row: {
           attendance_date: string
+          break_started_at: string | null
           checked_in_at: string
+          checked_out_at: string | null
           created_at: string
           id: string
+          is_late: boolean
           note: string | null
           org_id: string
           status: string
+          total_break_minutes: number
           user_id: string
         }
         Insert: {
           attendance_date?: string
+          break_started_at?: string | null
           checked_in_at?: string
+          checked_out_at?: string | null
           created_at?: string
           id?: string
+          is_late?: boolean
           note?: string | null
           org_id: string
           status?: string
+          total_break_minutes?: number
           user_id: string
         }
         Update: {
           attendance_date?: string
+          break_started_at?: string | null
           checked_in_at?: string
+          checked_out_at?: string | null
           created_at?: string
           id?: string
+          is_late?: boolean
           note?: string | null
           org_id?: string
           status?: string
+          total_break_minutes?: number
           user_id?: string
         }
         Relationships: [
@@ -86,6 +98,102 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      direct_threads: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          org_id?: string
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_threads_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reads: {
+        Row: {
+          channel_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reads_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
             referencedColumns: ["id"]
           },
         ]
@@ -137,27 +245,33 @@ export type Database = {
           access_code: string
           created_at: string
           created_by: string
+          day_start_cutoff: string
           id: string
           name: string
           org_type: string
+          timezone: string
           updated_at: string
         }
         Insert: {
           access_code: string
           created_at?: string
           created_by: string
+          day_start_cutoff?: string
           id?: string
           name: string
           org_type?: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
           access_code?: string
           created_at?: string
           created_by?: string
+          day_start_cutoff?: string
           id?: string
           name?: string
           org_type?: string
+          timezone?: string
           updated_at?: string
         }
         Relationships: []
@@ -221,6 +335,7 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      delete_org: { Args: never; Returns: undefined }
       gen_cym_code: { Args: never; Returns: string }
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
@@ -233,6 +348,123 @@ export type Database = {
           id: string
           name: string
         }[]
+      }
+      open_dm: {
+        Args: { _other: string }
+        Returns: {
+          channel_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "direct_threads"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pulse_checkin: {
+        Args: { _note?: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+          status: string
+          total_break_minutes: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pulse_checkout: {
+        Args: { _id: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+          status: string
+          total_break_minutes: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pulse_toggle_break: {
+        Args: { _id: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+          status: string
+          total_break_minutes: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      remove_member: { Args: { _user: string }; Returns: undefined }
+      rotate_access_code: { Args: never; Returns: string }
+      set_member_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"]; _user: string }
+        Returns: undefined
+      }
+      toggle_reaction: {
+        Args: { _emoji: string; _message: string }
+        Returns: boolean
+      }
+      update_org_settings: {
+        Args: { _cutoff: string; _name: string; _org_type: string; _tz: string }
+        Returns: {
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          name: string
+          org_type: string
+          timezone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

@@ -5,8 +5,10 @@ import { useAuth } from "@/lib/auth-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { Search } from "lucide-react";
 
+import { RequireWorkspace } from "@/components/require-workspace";
+
 export const Route = createFileRoute("/_authenticated/directory")({
-  component: DirectoryPage,
+  component: () => (<RequireWorkspace><DirectoryPage /></RequireWorkspace>),
 });
 
 type Row = { id: string; full_name: string | null; position: string | null; category: string | null; role: string; phone: string | null };
