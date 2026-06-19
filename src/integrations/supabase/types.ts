@@ -335,6 +335,7 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      delete_org: { Args: never; Returns: undefined }
       gen_cym_code: { Args: never; Returns: string }
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
@@ -435,9 +436,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      remove_member: { Args: { _user: string }; Returns: undefined }
+      rotate_access_code: { Args: never; Returns: string }
+      set_member_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"]; _user: string }
+        Returns: undefined
+      }
       toggle_reaction: {
         Args: { _emoji: string; _message: string }
         Returns: boolean
+      }
+      update_org_settings: {
+        Args: { _cutoff: string; _name: string; _org_type: string; _tz: string }
+        Returns: {
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          name: string
+          org_type: string
+          timezone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
