@@ -6,8 +6,10 @@ import { Users, Activity, AlertTriangle, Download } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid } from "recharts";
 import { CymaticWave } from "@/components/cymatic-wave";
 
+import { RequireWorkspace } from "@/components/require-workspace";
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  component: DashboardPage,
+  component: () => (<RequireWorkspace><DashboardPage /></RequireWorkspace>),
 });
 
 type Member = { id: string; full_name: string | null; position: string | null; category: string | null; role: string };
