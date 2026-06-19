@@ -6,8 +6,10 @@ import { CymaticWave } from "@/components/cymatic-wave";
 import { Hash, Send, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { RequireWorkspace } from "@/components/require-workspace";
+
 export const Route = createFileRoute("/_authenticated/comms")({
-  component: CommsPage,
+  component: () => (<RequireWorkspace><CommsPage /></RequireWorkspace>),
 });
 
 type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
