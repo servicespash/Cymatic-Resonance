@@ -329,8 +329,8 @@ export type Database = {
         Args: { _name: string; _org_type: string }
         Returns: {
           access_code: string
-          id: string
-          name: string
+          org_id: string
+          org_name: string
           org_type: string
         }[]
       }
@@ -345,8 +345,8 @@ export type Database = {
       join_org_with_code: {
         Args: { _category: string; _code: string }
         Returns: {
-          id: string
-          name: string
+          org_id: string
+          org_name: string
         }[]
       }
       open_dm: {
