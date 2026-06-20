@@ -140,6 +140,59 @@ export type Database = {
           },
         ]
       }
+      leave_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          end_date: string
+          id: string
+          org_id: string
+          reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+          type: Database["public"]["Enums"]["leave_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          end_date: string
+          id?: string
+          org_id: string
+          reason?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          type?: Database["public"]["Enums"]["leave_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          end_date?: string
+          id?: string
+          org_id?: string
+          reason?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          type?: Database["public"]["Enums"]["leave_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string
@@ -240,35 +293,91 @@ export type Database = {
           },
         ]
       }
+      org_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          category: string | null
+          created_at: string
+          created_by: string
+          email: string
+          expires_at: string
+          id: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          category?: string | null
+          created_at?: string
+          created_by: string
+          email: string
+          expires_at?: string
+          id?: string
+          org_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_invites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
+          accent_color: string | null
           access_code: string
           created_at: string
           created_by: string
           day_start_cutoff: string
           id: string
+          logo_url: string | null
           name: string
           org_type: string
           timezone: string
           updated_at: string
         }
         Insert: {
+          accent_color?: string | null
           access_code: string
           created_at?: string
           created_by: string
           day_start_cutoff?: string
           id?: string
+          logo_url?: string | null
           name: string
           org_type?: string
           timezone?: string
           updated_at?: string
         }
         Update: {
+          accent_color?: string | null
           access_code?: string
           created_at?: string
           created_by?: string
           day_start_cutoff?: string
           id?: string
+          logo_url?: string | null
           name?: string
           org_type?: string
           timezone?: string
@@ -325,6 +434,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invite: {
+        Args: { _token: string }
+        Returns: {
+          org_id: string
+          org_name: string
+        }[]
+      }
+      create_invite: {
+        Args: {
+          _category: string
+          _email: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: {
+          accepted_at: string | null
+          accepted_by: string | null
+          category: string | null
+          created_at: string
+          created_by: string
+          email: string
+          expires_at: string
+          id: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "org_invites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_org_as_admin: {
         Args: { _name: string; _org_type: string }
         Returns: {
@@ -335,8 +477,40 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      decide_leave: {
+        Args: { _approved: boolean; _id: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          end_date: string
+          id: string
+          org_id: string
+          reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+          type: Database["public"]["Enums"]["leave_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "leave_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_org: { Args: never; Returns: undefined }
       gen_cym_code: { Args: never; Returns: string }
+      invite_preview: {
+        Args: { _token: string }
+        Returns: {
+          accepted: boolean
+          email: string
+          expires_at: string
+          org_name: string
+        }[]
+      }
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
@@ -437,6 +611,35 @@ export type Database = {
         }
       }
       remove_member: { Args: { _user: string }; Returns: undefined }
+      request_leave: {
+        Args: {
+          _end: string
+          _reason: string
+          _start: string
+          _type: Database["public"]["Enums"]["leave_type"]
+        }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          end_date: string
+          id: string
+          org_id: string
+          reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+          type: Database["public"]["Enums"]["leave_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "leave_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      revoke_invite: { Args: { _id: string }; Returns: undefined }
       rotate_access_code: { Args: never; Returns: string }
       set_member_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _user: string }
@@ -446,14 +649,38 @@ export type Database = {
         Args: { _emoji: string; _message: string }
         Returns: boolean
       }
-      update_org_settings: {
-        Args: { _cutoff: string; _name: string; _org_type: string; _tz: string }
+      update_org_brand: {
+        Args: { _accent_color: string; _logo_url: string }
         Returns: {
+          accent_color: string | null
           access_code: string
           created_at: string
           created_by: string
           day_start_cutoff: string
           id: string
+          logo_url: string | null
+          name: string
+          org_type: string
+          timezone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_org_settings: {
+        Args: { _cutoff: string; _name: string; _org_type: string; _tz: string }
+        Returns: {
+          accent_color: string | null
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          logo_url: string | null
           name: string
           org_type: string
           timezone: string
@@ -470,6 +697,8 @@ export type Database = {
     Enums: {
       app_role: "admin" | "member"
       channel_kind: "broadcast" | "dm"
+      leave_status: "pending" | "approved" | "denied"
+      leave_type: "sick" | "vacation" | "personal" | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -599,6 +828,8 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "member"],
       channel_kind: ["broadcast", "dm"],
+      leave_status: ["pending", "approved", "denied"],
+      leave_type: ["sick", "vacation", "personal", "other"],
     },
   },
 } as const

@@ -7,6 +7,7 @@ import { RequireWorkspace } from "@/components/require-workspace";
 import { Check, Clock, Coffee, LogOut, Flame, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { LeavePanel } from "@/components/leave-panel";
 
 export const Route = createFileRoute("/_authenticated/pulse")({
   component: () => (
@@ -246,6 +247,8 @@ function PulsePage() {
           })}
         </div>
       </section>
+
+      <LeavePanel />
     </div>
   );
 }

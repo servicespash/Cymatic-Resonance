@@ -1,75 +1,78 @@
-## Build order (3 slices)
 
-### Slice 1 — Fix "Workspace not linked yet" + Pulse v2
-Root cause: `profiles.org_id` is null for some users (e.g. admin who signed up but RPC didn't link, or pre-existing accounts). Pulse hard-blocks on it.
+## Slice 1 — Dashboard v2 (date-range, CSV, sortable roll-call)
 
-**Fixes**
-- On Pulse load, if `org_id` is null, show a friendly "Join a workspace" empty state with CYM-code input → calls `join_org_with_code` RPC, then refetches. Admins see "Create workspace" CTA → opens dialog calling `create_org_as_admin`.
-- Same guard added to Comms, Dashboard, Directory (shared `<RequireWorkspace>` wrapper component).
+**UI (`src/routes/_authenticated/dashboard.tsx`)**
+- Date-range picker (shadcn calendar in popover, two-month, presets: Today / 7d / 30d / This month / Custom). Range stored in URL search params via `validateSearch` + `zodValidator` so it's shareable/bookmarkable.
+- Metrics row re-derives from range: total check-ins, on-time %, avg hours, late count, active members.
+- Recharts area chart of daily attendance in range.
+- Roll-call matrix: shadcn table, columns Name · Category · Check-in · Check-out · Hours · Status · Late. All columns sortable (click header), text filter input, status filter chips.
+- "Export CSV" button → downloads filtered rows as `pulse_YYYY-MM-DD_YYYY-MM-DD.csv` (client-side blob, no server roundtrip).
 
-**Pulse v2 features**
-- Check-in → Check-out → Break start/stop (state machine on today's row).
-- Optional note field on check-in (textarea in glass dialog).
-- Auto-flag `late` if check-in after configurable org cutoff (default 09:00) — shows amber chip.
-- Today summary card: hours worked (live ticker), break minutes, status.
-- Ledger row expanded: shows check-in, check-out, duration, late flag, note preview.
-- "Resonance streak" — consecutive day count, glowing chip.
-
-**DB migration**
-- `attendance`: add `checked_out_at timestamptz`, `break_started_at timestamptz`, `total_break_minutes int default 0`, `is_late boolean default false`.
-- `organizations`: add `day_start_cutoff time default '09:00'`, `timezone text default 'UTC'`.
-- New RPC `pulse_checkout(_id)` and `pulse_toggle_break(_id)` (SECURITY DEFINER, scoped to `auth.uid()`).
-- Update `attendance_self_update` policy already allows owner edits — keep.
-
-### Slice 2 — DMs + unread + reactions in Comms
-**DB migration**
-- New table `direct_threads(id, org_id, user_a, user_b, last_message_at)` with unique pair index.
-- New table `message_reads(user_id, channel_id, last_read_at)` for unread counts.
-- New table `message_reactions(id, message_id, user_id, emoji)` with unique `(message_id, user_id, emoji)`.
-- RLS: org-scoped select, self insert; full GRANTs.
-- RPC `open_dm(_other_user)` → returns or creates a thread + a hidden `kind='dm'` channel; existing `channels.kind` already supports `'dm'`.
-- Enable realtime on new tables.
-
-**UI**
-- Comms left rail: tabs **Channels** | **Direct**. Direct list shows org members with avatar, last message snippet, unread badge.
-- Click member → opens/creates DM, routes to that channel.
-- Unread badges on every channel/DM (computed from `message_reads`).
-- Replace `prompt()` channel creation with a proper shadcn `<Dialog>`.
-- Long-press / hover message → emoji reaction picker (8 quick emojis). Reactions render as chips below the bubble with counts; clicking toggles own reaction.
-- Typing indicator via realtime broadcast channel (ephemeral, no DB).
-- Mark-as-read: writes `message_reads.last_read_at = now()` on channel open + on new incoming while active.
-
-### Slice 3 — Org settings page upgrade
-**Settings → new "Workspace" tab (admin-only section under existing Settings route)**
-- Edit org name, org type, timezone, day-start cutoff.
-- Rotate access code (RPC `rotate_access_code`).
-- Member list with role badges; admin can promote/demote (RPC `set_member_role`) and remove (`remove_member` → nulls `org_id`).
-- Danger zone: delete workspace (admin + confirm typing org name).
-- Non-admins see read-only org card (already exists).
-
-**DB migration**
-- RPCs: `rotate_access_code()`, `set_member_role(_user, _role)`, `remove_member(_user)`, `delete_org()` — all SECURITY DEFINER with `is_org_admin()` guard.
+**No DB changes** — existing `attendance` + `profiles` cover it.
 
 ---
 
-## Files touched
+## Slice 2 — Pulse v2: Leave Requests
+
+Check-out, breaks, notes already shipped. Adding leave.
+
+**DB migration**
+- New table `leave_requests` (org_id, user_id, type enum: `sick|vacation|personal|other`, start_date, end_date, reason text, status enum: `pending|approved|denied`, decided_by, decided_at).
+- GRANTs + RLS: members can read own + insert; admins can read/update all in org.
+- RPCs: `request_leave(_type, _start, _end, _reason)`, `decide_leave(_id, _approved)`.
+
+**UI**
+- New section in Pulse: "Time off" card → "Request leave" button opens dialog (type select, date range, reason textarea).
+- "My requests" list with status chips.
+- Admin-only panel in Dashboard (or Settings): pending requests with Approve / Deny.
+
+---
+
+## Slice 3 — Org Branding + Invites + Google OAuth + Password Reset
+
+**3a. Brand (logo + accent color)**
+- Migration: add `logo_url text`, `accent_color text` to `organizations`.
+- Storage bucket `org-logos` (public read, admin write via RLS on `storage.objects`).
+- Settings → Workspace panel (admin): logo uploader (drag/drop, writes to bucket + `update_org_settings`), color picker for accent.
+- AppShell reads org row → swaps brand mark in header; accent feeds a CSS var (`--brand-accent`) so glow/buttons retint per workspace.
+
+**3b. Email invites**
+- Migration: `org_invites` table (org_id, email, role, token, expires_at, accepted_at). RPC `create_invite(_email, _role)` returns token; `accept_invite(_token)` links current user to org.
+- Settings → Workspace → Invites: input email + role → generates a link `/auth?invite=<token>`. Copy-to-clipboard. List of outstanding invites with revoke.
+- Auth page reads `?invite=` from URL, calls `accept_invite` after sign-in/up. (Actual SMTP email sending is **out of scope** for this slice — link-share invites only. Flag if you want me to wire Lovable Cloud transactional emails after.)
+
+**3c. Google OAuth**
+- Run social-auth configurator for `google`.
+- Add "Continue with Google" button on `auth.tsx` using `lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin })`.
+
+**3d. Password reset**
+- "Forgot password?" link on auth.tsx → dialog asks for email → `supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + "/auth?reset=1" })`.
+- New flow on auth.tsx when `?reset=1`: shows "Set new password" form → `supabase.auth.updateUser({ password })`.
+
+---
+
+## File map
 
 **New**
-- `src/components/require-workspace.tsx` (guard wrapper + join/create flows)
-- `src/components/pulse/check-in-dialog.tsx`, `streak-chip.tsx`
-- `src/components/comms/dm-list.tsx`, `reaction-bar.tsx`, `new-channel-dialog.tsx`, `unread-badge.tsx`
-- `src/components/settings/workspace-panel.tsx`, `member-row.tsx`
-- 3 migrations (one per slice)
+- `src/components/dashboard/date-range-picker.tsx`, `roll-call-table.tsx`, `export-csv.ts`
+- `src/components/pulse/leave-dialog.tsx`, `leave-list.tsx`
+- `src/components/settings/brand-panel.tsx`, `invite-panel.tsx`, `logo-uploader.tsx`
+- `src/components/auth/forgot-password-dialog.tsx`, `reset-password-form.tsx`
 
 **Edited**
-- `src/routes/_authenticated/pulse.tsx` — rebuilt around v2 state machine + RequireWorkspace
-- `src/routes/_authenticated/comms.tsx` — tabs, DMs, reactions, dialog, read receipts
-- `src/routes/_authenticated/settings.tsx` — admin workspace panel
-- `src/routes/_authenticated/dashboard.tsx`, `directory.tsx` — RequireWorkspace wrap
+- `src/routes/_authenticated/dashboard.tsx` (rebuild around date-range + table)
+- `src/routes/_authenticated/pulse.tsx` (add leave card)
+- `src/routes/_authenticated/settings.tsx` (brand + invites tabs)
+- `src/routes/auth.tsx` (Google button, forgot/reset flows, invite token handling)
+- `src/components/app-shell.tsx` (render org logo + accent)
 
-## Order of execution
-1. Migration 1 (pulse v2 + org timezone) → rebuild Pulse + RequireWorkspace guard wired everywhere.
-2. Migration 2 (DMs, reads, reactions) → rebuild Comms.
-3. Migration 3 (admin RPCs) → Settings workspace panel.
+**Migrations** — 3 (leave, brand cols, invites + storage bucket policies)
 
-Each slice is independently shippable; the workspace-link fix lands inside slice 1.
+---
+
+## Execution order
+1. Slice 1 (frontend-only, ships fast).
+2. Slice 2 migration → UI.
+3. Slice 3a migration + bucket → 3b migration → 3c configurator + button → 3d auth UI.
+
+Each slice independently shippable. Want me to start?
