@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Upload, Palette } from "lucide-react";
 import { toast } from "sonner";
@@ -18,14 +18,12 @@ export function BrandPanel({ orgId, logoUrl, accentColor, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [color, setColor] = useState(accentColor ?? "#7c3aed");
 
-  // resolve signed preview
-  useState(() => {
-    if (logoUrl) {
-      supabase.storage.from("org-logos").createSignedUrl(logoUrl, 3600).then(({ data }) => {
-        if (data?.signedUrl) setSignedUrl(data.signedUrl);
-      });
-    }
-  });
+  useEffect(() => {
+    if (!logoUrl) { setSignedUrl(null); return; }
+    supabase.storage.from("org-logos").createSignedUrl(logoUrl, 3600).then(({ data }) => {
+      if (data?.signedUrl) setSignedUrl(data.signedUrl);
+    });
+  }, [logoUrl]);
 
   const upload = async (file: File) => {
     if (!file.type.startsWith("image/")) return toast.error("Image files only");
