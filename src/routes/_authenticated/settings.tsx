@@ -10,13 +10,15 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { InvitePanel } from "@/components/invite-panel";
+import { BrandPanel } from "@/components/brand-panel";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: () => (<RequireWorkspace><SettingsPage /></RequireWorkspace>),
 });
 
 type Profile = { full_name: string; phone: string; position: string; category: string; role: string; org_id: string | null };
-type Org = { id: string; name: string; access_code: string; org_type: string; day_start_cutoff: string; timezone: string };
+type Org = { id: string; name: string; access_code: string; org_type: string; day_start_cutoff: string; timezone: string; logo_url: string | null; accent_color: string | null };
 type Member = { id: string; full_name: string | null; role: string; position: string | null };
 
 function SettingsPage() {
@@ -151,6 +153,19 @@ function SettingsPage() {
           )}
         </section>
       )}
+
+      {/* Brand */}
+      {isAdmin && org && (
+        <BrandPanel
+          orgId={org.id}
+          logoUrl={org.logo_url}
+          accentColor={org.accent_color}
+          onChange={(patch) => setOrg({ ...org, ...patch } as Org)}
+        />
+      )}
+
+      {/* Invites */}
+      {isAdmin && <InvitePanel />}
 
       {/* Members */}
       {isAdmin && (
