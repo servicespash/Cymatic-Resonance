@@ -27,8 +27,8 @@ export function InvitePanel() {
     if (!email.trim()) return toast.error("Email required");
     setBusy(true);
     const { data, error } = await supabase.rpc("create_invite", {
-      _email: email.trim(), _role: role, _category: category.trim() || null,
-    }).single();
+      _email: email.trim(), _role: role, _category: category.trim() || "",
+    } as any).single();
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Invite created — copy the link", { description: email });

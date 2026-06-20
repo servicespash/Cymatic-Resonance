@@ -43,8 +43,8 @@ export function LeavePanel() {
       _type: type,
       _start: format(range.from, "yyyy-MM-dd"),
       _end: format(range.to, "yyyy-MM-dd"),
-      _reason: reason || null,
-    });
+      _reason: reason || "",
+    } as any);
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Leave requested");

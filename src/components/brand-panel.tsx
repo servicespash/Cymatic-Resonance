@@ -35,7 +35,7 @@ export function BrandPanel({ orgId, logoUrl, accentColor, onChange }: Props) {
     const path = `${orgId}/logo-${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("org-logos").upload(path, file, { upsert: true });
     if (upErr) { setBusy(false); return toast.error(upErr.message); }
-    const { error } = await supabase.rpc("update_org_brand", { _logo_url: path, _accent_color: null });
+    const { error } = await supabase.rpc("update_org_brand", { _logo_url: path, _accent_color: "" } as any);
     if (error) { setBusy(false); return toast.error(error.message); }
     const { data: signed } = await supabase.storage.from("org-logos").createSignedUrl(path, 3600);
     setSignedUrl(signed?.signedUrl ?? null);
@@ -46,7 +46,7 @@ export function BrandPanel({ orgId, logoUrl, accentColor, onChange }: Props) {
 
   const saveColor = async (c: string) => {
     setColor(c);
-    const { error } = await supabase.rpc("update_org_brand", { _logo_url: null, _accent_color: c });
+    const { error } = await supabase.rpc("update_org_brand", { _logo_url: "", _accent_color: c } as any);
     if (error) return toast.error(error.message);
     onChange({ accent_color: c });
     document.documentElement.style.setProperty("--brand-accent", c);
