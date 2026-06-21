@@ -4,11 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
-import { Hash, Send, Plus, Users, MessageSquare, SmilePlus } from "lucide-react";
+import { Hash, Send, Plus, Users, MessageSquare, SmilePlus, Paperclip, Mic, X, FileText, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import { VoiceRecorder, type RecordedAudio } from "@/components/voice-recorder";
+import { CommAttachment, type Attachment } from "@/components/comm-attachment";
+
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILES = 5;
 
 export const Route = createFileRoute("/_authenticated/comms")({
   component: () => (<RequireWorkspace><CommsPage /></RequireWorkspace>),
