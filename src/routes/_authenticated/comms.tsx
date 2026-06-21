@@ -43,6 +43,12 @@ function CommsPage() {
   const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Record<string, Attachment[]>>({});
+  const [pending, setPending] = useState<File[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   // init
