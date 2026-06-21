@@ -4,11 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
-import { Hash, Send, Plus, Users, MessageSquare, SmilePlus } from "lucide-react";
+import { Hash, Send, Plus, Users, MessageSquare, SmilePlus, Paperclip, Mic, X, FileText, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import { VoiceRecorder, type RecordedAudio } from "@/components/voice-recorder";
+import { CommAttachment, type Attachment } from "@/components/comm-attachment";
+
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILES = 5;
 
 export const Route = createFileRoute("/_authenticated/comms")({
   component: () => (<RequireWorkspace><CommsPage /></RequireWorkspace>),
@@ -38,6 +43,12 @@ function CommsPage() {
   const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Record<string, Attachment[]>>({});
+  const [pending, setPending] = useState<File[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   // init
@@ -88,9 +99,15 @@ function CommsPage() {
       setMsgs((m ?? []) as Msg[]);
       const ids = (m ?? []).map((x: any) => x.id);
       if (ids.length) {
-        const { data: rx } = await supabase.from("message_reactions").select("*").in("message_id", ids);
+        const [{ data: rx }, { data: att }] = await Promise.all([
+          supabase.from("message_reactions").select("*").in("message_id", ids),
+          (supabase as any).from("message_attachments").select("*").in("message_id", ids),
+        ]);
         setReactions((rx ?? []) as Reaction[]);
-      } else setReactions([]);
+        const amap: Record<string, Attachment[]> = {};
+        for (const a of (att ?? []) as Attachment[]) (amap[a.message_id] ??= []).push(a);
+        setAttachments(amap);
+      } else { setReactions([]); setAttachments({}); }
 
       // mark read
       await supabase.from("message_reads").upsert({
@@ -108,6 +125,11 @@ function CommsPage() {
           if (payload.eventType === "INSERT") setReactions((r) => [...r, payload.new as Reaction]);
           if (payload.eventType === "DELETE") setReactions((r) => r.filter((x) => x.id !== (payload.old as any).id));
         })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_attachments" },
+        (payload) => {
+          const a = payload.new as Attachment;
+          setAttachments((m) => ({ ...m, [a.message_id]: [...(m[a.message_id] ?? []), a] }));
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [active, user]);
@@ -123,17 +145,81 @@ function CommsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [orgId]);
 
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, attachments]);
+
+  const addFiles = (files: FileList | File[]) => {
+    const incoming = Array.from(files);
+    const valid: File[] = [];
+    for (const f of incoming) {
+      if (f.size > MAX_FILE_BYTES) { toast.error(`${f.name} exceeds 25 MB`); continue; }
+      valid.push(f);
+    }
+    setPending((p) => {
+      const next = [...p, ...valid];
+      if (next.length > MAX_FILES) {
+        toast.error(`Max ${MAX_FILES} files per message`);
+        return next.slice(0, MAX_FILES);
+      }
+      return next;
+    });
+  };
+
+  const kindOf = (mime: string): "image" | "audio" | "file" =>
+    mime.startsWith("image/") ? "image" : mime.startsWith("audio/") ? "audio" : "file";
+
+  const uploadOne = async (file: Blob, filename: string, mime: string, messageId: string, extra: Partial<Attachment> = {}) => {
+    if (!orgId || !active || !user) return;
+    const safe = filename.replace(/[^\w.\-]+/g, "_");
+    const path = `${orgId}/${active.id}/${messageId}/${crypto.randomUUID()}-${safe}`;
+    const { error: upErr } = await supabase.storage.from("comm-attachments").upload(path, file, {
+      contentType: mime, upsert: false,
+    });
+    if (upErr) throw upErr;
+    const { error: insErr } = await (supabase as any).from("message_attachments").insert({
+      message_id: messageId, org_id: orgId, uploader_id: user.id,
+      storage_path: path, mime_type: mime, size_bytes: (file as File).size ?? (file as Blob).size,
+      kind: kindOf(mime), filename: safe, ...extra,
+    });
+    if (insErr) throw insErr;
+  };
+
+  const sendMessage = async (text: string, files: File[], audio?: RecordedAudio) => {
+    if (!user || !active || !orgId) return;
+    if (!text && files.length === 0 && !audio) return;
+    setSending(true);
+    try {
+      const { data: msg, error } = await supabase.from("messages")
+        .insert({ org_id: orgId, channel_id: active.id, sender_id: user.id, body: text || "" })
+        .select().single();
+      if (error || !msg) throw error ?? new Error("send failed");
+      const uploads: Promise<void>[] = [];
+      for (const f of files) uploads.push(uploadOne(f, f.name, f.type || "application/octet-stream", (msg as any).id));
+      if (audio) uploads.push(uploadOne(
+        audio.blob, `voice-${Date.now()}.${audio.ext}`, audio.mime, (msg as any).id,
+        { duration_ms: audio.durationMs },
+      ));
+      const results = await Promise.allSettled(uploads);
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed) toast.error(`${failed} attachment(s) failed to upload`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to send");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !active || !orgId || !body.trim()) return;
     const text = body.trim();
-    setBody("");
-    const { error } = await supabase.from("messages").insert({
-      org_id: orgId, channel_id: active.id, sender_id: user.id, body: text,
-    });
-    if (error) { toast.error(error.message); setBody(text); }
+    if (!text && pending.length === 0) return;
+    const files = pending;
+    setBody(""); setPending([]);
+    await sendMessage(text, files);
+  };
+
+  const sendVoice = async (audio: RecordedAudio) => {
+    setRecording(false);
+    await sendMessage("", [], audio);
   };
 
   const createChannel = async () => {
@@ -309,7 +395,15 @@ function CommsPage() {
           </div>
         </header>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        <div
+          className={`relative flex-1 space-y-3 overflow-y-auto px-5 py-4 ${dragOver ? "ring-2 ring-inset ring-accent/40" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault(); setDragOver(false);
+            if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+          }}
+        >
           {msgs.length === 0 && (
             <div className="grid h-full place-items-center text-sm text-muted-foreground">No signal yet — say hello.</div>
           )}
@@ -319,6 +413,7 @@ function CommsPage() {
             const showHeader = i === 0 || msgs[i - 1].sender_id !== m.sender_id;
             const msgRx = reactions.filter((r) => r.message_id === m.id);
             const grouped = groupReactions(msgRx);
+            const msgAtts = attachments[m.id] ?? [];
             return (
               <div key={m.id} className={`group flex ${me ? "justify-end" : "justify-start"}`}>
                 <div className={`flex max-w-[78%] flex-col gap-1 ${me ? "items-end" : "items-start"}`}>
@@ -333,15 +428,22 @@ function CommsPage() {
                       </span>
                     </div>
                   )}
-                  <div className={`relative flex items-center gap-2 ${me ? "flex-row-reverse" : ""}`}>
-                    <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-                      me ? "bg-frequency text-primary-foreground resonance-glow" : "glass text-foreground"
-                    }`}>
-                      {m.body}
+                  <div className={`relative flex items-start gap-2 ${me ? "flex-row-reverse" : ""}`}>
+                    <div className={`flex flex-col gap-1.5 ${me ? "items-end" : "items-start"}`}>
+                      {m.body && (
+                        <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                          me ? "bg-frequency text-primary-foreground resonance-glow" : "glass text-foreground"
+                        }`}>
+                          {m.body}
+                        </div>
+                      )}
+                      {msgAtts.map((a) => (
+                        <CommAttachment key={a.id} a={a} mine={me} />
+                      ))}
                     </div>
                     <button
                       onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
-                      className="opacity-0 transition group-hover:opacity-100"
+                      className="mt-1 opacity-0 transition group-hover:opacity-100"
                       aria-label="React"
                     >
                       <SmilePlus className="size-4 text-muted-foreground hover:text-accent" />
@@ -381,18 +483,62 @@ function CommsPage() {
           <div ref={bottom} />
         </div>
 
+        {pending.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-white/5 px-3 pt-2">
+            {pending.map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1 text-xs ring-1 ring-white/10">
+                {f.type.startsWith("image/") ? <ImageIcon className="size-3.5 text-accent" /> : <FileText className="size-3.5 text-accent" />}
+                <span className="max-w-[160px] truncate">{f.name}</span>
+                <button type="button" onClick={() => setPending((p) => p.filter((_, j) => j !== i))} aria-label="Remove">
+                  <X className="size-3.5 text-muted-foreground hover:text-foreground" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <form onSubmit={send} className="flex items-center gap-2 border-t border-white/5 p-3">
-          <input
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={active ? `Message ${active.kind === "dm" ? dmTitle(active, threads, senders, user?.id) : "#" + active.name}` : ""}
-            className="flex-1 rounded-xl bg-white/5 px-4 py-2.5 text-sm outline-none ring-1 ring-white/5 placeholder:text-muted-foreground focus:ring-primary/40"
-          />
-          <button type="submit" disabled={!body.trim()}
-            className="grid size-10 place-items-center rounded-xl bg-frequency text-primary-foreground resonance-glow transition hover:brightness-110 disabled:opacity-40"
-            aria-label="Send">
-            <Send className="size-4" />
-          </button>
+          {recording ? (
+            <VoiceRecorder onCancel={() => setRecording(false)} onSend={sendVoice} />
+          ) : (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+                className="hidden"
+                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                aria-label="Attach file"
+              >
+                <Paperclip className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecording(true)}
+                className="grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/5 hover:text-accent"
+                aria-label="Record voice note"
+              >
+                <Mic className="size-4" />
+              </button>
+              <input
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={active ? `Message ${active.kind === "dm" ? dmTitle(active, threads, senders, user?.id) : "#" + active.name}` : ""}
+                className="flex-1 rounded-xl bg-white/5 px-4 py-2.5 text-sm outline-none ring-1 ring-white/5 placeholder:text-muted-foreground focus:ring-primary/40"
+              />
+              <button type="submit" disabled={sending || (!body.trim() && pending.length === 0)}
+                className="grid size-10 place-items-center rounded-xl bg-frequency text-primary-foreground resonance-glow transition hover:brightness-110 disabled:opacity-40"
+                aria-label="Send">
+                <Send className="size-4" />
+              </button>
+            </>
+          )}
         </form>
       </section>
     </div>
