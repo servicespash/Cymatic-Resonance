@@ -193,6 +193,69 @@ export type Database = {
           },
         ]
       }
+      message_attachments: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          filename: string
+          height: number | null
+          id: string
+          kind: string
+          message_id: string
+          mime_type: string
+          org_id: string
+          size_bytes: number
+          storage_path: string
+          uploader_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          filename: string
+          height?: number | null
+          id?: string
+          kind: string
+          message_id: string
+          mime_type: string
+          org_id: string
+          size_bytes: number
+          storage_path: string
+          uploader_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          filename?: string
+          height?: number | null
+          id?: string
+          kind?: string
+          message_id?: string
+          mime_type?: string
+          org_id?: string
+          size_bytes?: number
+          storage_path?: string
+          uploader_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_attachments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string
