@@ -395,7 +395,15 @@ function CommsPage() {
           </div>
         </header>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        <div
+          className={`relative flex-1 space-y-3 overflow-y-auto px-5 py-4 ${dragOver ? "ring-2 ring-inset ring-accent/40" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault(); setDragOver(false);
+            if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+          }}
+        >
           {msgs.length === 0 && (
             <div className="grid h-full place-items-center text-sm text-muted-foreground">No signal yet — say hello.</div>
           )}
@@ -405,6 +413,7 @@ function CommsPage() {
             const showHeader = i === 0 || msgs[i - 1].sender_id !== m.sender_id;
             const msgRx = reactions.filter((r) => r.message_id === m.id);
             const grouped = groupReactions(msgRx);
+            const msgAtts = attachments[m.id] ?? [];
             return (
               <div key={m.id} className={`group flex ${me ? "justify-end" : "justify-start"}`}>
                 <div className={`flex max-w-[78%] flex-col gap-1 ${me ? "items-end" : "items-start"}`}>
@@ -419,15 +428,22 @@ function CommsPage() {
                       </span>
                     </div>
                   )}
-                  <div className={`relative flex items-center gap-2 ${me ? "flex-row-reverse" : ""}`}>
-                    <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-                      me ? "bg-frequency text-primary-foreground resonance-glow" : "glass text-foreground"
-                    }`}>
-                      {m.body}
+                  <div className={`relative flex items-start gap-2 ${me ? "flex-row-reverse" : ""}`}>
+                    <div className={`flex flex-col gap-1.5 ${me ? "items-end" : "items-start"}`}>
+                      {m.body && (
+                        <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                          me ? "bg-frequency text-primary-foreground resonance-glow" : "glass text-foreground"
+                        }`}>
+                          {m.body}
+                        </div>
+                      )}
+                      {msgAtts.map((a) => (
+                        <CommAttachment key={a.id} a={a} mine={me} />
+                      ))}
                     </div>
                     <button
                       onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
-                      className="opacity-0 transition group-hover:opacity-100"
+                      className="mt-1 opacity-0 transition group-hover:opacity-100"
                       aria-label="React"
                     >
                       <SmilePlus className="size-4 text-muted-foreground hover:text-accent" />
@@ -467,18 +483,62 @@ function CommsPage() {
           <div ref={bottom} />
         </div>
 
+        {pending.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-white/5 px-3 pt-2">
+            {pending.map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1 text-xs ring-1 ring-white/10">
+                {f.type.startsWith("image/") ? <ImageIcon className="size-3.5 text-accent" /> : <FileText className="size-3.5 text-accent" />}
+                <span className="max-w-[160px] truncate">{f.name}</span>
+                <button type="button" onClick={() => setPending((p) => p.filter((_, j) => j !== i))} aria-label="Remove">
+                  <X className="size-3.5 text-muted-foreground hover:text-foreground" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <form onSubmit={send} className="flex items-center gap-2 border-t border-white/5 p-3">
-          <input
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={active ? `Message ${active.kind === "dm" ? dmTitle(active, threads, senders, user?.id) : "#" + active.name}` : ""}
-            className="flex-1 rounded-xl bg-white/5 px-4 py-2.5 text-sm outline-none ring-1 ring-white/5 placeholder:text-muted-foreground focus:ring-primary/40"
-          />
-          <button type="submit" disabled={!body.trim()}
-            className="grid size-10 place-items-center rounded-xl bg-frequency text-primary-foreground resonance-glow transition hover:brightness-110 disabled:opacity-40"
-            aria-label="Send">
-            <Send className="size-4" />
-          </button>
+          {recording ? (
+            <VoiceRecorder onCancel={() => setRecording(false)} onSend={sendVoice} />
+          ) : (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+                className="hidden"
+                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                aria-label="Attach file"
+              >
+                <Paperclip className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecording(true)}
+                className="grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/5 hover:text-accent"
+                aria-label="Record voice note"
+              >
+                <Mic className="size-4" />
+              </button>
+              <input
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={active ? `Message ${active.kind === "dm" ? dmTitle(active, threads, senders, user?.id) : "#" + active.name}` : ""}
+                className="flex-1 rounded-xl bg-white/5 px-4 py-2.5 text-sm outline-none ring-1 ring-white/5 placeholder:text-muted-foreground focus:ring-primary/40"
+              />
+              <button type="submit" disabled={sending || (!body.trim() && pending.length === 0)}
+                className="grid size-10 place-items-center rounded-xl bg-frequency text-primary-foreground resonance-glow transition hover:brightness-110 disabled:opacity-40"
+                aria-label="Send">
+                <Send className="size-4" />
+              </button>
+            </>
+          )}
         </form>
       </section>
     </div>
