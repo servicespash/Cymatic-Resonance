@@ -1,78 +1,53 @@
+## Goal
+Let members attach files (images, PDFs, docs) and record voice notes inside any channel or DM in `/comms`, scoped per workspace with proper access control.
 
-## Slice 1 — Dashboard v2 (date-range, CSV, sortable roll-call)
+## Storage
+- New private bucket `comm-attachments` (org-scoped paths: `{org_id}/{channel_id}/{message_id}/{filename}`).
+- RLS on `storage.objects`:
+  - SELECT: user must belong to the org that owns the channel.
+  - INSERT: same, and path prefix must match their `org_id`.
+  - DELETE: sender or org admin.
+- Files served via short-lived signed URLs (no public bucket).
 
-**UI (`src/routes/_authenticated/dashboard.tsx`)**
-- Date-range picker (shadcn calendar in popover, two-month, presets: Today / 7d / 30d / This month / Custom). Range stored in URL search params via `validateSearch` + `zodValidator` so it's shareable/bookmarkable.
-- Metrics row re-derives from range: total check-ins, on-time %, avg hours, late count, active members.
-- Recharts area chart of daily attendance in range.
-- Roll-call matrix: shadcn table, columns Name · Category · Check-in · Check-out · Hours · Status · Late. All columns sortable (click header), text filter input, status filter chips.
-- "Export CSV" button → downloads filtered rows as `pulse_YYYY-MM-DD_YYYY-MM-DD.csv` (client-side blob, no server roundtrip).
+## Schema
+New table `public.message_attachments`:
+- `message_id` (FK → messages, cascade), `org_id`, `uploader_id`
+- `storage_path`, `mime_type`, `size_bytes`, `kind` (`image` | `audio` | `file`)
+- `duration_ms` (nullable, for audio), `width`/`height` (nullable, for images)
+- RLS: SELECT to org members; INSERT by sender of the message; DELETE by sender or admin.
+- GRANTs to `authenticated` + `service_role`.
 
-**No DB changes** — existing `attendance` + `profiles` cover it.
+Messages stay as-is — `body` becomes optional in the UI when an attachment is present (DB column already nullable in practice; we'll allow empty body if attachment exists, validated client-side).
 
----
+## UI — `src/routes/_authenticated/comms.tsx`
+Composer additions (left of send button):
+- 📎 Paperclip → hidden `<input type="file" multiple>` (images, PDF, docs; 25 MB each, max 5).
+- 🎙️ Mic → press-and-hold or click to start/stop recording via `MediaRecorder` (webm/opus, fallback to mp4 on Safari). Shows live timer + waveform bars (reuse `CymaticWave`). Cancel + send buttons.
+- Drag-and-drop onto the thread area also queues files.
+- Pending attachments render as chips above the input with remove (×).
 
-## Slice 2 — Pulse v2: Leave Requests
+Send flow:
+1. Insert message row (body may be empty if attachments present).
+2. Upload each file to storage at the org/channel/message path.
+3. Insert `message_attachments` rows.
+4. Realtime: subscribe to `message_attachments` inserts so other clients render attachments as they arrive.
 
-Check-out, breaks, notes already shipped. Adding leave.
+Message rendering:
+- Images → inline thumbnail (max 280px), click to open lightbox (reuse Dialog).
+- Audio → custom player: play/pause button, waveform bars, mm:ss duration.
+- Other files → card with icon, filename, size, download button.
+- All URLs fetched via `supabase.storage.from('comm-attachments').createSignedUrl(path, 3600)`, cached in component state.
 
-**DB migration**
-- New table `leave_requests` (org_id, user_id, type enum: `sick|vacation|personal|other`, start_date, end_date, reason text, status enum: `pending|approved|denied`, decided_by, decided_at).
-- GRANTs + RLS: members can read own + insert; admins can read/update all in org.
-- RPCs: `request_leave(_type, _start, _end, _reason)`, `decide_leave(_id, _approved)`.
+## Limits & UX
+- Client-side: reject >25 MB, >5 files, unsupported mime.
+- Voice notes capped at 5 min; auto-stop with toast.
+- Toast on upload error; partial failures keep message but mark attachment failed.
 
-**UI**
-- New section in Pulse: "Time off" card → "Request leave" button opens dialog (type select, date range, reason textarea).
-- "My requests" list with status chips.
-- Admin-only panel in Dashboard (or Settings): pending requests with Approve / Deny.
+## Files touched
+- New migration: bucket + `message_attachments` table + RLS + storage policies.
+- Edit `src/routes/_authenticated/comms.tsx` (composer, render, realtime).
+- New `src/components/comm-attachment.tsx` (renderer for image/audio/file).
+- New `src/components/voice-recorder.tsx` (MediaRecorder logic).
 
----
-
-## Slice 3 — Org Branding + Invites + Google OAuth + Password Reset
-
-**3a. Brand (logo + accent color)**
-- Migration: add `logo_url text`, `accent_color text` to `organizations`.
-- Storage bucket `org-logos` (public read, admin write via RLS on `storage.objects`).
-- Settings → Workspace panel (admin): logo uploader (drag/drop, writes to bucket + `update_org_settings`), color picker for accent.
-- AppShell reads org row → swaps brand mark in header; accent feeds a CSS var (`--brand-accent`) so glow/buttons retint per workspace.
-
-**3b. Email invites**
-- Migration: `org_invites` table (org_id, email, role, token, expires_at, accepted_at). RPC `create_invite(_email, _role)` returns token; `accept_invite(_token)` links current user to org.
-- Settings → Workspace → Invites: input email + role → generates a link `/auth?invite=<token>`. Copy-to-clipboard. List of outstanding invites with revoke.
-- Auth page reads `?invite=` from URL, calls `accept_invite` after sign-in/up. (Actual SMTP email sending is **out of scope** for this slice — link-share invites only. Flag if you want me to wire Lovable Cloud transactional emails after.)
-
-**3c. Google OAuth**
-- Run social-auth configurator for `google`.
-- Add "Continue with Google" button on `auth.tsx` using `lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin })`.
-
-**3d. Password reset**
-- "Forgot password?" link on auth.tsx → dialog asks for email → `supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + "/auth?reset=1" })`.
-- New flow on auth.tsx when `?reset=1`: shows "Set new password" form → `supabase.auth.updateUser({ password })`.
-
----
-
-## File map
-
-**New**
-- `src/components/dashboard/date-range-picker.tsx`, `roll-call-table.tsx`, `export-csv.ts`
-- `src/components/pulse/leave-dialog.tsx`, `leave-list.tsx`
-- `src/components/settings/brand-panel.tsx`, `invite-panel.tsx`, `logo-uploader.tsx`
-- `src/components/auth/forgot-password-dialog.tsx`, `reset-password-form.tsx`
-
-**Edited**
-- `src/routes/_authenticated/dashboard.tsx` (rebuild around date-range + table)
-- `src/routes/_authenticated/pulse.tsx` (add leave card)
-- `src/routes/_authenticated/settings.tsx` (brand + invites tabs)
-- `src/routes/auth.tsx` (Google button, forgot/reset flows, invite token handling)
-- `src/components/app-shell.tsx` (render org logo + accent)
-
-**Migrations** — 3 (leave, brand cols, invites + storage bucket policies)
-
----
-
-## Execution order
-1. Slice 1 (frontend-only, ships fast).
-2. Slice 2 migration → UI.
-3. Slice 3a migration + bucket → 3b migration → 3c configurator + button → 3d auth UI.
-
-Each slice independently shippable. Want me to start?
+## Out of scope (ask if wanted)
+- Video files, image compression on upload, transcription of voice notes, reactions on attachments specifically (existing message-level reactions already cover it).
