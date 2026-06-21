@@ -99,9 +99,15 @@ function CommsPage() {
       setMsgs((m ?? []) as Msg[]);
       const ids = (m ?? []).map((x: any) => x.id);
       if (ids.length) {
-        const { data: rx } = await supabase.from("message_reactions").select("*").in("message_id", ids);
+        const [{ data: rx }, { data: att }] = await Promise.all([
+          supabase.from("message_reactions").select("*").in("message_id", ids),
+          (supabase as any).from("message_attachments").select("*").in("message_id", ids),
+        ]);
         setReactions((rx ?? []) as Reaction[]);
-      } else setReactions([]);
+        const amap: Record<string, Attachment[]> = {};
+        for (const a of (att ?? []) as Attachment[]) (amap[a.message_id] ??= []).push(a);
+        setAttachments(amap);
+      } else { setReactions([]); setAttachments({}); }
 
       // mark read
       await supabase.from("message_reads").upsert({
@@ -119,6 +125,11 @@ function CommsPage() {
           if (payload.eventType === "INSERT") setReactions((r) => [...r, payload.new as Reaction]);
           if (payload.eventType === "DELETE") setReactions((r) => r.filter((x) => x.id !== (payload.old as any).id));
         })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_attachments" },
+        (payload) => {
+          const a = payload.new as Attachment;
+          setAttachments((m) => ({ ...m, [a.message_id]: [...(m[a.message_id] ?? []), a] }));
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [active, user]);
@@ -134,17 +145,81 @@ function CommsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [orgId]);
 
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, attachments]);
+
+  const addFiles = (files: FileList | File[]) => {
+    const incoming = Array.from(files);
+    const valid: File[] = [];
+    for (const f of incoming) {
+      if (f.size > MAX_FILE_BYTES) { toast.error(`${f.name} exceeds 25 MB`); continue; }
+      valid.push(f);
+    }
+    setPending((p) => {
+      const next = [...p, ...valid];
+      if (next.length > MAX_FILES) {
+        toast.error(`Max ${MAX_FILES} files per message`);
+        return next.slice(0, MAX_FILES);
+      }
+      return next;
+    });
+  };
+
+  const kindOf = (mime: string): "image" | "audio" | "file" =>
+    mime.startsWith("image/") ? "image" : mime.startsWith("audio/") ? "audio" : "file";
+
+  const uploadOne = async (file: Blob, filename: string, mime: string, messageId: string, extra: Partial<Attachment> = {}) => {
+    if (!orgId || !active || !user) return;
+    const safe = filename.replace(/[^\w.\-]+/g, "_");
+    const path = `${orgId}/${active.id}/${messageId}/${crypto.randomUUID()}-${safe}`;
+    const { error: upErr } = await supabase.storage.from("comm-attachments").upload(path, file, {
+      contentType: mime, upsert: false,
+    });
+    if (upErr) throw upErr;
+    const { error: insErr } = await (supabase as any).from("message_attachments").insert({
+      message_id: messageId, org_id: orgId, uploader_id: user.id,
+      storage_path: path, mime_type: mime, size_bytes: (file as File).size ?? (file as Blob).size,
+      kind: kindOf(mime), filename: safe, ...extra,
+    });
+    if (insErr) throw insErr;
+  };
+
+  const sendMessage = async (text: string, files: File[], audio?: RecordedAudio) => {
+    if (!user || !active || !orgId) return;
+    if (!text && files.length === 0 && !audio) return;
+    setSending(true);
+    try {
+      const { data: msg, error } = await supabase.from("messages")
+        .insert({ org_id: orgId, channel_id: active.id, sender_id: user.id, body: text || "" })
+        .select().single();
+      if (error || !msg) throw error ?? new Error("send failed");
+      const uploads: Promise<void>[] = [];
+      for (const f of files) uploads.push(uploadOne(f, f.name, f.type || "application/octet-stream", (msg as any).id));
+      if (audio) uploads.push(uploadOne(
+        audio.blob, `voice-${Date.now()}.${audio.ext}`, audio.mime, (msg as any).id,
+        { duration_ms: audio.durationMs },
+      ));
+      const results = await Promise.allSettled(uploads);
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed) toast.error(`${failed} attachment(s) failed to upload`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to send");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !active || !orgId || !body.trim()) return;
     const text = body.trim();
-    setBody("");
-    const { error } = await supabase.from("messages").insert({
-      org_id: orgId, channel_id: active.id, sender_id: user.id, body: text,
-    });
-    if (error) { toast.error(error.message); setBody(text); }
+    if (!text && pending.length === 0) return;
+    const files = pending;
+    setBody(""); setPending([]);
+    await sendMessage(text, files);
+  };
+
+  const sendVoice = async (audio: RecordedAudio) => {
+    setRecording(false);
+    await sendMessage("", [], audio);
   };
 
   const createChannel = async () => {
