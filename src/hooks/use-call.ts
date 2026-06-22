@@ -26,7 +26,7 @@ export function useCall(opts: {
   const pendingIce = useRef<Record<string, RTCIceCandidateInit[]>>({});
 
   const setRemote = useCallback((uid: string, patch: Partial<RemotePeer>) => {
-    setRemotes((r) => ({ ...r, [uid]: { userId: uid, stream: null, state: "new", ...r[uid], ...patch } }));
+    setRemotes((r) => ({ ...r, [uid]: { userId: uid, stream: null, state: "new" as RTCPeerConnectionState, ...(r[uid] ?? {}), ...patch } }));
   }, []);
 
   const ensurePeer = useCallback((remoteId: string): RTCPeerConnection => {
