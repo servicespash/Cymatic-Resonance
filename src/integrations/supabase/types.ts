@@ -67,6 +67,95 @@ export type Database = {
           },
         ]
       }
+      call_participants: {
+        Row: {
+          call_id: string
+          created_at: string
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          state: Database["public"]["Enums"]["participant_state"]
+          user_id: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          state?: Database["public"]["Enums"]["participant_state"]
+          user_id: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          state?: Database["public"]["Enums"]["participant_state"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_participants_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calls: {
+        Row: {
+          channel_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          initiator_id: string
+          kind: Database["public"]["Enums"]["call_kind"]
+          org_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["call_status"]
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiator_id: string
+          kind?: Database["public"]["Enums"]["call_kind"]
+          org_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["call_status"]
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiator_id?: string
+          kind?: Database["public"]["Enums"]["call_kind"]
+          org_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["call_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channels: {
         Row: {
           created_at: string
@@ -759,9 +848,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "member"
+      call_kind: "audio" | "video"
+      call_status: "ringing" | "active" | "ended" | "missed" | "declined"
       channel_kind: "broadcast" | "dm"
       leave_status: "pending" | "approved" | "denied"
       leave_type: "sick" | "vacation" | "personal" | "other"
+      participant_state: "invited" | "joined" | "declined" | "left"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -890,9 +982,12 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "member"],
+      call_kind: ["audio", "video"],
+      call_status: ["ringing", "active", "ended", "missed", "declined"],
       channel_kind: ["broadcast", "dm"],
       leave_status: ["pending", "approved", "denied"],
       leave_type: ["sick", "vacation", "personal", "other"],
+      participant_state: ["invited", "joined", "declined", "left"],
     },
   },
 } as const
