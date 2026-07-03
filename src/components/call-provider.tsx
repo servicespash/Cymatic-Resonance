@@ -16,10 +16,11 @@ type Call = {
 
 type CallCtx = {
   startCall: (channelId: string, recipientIds: string[], kind: "audio" | "video") => Promise<void>;
+  joinCall: (callId: string, kind: "audio" | "video") => Promise<void>;
   activeCallId: string | null;
 };
 
-const Ctx = createContext<CallCtx>({ startCall: async () => {}, activeCallId: null });
+const Ctx = createContext<CallCtx>({ startCall: async () => {}, joinCall: async () => {}, activeCallId: null });
 export const useCallController = () => useContext(Ctx);
 
 export function CallProvider({ children }: { children: ReactNode }) {
