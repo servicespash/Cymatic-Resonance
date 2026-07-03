@@ -638,7 +638,7 @@ function CommsPage() {
                 if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
               }}
             >
-              <div className="mx-auto flex max-w-3xl flex-col gap-1">
+              <div className="mx-auto flex max-w-3xl flex-col gap-2">
                 {msgs.length === 0 && (
                   <div className="grid place-items-center py-20 text-sm text-muted-foreground">
                     No messages yet — say hello 👋
