@@ -185,6 +185,63 @@ function CommsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [orgId, user, senders, channels]);
 
+  // Typing indicator + live call state per active channel (Realtime broadcast + calls table)
+  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({}); // user_id -> expiresAt
+  const [activeCall, setActiveCall] = useState<{ id: string; kind: "audio" | "video"; status: string; initiator_id: string } | null>(null);
+  const [callJoined, setCallJoined] = useState<string[]>([]); // user_ids joined
+  const typingSendRef = useRef<((now: number) => void) | null>(null);
+
+  useEffect(() => {
+    if (!active || !user) { setTypingUsers({}); setActiveCall(null); setCallJoined([]); typingSendRef.current = null; return; }
+    let lastSent = 0;
+    const ch = supabase.channel(`presence-${active.id}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "typing" }, ({ payload }) => {
+      const uid = (payload as any).user_id as string;
+      if (uid === user.id) return;
+      setTypingUsers((t) => ({ ...t, [uid]: Date.now() + 4000 }));
+    });
+    ch.subscribe();
+    typingSendRef.current = (now: number) => {
+      if (now - lastSent < 1500) return;
+      lastSent = now;
+      ch.send({ type: "broadcast", event: "typing", payload: { user_id: user.id } });
+    };
+    const gc = setInterval(() => {
+      setTypingUsers((t) => {
+        const now = Date.now(); const next: Record<string, number> = {};
+        for (const [k, v] of Object.entries(t)) if (v > now) next[k] = v;
+        return next;
+      });
+    }, 1000);
+    return () => { supabase.removeChannel(ch); clearInterval(gc); typingSendRef.current = null; };
+  }, [active, user]);
+
+  // Subscribe to live call state on the active channel
+  useEffect(() => {
+    if (!active || !user) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await (supabase as any).from("calls")
+        .select("id, kind, status, initiator_id")
+        .eq("channel_id", active.id).in("status", ["ringing", "active"])
+        .order("started_at", { ascending: false }).limit(1).maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setActiveCall(data as any);
+        const { data: parts } = await (supabase as any).from("call_participants")
+          .select("user_id, state").eq("call_id", data.id).eq("state", "joined");
+        setCallJoined(((parts ?? []) as any[]).map((p) => p.user_id));
+      } else { setActiveCall(null); setCallJoined([]); }
+    };
+    load();
+    const ch = supabase
+      .channel(`chan-calls-${active.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls", filter: `channel_id=eq.${active.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_participants" }, () => load())
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [active, user]);
+
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, attachments]);
 
   const addFiles = (files: FileList | File[]) => {
