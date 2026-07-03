@@ -6,7 +6,7 @@ import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import {
   Hash, Send, Plus, Search, ArrowLeft, Phone, Video, SmilePlus, Paperclip, Mic, X,
-  FileText, ImageIcon, CheckCheck, BadgeCheck, MessageSquarePlus,
+  FileText, ImageIcon, CheckCheck, BadgeCheck, MessageSquarePlus, PhoneIncoming, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -184,6 +184,63 @@ function CommsPage() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [orgId, user, senders, channels]);
+
+  // Typing indicator + live call state per active channel (Realtime broadcast + calls table)
+  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({}); // user_id -> expiresAt
+  const [activeCall, setActiveCall] = useState<{ id: string; kind: "audio" | "video"; status: string; initiator_id: string } | null>(null);
+  const [callJoined, setCallJoined] = useState<string[]>([]); // user_ids joined
+  const typingSendRef = useRef<((now: number) => void) | null>(null);
+
+  useEffect(() => {
+    if (!active || !user) { setTypingUsers({}); setActiveCall(null); setCallJoined([]); typingSendRef.current = null; return; }
+    let lastSent = 0;
+    const ch = supabase.channel(`presence-${active.id}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "typing" }, ({ payload }) => {
+      const uid = (payload as any).user_id as string;
+      if (uid === user.id) return;
+      setTypingUsers((t) => ({ ...t, [uid]: Date.now() + 4000 }));
+    });
+    ch.subscribe();
+    typingSendRef.current = (now: number) => {
+      if (now - lastSent < 1500) return;
+      lastSent = now;
+      ch.send({ type: "broadcast", event: "typing", payload: { user_id: user.id } });
+    };
+    const gc = setInterval(() => {
+      setTypingUsers((t) => {
+        const now = Date.now(); const next: Record<string, number> = {};
+        for (const [k, v] of Object.entries(t)) if (v > now) next[k] = v;
+        return next;
+      });
+    }, 1000);
+    return () => { supabase.removeChannel(ch); clearInterval(gc); typingSendRef.current = null; };
+  }, [active, user]);
+
+  // Subscribe to live call state on the active channel
+  useEffect(() => {
+    if (!active || !user) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await (supabase as any).from("calls")
+        .select("id, kind, status, initiator_id")
+        .eq("channel_id", active.id).in("status", ["ringing", "active"])
+        .order("started_at", { ascending: false }).limit(1).maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setActiveCall(data as any);
+        const { data: parts } = await (supabase as any).from("call_participants")
+          .select("user_id, state").eq("call_id", data.id).eq("state", "joined");
+        setCallJoined(((parts ?? []) as any[]).map((p) => p.user_id));
+      } else { setActiveCall(null); setCallJoined([]); }
+    };
+    load();
+    const ch = supabase
+      .channel(`chan-calls-${active.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls", filter: `channel_id=eq.${active.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_participants" }, () => load())
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [active, user]);
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, attachments]);
 
@@ -546,6 +603,32 @@ function CommsPage() {
               </button>
             </header>
 
+            {activeCall && activeCall.id !== callController.activeCallId && (
+              <div className="flex items-center gap-3 border-b border-accent/20 bg-accent/10 px-4 py-3 md:px-6 animate-fade-up">
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground resonance-glow animate-pulse-ring">
+                  {activeCall.kind === "video" ? <Video className="size-4" /> : <PhoneIncoming className="size-4" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-sm font-semibold">
+                    Live {activeCall.kind} call
+                    {activeCall.status === "ringing" && <span className="ml-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">ringing</span>}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Users className="size-3" />
+                    {callJoined.length > 0
+                      ? `${callJoined.length} in call · ${callJoined.slice(0, 3).map((id) => senders[id]?.full_name?.split(" ")[0] ?? "…").join(", ")}${callJoined.length > 3 ? ` +${callJoined.length - 3}` : ""}`
+                      : `Started by ${senders[activeCall.initiator_id]?.full_name ?? "Member"}`}
+                  </div>
+                </div>
+                <button
+                  onClick={() => callController.joinCall(activeCall.id, activeCall.kind)}
+                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground transition hover:brightness-110"
+                >
+                  Join
+                </button>
+              </div>
+            )}
+
             <div
               className={`relative flex-1 overflow-y-auto px-4 py-6 md:px-6 ${dragOver ? "ring-2 ring-inset ring-accent/40" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -555,7 +638,7 @@ function CommsPage() {
                 if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
               }}
             >
-              <div className="mx-auto flex max-w-3xl flex-col gap-1">
+              <div className="mx-auto flex max-w-3xl flex-col gap-2">
                 {msgs.length === 0 && (
                   <div className="grid place-items-center py-20 text-sm text-muted-foreground">
                     No messages yet — say hello 👋
@@ -581,16 +664,16 @@ function CommsPage() {
                           </span>
                         </div>
                       )}
-                      <div className={`group flex items-end gap-2 ${me ? "justify-end" : "justify-start"} ${showHeader ? "mt-3" : "mt-0.5"}`}>
+                      <div className={`group flex items-end gap-2.5 ${me ? "justify-end" : "justify-start"} ${showHeader ? "mt-5" : "mt-1"}`}>
                         {!me && (
-                          <div className="w-8 shrink-0">
-                            {showAvatar && <Avatar name={s?.full_name ?? "?"} size={32} />}
+                          <div className="w-9 shrink-0">
+                            {showAvatar && <Avatar name={s?.full_name ?? "?"} size={36} />}
                           </div>
                         )}
-                        <div className={`flex max-w-[78%] flex-col ${me ? "items-end" : "items-start"}`}>
+                        <div className={`flex max-w-[75%] flex-col ${me ? "items-end" : "items-start"}`}>
                           {showHeader && (
-                            <div className="mb-1 flex items-center gap-1.5 px-1">
-                              <span className="font-display text-xs font-semibold">{s?.full_name ?? "Member"}</span>
+                            <div className="mb-1.5 flex items-center gap-1.5 px-1.5">
+                              <span className="font-display text-[13px] font-semibold text-foreground/90">{s?.full_name ?? "Member"}</span>
                               {s?.role === "admin" && (
                                 <span className="rounded-md bg-frequency/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-accent">Admin</span>
                               )}
@@ -599,13 +682,13 @@ function CommsPage() {
                           <div className="group/bubble relative flex items-end gap-1.5">
                             <div className={`flex flex-col gap-1.5 ${me ? "items-end" : "items-start"}`}>
                               {m.body && (
-                                <div className={`relative max-w-full px-4 py-2.5 text-[15px] leading-relaxed shadow-sm ${
+                                <div className={`relative max-w-full px-5 py-3 text-[15px] leading-relaxed shadow-md ${
                                   me
-                                    ? "rounded-2xl rounded-br-md bg-frequency text-primary-foreground"
-                                    : "rounded-2xl rounded-bl-md bg-card text-foreground ring-1 ring-white/5"
+                                    ? "rounded-3xl rounded-br-lg bg-frequency text-primary-foreground"
+                                    : "rounded-3xl rounded-bl-lg bg-card text-foreground ring-1 ring-white/5"
                                 }`}>
                                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                                  <div className={`mt-1 flex items-center justify-end gap-1 ${me ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                  <div className={`mt-1.5 flex items-center justify-end gap-1 ${me ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                     <span className="font-mono text-[10px]">{formatTime(m.created_at)}</span>
                                     {me && <CheckCheck className="size-3" />}
                                   </div>
@@ -671,6 +754,26 @@ function CommsPage() {
               </div>
             )}
 
+            {(() => {
+              const now = Date.now();
+              const activeTypers = Object.entries(typingUsers).filter(([, exp]) => exp > now).map(([uid]) => uid);
+              if (activeTypers.length === 0) return null;
+              const names = activeTypers.map((id) => senders[id]?.full_name?.split(" ")[0] ?? "Someone");
+              const label = names.length === 1 ? `${names[0]} is typing` : names.length === 2 ? `${names[0]} and ${names[1]} are typing` : `${names.length} people are typing`;
+              return (
+                <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2 md:px-6">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-card/70 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-white/5 animate-fade-up">
+                    <span className="flex gap-0.5">
+                      <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "0ms" }} />
+                      <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "120ms" }} />
+                      <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "240ms" }} />
+                    </span>
+                    {label}…
+                  </span>
+                </div>
+              );
+            })()}
+
             <form onSubmit={send} className="border-t border-white/5 bg-card/30 px-4 py-3 backdrop-blur md:px-6">
               <div className="mx-auto flex max-w-3xl items-center gap-2">
                 {recording ? (
@@ -688,7 +791,8 @@ function CommsPage() {
                     </button>
                     <div className="flex-1">
                       <input
-                        value={body} onChange={(e) => setBody(e.target.value)}
+                        value={body}
+                        onChange={(e) => { setBody(e.target.value); if (e.target.value) typingSendRef.current?.(Date.now()); }}
                         placeholder={`Message ${activeTitle.replace(/^#/, "")}`}
                         className="w-full rounded-full bg-white/5 px-5 py-3 text-[15px] outline-none ring-1 ring-white/5 placeholder:text-muted-foreground focus:ring-primary/40"
                       />

@@ -16,10 +16,11 @@ type Call = {
 
 type CallCtx = {
   startCall: (channelId: string, recipientIds: string[], kind: "audio" | "video") => Promise<void>;
+  joinCall: (callId: string, kind: "audio" | "video") => Promise<void>;
   activeCallId: string | null;
 };
 
-const Ctx = createContext<CallCtx>({ startCall: async () => {}, activeCallId: null });
+const Ctx = createContext<CallCtx>({ startCall: async () => {}, joinCall: async () => {}, activeCallId: null });
 export const useCallController = () => useContext(Ctx);
 
 export function CallProvider({ children }: { children: ReactNode }) {
@@ -109,7 +110,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setIncoming(null);
   }, [incoming, user]);
 
-  const value = useMemo(() => ({ startCall, activeCallId: active?.id ?? null }), [startCall, active]);
+  const joinCall = useCallback(async (callId: string, kind: "audio" | "video") => {
+    if (!user) return;
+    await (supabase as any).from("call_participants").upsert({
+      call_id: callId, user_id: user.id, state: "joined", joined_at: new Date().toISOString(),
+    }, { onConflict: "call_id,user_id" });
+    await (supabase as any).from("calls").update({ status: "active" }).eq("id", callId);
+    setActive({ id: callId, kind });
+  }, [user]);
+
+  const value = useMemo(() => ({ startCall, joinCall, activeCallId: active?.id ?? null }), [startCall, joinCall, active]);
 
   return (
     <Ctx.Provider value={value}>
