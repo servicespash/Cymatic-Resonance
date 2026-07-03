@@ -754,6 +754,26 @@ function CommsPage() {
               </div>
             )}
 
+            {(() => {
+              const now = Date.now();
+              const activeTypers = Object.entries(typingUsers).filter(([, exp]) => exp > now).map(([uid]) => uid);
+              if (activeTypers.length === 0) return null;
+              const names = activeTypers.map((id) => senders[id]?.full_name?.split(" ")[0] ?? "Someone");
+              const label = names.length === 1 ? `${names[0]} is typing` : names.length === 2 ? `${names[0]} and ${names[1]} are typing` : `${names.length} people are typing`;
+              return (
+                <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2 md:px-6">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-card/70 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-white/5 animate-fade-up">
+                    <span className="flex gap-0.5">
+                      <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "0ms" }} />
+                      <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "120ms" }} />
+                      <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "240ms" }} />
+                    </span>
+                    {label}…
+                  </span>
+                </div>
+              );
+            })()}
+
             <form onSubmit={send} className="border-t border-white/5 bg-card/30 px-4 py-3 backdrop-blur md:px-6">
               <div className="mx-auto flex max-w-3xl items-center gap-2">
                 {recording ? (
@@ -771,7 +791,8 @@ function CommsPage() {
                     </button>
                     <div className="flex-1">
                       <input
-                        value={body} onChange={(e) => setBody(e.target.value)}
+                        value={body}
+                        onChange={(e) => { setBody(e.target.value); if (e.target.value) typingSendRef.current?.(Date.now()); }}
                         placeholder={`Message ${activeTitle.replace(/^#/, "")}`}
                         className="w-full rounded-full bg-white/5 px-5 py-3 text-[15px] outline-none ring-1 ring-white/5 placeholder:text-muted-foreground focus:ring-primary/40"
                       />
