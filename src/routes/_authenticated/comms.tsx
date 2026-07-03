@@ -664,16 +664,16 @@ function CommsPage() {
                           </span>
                         </div>
                       )}
-                      <div className={`group flex items-end gap-2 ${me ? "justify-end" : "justify-start"} ${showHeader ? "mt-3" : "mt-0.5"}`}>
+                      <div className={`group flex items-end gap-2.5 ${me ? "justify-end" : "justify-start"} ${showHeader ? "mt-5" : "mt-1"}`}>
                         {!me && (
-                          <div className="w-8 shrink-0">
-                            {showAvatar && <Avatar name={s?.full_name ?? "?"} size={32} />}
+                          <div className="w-9 shrink-0">
+                            {showAvatar && <Avatar name={s?.full_name ?? "?"} size={36} />}
                           </div>
                         )}
-                        <div className={`flex max-w-[78%] flex-col ${me ? "items-end" : "items-start"}`}>
+                        <div className={`flex max-w-[75%] flex-col ${me ? "items-end" : "items-start"}`}>
                           {showHeader && (
-                            <div className="mb-1 flex items-center gap-1.5 px-1">
-                              <span className="font-display text-xs font-semibold">{s?.full_name ?? "Member"}</span>
+                            <div className="mb-1.5 flex items-center gap-1.5 px-1.5">
+                              <span className="font-display text-[13px] font-semibold text-foreground/90">{s?.full_name ?? "Member"}</span>
                               {s?.role === "admin" && (
                                 <span className="rounded-md bg-frequency/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-accent">Admin</span>
                               )}
@@ -682,13 +682,13 @@ function CommsPage() {
                           <div className="group/bubble relative flex items-end gap-1.5">
                             <div className={`flex flex-col gap-1.5 ${me ? "items-end" : "items-start"}`}>
                               {m.body && (
-                                <div className={`relative max-w-full px-4 py-2.5 text-[15px] leading-relaxed shadow-sm ${
+                                <div className={`relative max-w-full px-5 py-3 text-[15px] leading-relaxed shadow-md ${
                                   me
-                                    ? "rounded-2xl rounded-br-md bg-frequency text-primary-foreground"
-                                    : "rounded-2xl rounded-bl-md bg-card text-foreground ring-1 ring-white/5"
+                                    ? "rounded-3xl rounded-br-lg bg-frequency text-primary-foreground"
+                                    : "rounded-3xl rounded-bl-lg bg-card text-foreground ring-1 ring-white/5"
                                 }`}>
                                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                                  <div className={`mt-1 flex items-center justify-end gap-1 ${me ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                  <div className={`mt-1.5 flex items-center justify-end gap-1 ${me ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                     <span className="font-mono text-[10px]">{formatTime(m.created_at)}</span>
                                     {me && <CheckCheck className="size-3" />}
                                   </div>
