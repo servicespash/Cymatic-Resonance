@@ -6,7 +6,7 @@ import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import {
   Hash, Send, Plus, Search, ArrowLeft, Phone, Video, SmilePlus, Paperclip, Mic, X,
-  FileText, ImageIcon, CheckCheck, BadgeCheck, MessageSquarePlus,
+  FileText, ImageIcon, CheckCheck, BadgeCheck, MessageSquarePlus, PhoneIncoming, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
