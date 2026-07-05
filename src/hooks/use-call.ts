@@ -5,7 +5,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createPeer, getLocalMedia } from "@/lib/webrtc/peer";
 import { joinCallChannel, type SignalPayload } from "@/lib/webrtc/signaling";
 
-export type RemotePeer = { userId: string; stream: MediaStream | null; state: RTCPeerConnectionState };
+export type RemotePeer = {
+  userId: string;
+  stream: MediaStream | null;
+  state: RTCPeerConnectionState;
+};
 
 export function useCall(opts: {
   callId: string | null;
@@ -32,26 +36,33 @@ export function useCall(opts: {
     });
   }, []);
 
-  const ensurePeer = useCallback((remoteId: string): RTCPeerConnection => {
-    if (peersRef.current[remoteId]) return peersRef.current[remoteId];
-    const pc = createPeer({
-      onIceCandidate: (candidate) => sendRef.current?.({ type: "ice", from: selfId!, to: remoteId, candidate }),
-      onRemoteStream: (stream) => setRemote(remoteId, { stream }),
-      onConnectionStateChange: (state) => setRemote(remoteId, { state }),
-    });
-    if (localRef.current) {
-      for (const track of localRef.current.getTracks()) pc.addTrack(track, localRef.current);
-    }
-    peersRef.current[remoteId] = pc;
-    return pc;
-  }, [selfId, setRemote]);
+  const ensurePeer = useCallback(
+    (remoteId: string): RTCPeerConnection => {
+      if (peersRef.current[remoteId]) return peersRef.current[remoteId];
+      const pc = createPeer({
+        onIceCandidate: (candidate) =>
+          sendRef.current?.({ type: "ice", from: selfId!, to: remoteId, candidate }),
+        onRemoteStream: (stream) => setRemote(remoteId, { stream }),
+        onConnectionStateChange: (state) => setRemote(remoteId, { state }),
+      });
+      if (localRef.current) {
+        for (const track of localRef.current.getTracks()) pc.addTrack(track, localRef.current);
+      }
+      peersRef.current[remoteId] = pc;
+      return pc;
+    },
+    [selfId, setRemote],
+  );
 
-  const callTo = useCallback(async (remoteId: string) => {
-    const pc = ensurePeer(remoteId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await sendRef.current?.({ type: "offer", from: selfId!, to: remoteId, sdp: offer });
-  }, [ensurePeer, selfId]);
+  const callTo = useCallback(
+    async (remoteId: string) => {
+      const pc = ensurePeer(remoteId);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await sendRef.current?.({ type: "offer", from: selfId!, to: remoteId, sdp: offer });
+    },
+    [ensurePeer, selfId],
+  );
 
   useEffect(() => {
     if (!enabled || !callId || !selfId) return;
@@ -61,7 +72,10 @@ export function useCall(opts: {
     (async () => {
       try {
         const stream = await getLocalMedia(video);
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         localRef.current = stream;
         setLocalStream(stream);
 
@@ -75,8 +89,15 @@ export function useCall(opts: {
           }
           if (p.type === "bye") {
             const pc = peersRef.current[p.from];
-            if (pc) { pc.close(); delete peersRef.current[p.from]; }
-            setRemotes((r) => { const n = { ...r }; delete n[p.from]; return n; });
+            if (pc) {
+              pc.close();
+              delete peersRef.current[p.from];
+            }
+            setRemotes((r) => {
+              const n = { ...r };
+              delete n[p.from];
+              return n;
+            });
             return;
           }
           if (p.type === "offer") {
@@ -86,7 +107,12 @@ export function useCall(opts: {
             await pc.setLocalDescription(answer);
             await sendRef.current?.({ type: "answer", from: selfId, to: p.from, sdp: answer });
             for (const c of pendingIce.current[p.from] ?? []) {
-              try { await pc.addIceCandidate(c); } catch {}
+              try {
+                await pc.addIceCandidate(c);
+              } catch (e) {
+                // TODO: Implement: Handle ice candidate error
+                console.error(e);
+              }
             }
             delete pendingIce.current[p.from];
             return;
@@ -99,7 +125,12 @@ export function useCall(opts: {
           if (p.type === "ice") {
             const pc = peersRef.current[p.from];
             if (pc && pc.remoteDescription) {
-              try { await pc.addIceCandidate(p.candidate); } catch {}
+              try {
+                await pc.addIceCandidate(p.candidate);
+              } catch (e) {
+                // TODO: Implement: Handle ice candidate error
+                console.error(e);
+              }
             } else {
               (pendingIce.current[p.from] ??= []).push(p.candidate);
             }
@@ -107,8 +138,8 @@ export function useCall(opts: {
         });
         sendRef.current = sig.send;
         leaveFn = sig.leave;
-      } catch (e: any) {
-        setError(e?.message ?? "Could not access camera/microphone");
+      } catch (e: unknown) {
+        setError((e as Error)?.message ?? "Could not access camera/microphone");
       }
     })();
 
@@ -142,5 +173,13 @@ export function useCall(opts: {
     setCamOn(next);
   }, [camOn]);
 
-  return { localStream, remotes: Object.values(remotes), micOn, camOn, toggleMic, toggleCam, error };
+  return {
+    localStream,
+    remotes: Object.values(remotes),
+    micOn,
+    camOn,
+    toggleMic,
+    toggleCam,
+    error,
+  };
 }

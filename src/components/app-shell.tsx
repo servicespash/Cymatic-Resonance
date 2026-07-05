@@ -16,7 +16,12 @@ type Profile = {
 };
 type Org = { id: string; name: string; access_code: string; org_type: string };
 
-const nav: { to: string; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
+const nav: {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+}[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
   { to: "/pulse", label: "Sync Pulse", icon: Radio },
   { to: "/directory", label: "Team Directory", icon: Users },
@@ -35,10 +40,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
       setProfile(p as Profile | null);
       if (p?.org_id) {
-        const { data: o } = await supabase.from("organizations").select("*").eq("id", p.org_id).maybeSingle();
+        const { data: o } = await supabase
+          .from("organizations")
+          .select("*")
+          .eq("id", p.org_id)
+          .maybeSingle();
         setOrg(o as Org | null);
       }
     })();
@@ -61,11 +74,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="flex h-full flex-col p-4">
-          <div className="px-2 py-2"><CymaticLogo /></div>
+          <div className="px-2 py-2">
+            <CymaticLogo />
+          </div>
 
           {org && (
             <div className="mt-4 rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">Workspace</div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
+                Workspace
+              </div>
               <div className="mt-1 truncate font-display text-sm font-semibold">{org.name}</div>
               <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-frequency/10 px-2 py-1 font-mono text-[10px] tracking-widest text-accent">
                 <span className="size-1.5 rounded-full bg-accent animate-pulse-ring" />
@@ -96,9 +113,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="mt-auto rounded-xl border border-white/5 bg-white/[0.02] p-3">
-            <div className="truncate font-display text-sm font-semibold">{profile?.full_name ?? "Member"}</div>
+            <div className="truncate font-display text-sm font-semibold">
+              {profile?.full_name ?? "Member"}
+            </div>
             <div className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              {profile?.role === "admin" ? "Admin" : profile?.category ?? "Member"}
+              {profile?.role === "admin" ? "Admin" : (profile?.category ?? "Member")}
             </div>
             <button
               onClick={signOut}
@@ -132,11 +151,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="hidden items-center gap-2 sm:flex">
             <CymaticWave className="h-4" bars={5} />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-accent">live</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-accent">
+              live
+            </span>
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 p-4 md:p-6"><div className="mx-auto w-full max-w-7xl">{children}</div></main>
+        <main className="min-w-0 flex-1 p-4 md:p-6">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   );

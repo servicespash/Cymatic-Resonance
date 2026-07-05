@@ -1,36 +1,47 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AuthCtx = {
+export type AuthCtx = {
   session: Session | null;
   user: User | null;
   loading: boolean;
 };
 
-const Ctx = createContext<AuthCtx>({ session: null, user: null, loading: true });
+export const Ctx = createContext<AuthCtx>({ session: null, user: null, loading: true });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
+    // Check active sessions immediately on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       setLoading(false);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+
+    // Listen for auth state changes globally
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       setLoading(false);
     });
-    return () => sub.subscription.unsubscribe();
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, loading }}>
-      {children}
-    </Ctx.Provider>
-  );
-}
+  return <Ctx.Provider value={{ session, user, loading }}>{children}</Ctx.Provider>;
+};
 
-export const useAuth = () => useContext(Ctx);
+export const useAuth = () => {
+  const context = useContext(Ctx);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

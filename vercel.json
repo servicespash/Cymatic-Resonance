@@ -2,8 +2,5 @@
   "version": 2,
   "public": true,
   "cleanUrls": true,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  "routes": [{ "handle": "filesystem" }, { "src": "/(.*)", "dest": "/index.html" }]
 }

@@ -1,6 +1,12 @@
 import logoAsset from "@/assets/logo.png.asset.json";
 
-export function CymaticWave({ className = "h-6", bars = 5 }: { className?: string; bars?: number }) {
+export function CymaticWave({
+  className = "h-6",
+  bars = 5,
+}: {
+  className?: string;
+  bars?: number;
+}) {
   return (
     <div className={`inline-flex items-center gap-[3px] ${className}`} aria-hidden>
       {Array.from({ length: bars }).map((_, i) => (

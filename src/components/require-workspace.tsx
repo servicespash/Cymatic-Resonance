@@ -86,7 +86,8 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
         </div>
         <h2 className="mt-5 font-display text-2xl font-bold tracking-tight">No workspace linked</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Join an existing resonance field with a CYM code, or spin up a new workspace as administrator.
+          Join an existing resonance field with a CYM code, or spin up a new workspace as
+          administrator.
         </p>
 
         <div className="mt-6 inline-flex rounded-xl border border-white/10 bg-white/5 p-1 text-xs">
@@ -158,7 +159,15 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
   );
 }
 
-function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
+function Field({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <label className="block rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 focus-within:border-primary/40">
       <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">

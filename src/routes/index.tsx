@@ -49,7 +49,11 @@ const fadeUp: Variants = {
   show: (i = 0) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+    transition: {
+      duration: 0.6,
+      delay: i * 0.08,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
   }),
 };
 
@@ -75,9 +79,15 @@ function LandingPage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <CymaticLogo />
         <nav className="hidden items-center gap-7 font-mono text-xs uppercase tracking-widest text-muted-foreground md:flex">
-          <a href="#features" className="transition hover:text-foreground">Features</a>
-          <a href="#pricing" className="transition hover:text-foreground">Pricing</a>
-          <a href="#faq" className="transition hover:text-foreground">FAQ</a>
+          <a href="#features" className="transition hover:text-foreground">
+            Features
+          </a>
+          <a href="#pricing" className="transition hover:text-foreground">
+            Pricing
+          </a>
+          <a href="#faq" className="transition hover:text-foreground">
+            FAQ
+          </a>
         </nav>
         <Link
           to="/auth"
@@ -173,10 +183,30 @@ function LandingPage() {
             title="Sync Pulse"
             desc="One-tap daily check-in with cymatic confirmation. Late, early, and category-aware in a single gesture."
           />
-          <Feature i={1} icon={ShieldCheck} title="CYM Isolation" desc="Each workspace sealed by its private access code." />
-          <Feature i={2} icon={LineChart} title="Command Center" desc="Live roll call, trends, and anomaly detection." />
-          <Feature i={3} icon={MessagesSquare} title="Resonant Comms" desc="Broadcast channels, DMs, and reactions — all realtime." />
-          <Feature i={4} icon={Waves} title="Frequency Insights" desc="Weekly patterns, category breakdowns, exportable to CSV." />
+          <Feature
+            i={1}
+            icon={ShieldCheck}
+            title="CYM Isolation"
+            desc="Each workspace sealed by its private access code."
+          />
+          <Feature
+            i={2}
+            icon={LineChart}
+            title="Command Center"
+            desc="Live roll call, trends, and anomaly detection."
+          />
+          <Feature
+            i={3}
+            icon={MessagesSquare}
+            title="Resonant Comms"
+            desc="Broadcast channels, DMs, and reactions — all realtime."
+          />
+          <Feature
+            i={4}
+            icon={Waves}
+            title="Frequency Insights"
+            desc="Weekly patterns, category breakdowns, exportable to CSV."
+          />
         </div>
       </section>
 
@@ -190,9 +220,31 @@ function LandingPage() {
         </div>
         <div className="grid gap-5 md:grid-cols-3">
           {[
-            { name: "Pulse", price: "Free", desc: "For tight teams just getting in sync.", feats: ["Up to 10 members", "Sync Pulse check-in", "1 broadcast channel"] },
-            { name: "Resonance", price: "$12", suffix: "/seat", featured: true, desc: "For organizations running on rhythm.", feats: ["Unlimited members", "Full Command Center", "Unlimited channels & DMs", "CSV exports"] },
-            { name: "Frequency", price: "Custom", desc: "For enterprise with strict isolation needs.", feats: ["SSO & SAML", "Audit log", "Dedicated success engineer"] },
+            {
+              name: "Pulse",
+              price: "Free",
+              desc: "For tight teams just getting in sync.",
+              feats: ["Up to 10 members", "Sync Pulse check-in", "1 broadcast channel"],
+            },
+            {
+              name: "Resonance",
+              price: "$12",
+              suffix: "/seat",
+              featured: true,
+              desc: "For organizations running on rhythm.",
+              feats: [
+                "Unlimited members",
+                "Full Command Center",
+                "Unlimited channels & DMs",
+                "CSV exports",
+              ],
+            },
+            {
+              name: "Frequency",
+              price: "Custom",
+              desc: "For enterprise with strict isolation needs.",
+              feats: ["SSO & SAML", "Audit log", "Dedicated success engineer"],
+            },
           ].map((p, i) => (
             <motion.div
               key={p.name}
@@ -211,7 +263,9 @@ function LandingPage() {
               <h3 className="font-display text-lg font-semibold">{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-1">
                 <span className="font-display text-4xl font-bold">{p.price}</span>
-                {p.suffix && <span className="font-mono text-xs text-muted-foreground">{p.suffix}</span>}
+                {p.suffix && (
+                  <span className="font-mono text-xs text-muted-foreground">{p.suffix}</span>
+                )}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{p.desc}</p>
               <ul className="mt-5 space-y-2.5">

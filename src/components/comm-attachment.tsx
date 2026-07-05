@@ -27,7 +27,13 @@ async function getSignedUrl(path: string): Promise<string | null> {
 
 function useSignedUrl(path: string) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let live = true; getSignedUrl(path).then((u) => live && setUrl(u)); return () => { live = false; }; }, [path]);
+  useEffect(() => {
+    let live = true;
+    getSignedUrl(path).then((u) => live && setUrl(u));
+    return () => {
+      live = false;
+    };
+  }, [path]);
   return url;
 }
 
@@ -51,15 +57,33 @@ export function CommAttachment({ a, mine }: { a: Attachment; mine: boolean }) {
 function ImageAtt({ a }: { a: Attachment }) {
   const url = useSignedUrl(a.storage_path);
   const [open, setOpen] = useState(false);
-  if (!url) return <div className="grid h-32 w-48 place-items-center rounded-xl bg-white/5 text-muted-foreground"><ImageIcon className="size-5" /></div>;
+  if (!url)
+    return (
+      <div className="grid h-32 w-48 place-items-center rounded-xl bg-white/5 text-muted-foreground">
+        <ImageIcon className="size-5" />
+      </div>
+    );
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="block overflow-hidden rounded-xl ring-1 ring-white/10 transition hover:ring-accent/40">
-        <img src={url} alt={a.filename} className="max-h-64 max-w-[280px] object-cover" loading="lazy" />
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="block overflow-hidden rounded-xl ring-1 ring-white/10 transition hover:ring-accent/40"
+      >
+        <img
+          src={url}
+          alt={a.filename}
+          className="max-h-64 max-w-[280px] object-cover"
+          loading="lazy"
+        />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-4xl border-white/10 bg-background/95 p-2">
-          <img src={url} alt={a.filename} className="mx-auto max-h-[80vh] rounded-lg object-contain" />
+          <img
+            src={url}
+            alt={a.filename}
+            className="mx-auto max-h-[80vh] rounded-lg object-contain"
+          />
         </DialogContent>
       </Dialog>
     </>
@@ -80,7 +104,9 @@ function AudioAtt({ a, mine }: { a: Attachment; mine: boolean }) {
   };
 
   return (
-    <div className={`flex items-center gap-3 rounded-2xl px-3 py-2 ring-1 ring-white/10 ${mine ? "bg-primary-foreground/10" : "bg-white/5"}`}>
+    <div
+      className={`flex items-center gap-3 rounded-2xl px-3 py-2 ring-1 ring-white/10 ${mine ? "bg-primary-foreground/10" : "bg-white/5"}`}
+    >
       <button
         type="button"
         onClick={toggle}
@@ -92,9 +118,14 @@ function AudioAtt({ a, mine }: { a: Attachment; mine: boolean }) {
       </button>
       <div className="flex min-w-[140px] flex-1 flex-col gap-1">
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full bg-accent transition-all" style={{ width: dur ? `${Math.min(100, (pos / dur) * 100)}%` : "0%" }} />
+          <div
+            className="h-full bg-accent transition-all"
+            style={{ width: dur ? `${Math.min(100, (pos / dur) * 100)}%` : "0%" }}
+          />
         </div>
-        <span className="font-mono text-[10px] text-muted-foreground">{mmss(playing || pos ? pos : dur)}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {mmss(playing || pos ? pos : dur)}
+        </span>
       </div>
       {url && (
         <audio
@@ -103,7 +134,10 @@ function AudioAtt({ a, mine }: { a: Attachment; mine: boolean }) {
           preload="metadata"
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
-          onEnded={() => { setPlaying(false); setPos(0); }}
+          onEnded={() => {
+            setPlaying(false);
+            setPos(0);
+          }}
           onTimeUpdate={(e) => setPos((e.currentTarget.currentTime || 0) * 1000)}
           onLoadedMetadata={(e) => {
             const d = e.currentTarget.duration;

@@ -32,14 +32,13 @@ export function VoiceRecorder({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mime =
-        MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : MediaRecorder.isTypeSupported("audio/webm")
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
           ? "audio/webm"
           : MediaRecorder.isTypeSupported("audio/mp4")
-          ? "audio/mp4"
-          : "";
+            ? "audio/mp4"
+            : "";
       const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       mediaRef.current = mr;
       chunksRef.current = [];
@@ -64,23 +63,38 @@ export function VoiceRecorder({
           stop();
         }
       }, 200);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Microphone access denied");
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Microphone access denied");
       onCancel();
     }
   };
 
   const stop = () => {
-    if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+    if (tickRef.current) {
+      clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
     setRecording(false);
-    try { mediaRef.current?.stop(); } catch {}
+    try {
+      mediaRef.current?.stop();
+    } catch (e) {
+      // TODO: Implement: Handle stop error
+      console.error(e);
+    }
   };
 
   useEffect(() => {
     start();
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
-      try { mediaRef.current?.state !== "inactive" && mediaRef.current?.stop(); } catch {}
+      try {
+        if (mediaRef.current?.state !== "inactive") {
+          mediaRef.current?.stop();
+        }
+      } catch (e) {
+        // TODO: Implement: Handle stop error
+        console.error(e);
+      }
       stopTracks();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,7 +107,9 @@ export function VoiceRecorder({
 
   return (
     <div className="flex flex-1 items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
-      <span className={`grid size-7 place-items-center rounded-full ${recording ? "bg-accent/20 text-accent" : "bg-white/10 text-muted-foreground"}`}>
+      <span
+        className={`grid size-7 place-items-center rounded-full ${recording ? "bg-accent/20 text-accent" : "bg-white/10 text-muted-foreground"}`}
+      >
         <Mic className="size-3.5" />
       </span>
       <CymaticWave className="h-4 flex-1" bars={12} />
@@ -121,7 +137,10 @@ export function VoiceRecorder({
       ) : null}
       <button
         type="button"
-        onClick={() => { stop(); onCancel(); }}
+        onClick={() => {
+          stop();
+          onCancel();
+        }}
         className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground"
         aria-label="Cancel"
       >

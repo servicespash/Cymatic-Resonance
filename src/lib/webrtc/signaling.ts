@@ -12,7 +12,11 @@ export type SignalPayload =
   | { type: "hello"; from: string }
   | { type: "bye"; from: string };
 
-export function joinCallChannel(callId: string, selfId: string, onSignal: (p: SignalPayload) => void): {
+export function joinCallChannel(
+  callId: string,
+  selfId: string,
+  onSignal: (p: SignalPayload) => void,
+): {
   channel: RealtimeChannel;
   send: (payload: SignalPayload) => Promise<void>;
   leave: () => Promise<void>;
@@ -32,7 +36,11 @@ export function joinCallChannel(callId: string, selfId: string, onSignal: (p: Si
   channel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       await channel.track({ user_id: selfId, online_at: new Date().toISOString() });
-      await channel.send({ type: "broadcast", event: "signal", payload: { type: "hello", from: selfId } as SignalPayload });
+      await channel.send({
+        type: "broadcast",
+        event: "signal",
+        payload: { type: "hello", from: selfId } as SignalPayload,
+      });
     }
   });
 
@@ -43,8 +51,14 @@ export function joinCallChannel(callId: string, selfId: string, onSignal: (p: Si
     },
     leave: async () => {
       try {
-        await channel.send({ type: "broadcast", event: "signal", payload: { type: "bye", from: selfId } as SignalPayload });
-      } catch {}
+        await channel.send({
+          type: "broadcast",
+          event: "signal",
+          payload: { type: "bye", from: selfId } as SignalPayload,
+        });
+      } catch (error) {
+        console.error("Failed to send leave signal:", error);
+      }
       await supabase.removeChannel(channel);
     },
   };

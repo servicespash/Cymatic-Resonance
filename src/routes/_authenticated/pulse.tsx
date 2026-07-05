@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { CymaticWave } from "@/components/cymatic-wave";
@@ -29,7 +29,9 @@ type AttRow = {
   note: string | null;
 };
 
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function PulsePage() {
   const { user } = useAuth();
@@ -44,20 +46,24 @@ function PulsePage() {
     return () => clearInterval(t);
   }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("attendance")
-      .select("id, attendance_date, checked_in_at, checked_out_at, break_started_at, total_break_minutes, is_late, status, note")
+      .select(
+        "id, attendance_date, checked_in_at, checked_out_at, break_started_at, total_break_minutes, is_late, status, note",
+      )
       .eq("user_id", user.id)
       .order("attendance_date", { ascending: false })
       .limit(30);
     const rows = (data ?? []) as AttRow[];
     setHistory(rows);
     setToday(rows.find((r) => r.attendance_date === todayISO()) ?? null);
-  };
+  }, [user]);
 
-  useEffect(() => { refresh(); }, [user]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const checkIn = async () => {
     setBusy(true);
@@ -93,18 +99,22 @@ function PulsePage() {
   const state: "out" | "in" | "break" | "sealed" = !today
     ? "out"
     : today.checked_out_at
-    ? "sealed"
-    : today.break_started_at
-    ? "break"
-    : "in";
+      ? "sealed"
+      : today.break_started_at
+        ? "break"
+        : "in";
 
   const liveMinutes = useMemo(() => {
     if (!today) return 0;
     const end = today.checked_out_at ? new Date(today.checked_out_at) : now;
-    const total = Math.max(0, Math.floor((end.getTime() - new Date(today.checked_in_at).getTime()) / 60000));
-    const activeBreak = today.break_started_at && !today.checked_out_at
-      ? Math.floor((now.getTime() - new Date(today.break_started_at).getTime()) / 60000)
-      : 0;
+    const total = Math.max(
+      0,
+      Math.floor((end.getTime() - new Date(today.checked_in_at).getTime()) / 60000),
+    );
+    const activeBreak =
+      today.break_started_at && !today.checked_out_at
+        ? Math.floor((now.getTime() - new Date(today.break_started_at).getTime()) / 60000)
+        : 0;
     return Math.max(0, total - today.total_break_minutes - activeBreak);
   }, [today, now]);
 
@@ -113,7 +123,8 @@ function PulsePage() {
     let s = 0;
     for (let i = 0; i < 365; i++) {
       const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-      if (set.has(d)) s++; else break;
+      if (set.has(d)) s++;
+      else break;
     }
     return s;
   }, [history]);
@@ -196,7 +207,10 @@ function PulsePage() {
       </section>
 
       {/* History */}
-      <section className="glass rounded-2xl p-5 animate-fade-up" style={{ animationDelay: "100ms" }}>
+      <section
+        className="glass rounded-2xl p-5 animate-fade-up"
+        style={{ animationDelay: "100ms" }}
+      >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold">Resonance ledger</h2>
           <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -205,11 +219,19 @@ function PulsePage() {
         </div>
         <div className="divide-y divide-white/5">
           {history.length === 0 && (
-            <div className="py-8 text-center text-sm text-muted-foreground">No check-ins yet — tap the pulse above.</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No check-ins yet — tap the pulse above.
+            </div>
           )}
           {history.map((r) => {
             const dur = r.checked_out_at
-              ? Math.max(0, Math.floor((new Date(r.checked_out_at).getTime() - new Date(r.checked_in_at).getTime()) / 60000) - r.total_break_minutes)
+              ? Math.max(
+                  0,
+                  Math.floor(
+                    (new Date(r.checked_out_at).getTime() - new Date(r.checked_in_at).getTime()) /
+                      60000,
+                  ) - r.total_break_minutes,
+                )
               : null;
             return (
               <div key={r.id} className="flex items-center justify-between py-3">
@@ -219,27 +241,45 @@ function PulsePage() {
                   </span>
                   <div>
                     <div className="text-sm font-medium">
-                      {new Date(r.attendance_date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                      {new Date(r.attendance_date).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
                       {r.is_late && (
-                        <span className="ml-2 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">late</span>
+                        <span className="ml-2 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
+                          late
+                        </span>
                       )}
                     </div>
-                    {r.note && <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{r.note}</div>}
+                    {r.note && (
+                      <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+                        {r.note}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1.5 font-mono text-xs text-muted-foreground">
                     <Clock className="size-3" />
-                    {new Date(r.checked_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(r.checked_in_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                     {r.checked_out_at && (
                       <>
                         <span className="opacity-50">→</span>
-                        {new Date(r.checked_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(r.checked_out_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </>
                     )}
                   </div>
                   {dur !== null && (
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-accent">{fmtH(dur)}</div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-accent">
+                      {fmtH(dur)}
+                    </div>
                   )}
                 </div>
               </div>
@@ -253,7 +293,15 @@ function PulsePage() {
   );
 }
 
-function PulseButton({ state, busy, onClick }: { state: "out" | "in" | "break" | "sealed"; busy: boolean; onClick: () => void }) {
+function PulseButton({
+  state,
+  busy,
+  onClick,
+}: {
+  state: "out" | "in" | "break" | "sealed";
+  busy: boolean;
+  onClick: () => void;
+}) {
   const disabled = busy || state !== "out";
   return (
     <button
@@ -263,10 +311,10 @@ function PulseButton({ state, busy, onClick }: { state: "out" | "in" | "break" |
         state === "out"
           ? "bg-frequency resonance-glow hover:scale-[1.02] animate-pulse-ring"
           : state === "sealed"
-          ? "bg-muted/30 border border-white/10"
-          : state === "break"
-          ? "bg-amber-500/15 border border-amber-400/30"
-          : "bg-accent/20 border border-accent/40"
+            ? "bg-muted/30 border border-white/10"
+            : state === "break"
+              ? "bg-amber-500/15 border border-amber-400/30"
+              : "bg-accent/20 border border-accent/40"
       } disabled:cursor-default`}
     >
       <AnimatePresence mode="wait">
@@ -281,22 +329,30 @@ function PulseButton({ state, busy, onClick }: { state: "out" | "in" | "break" |
           {state === "out" ? (
             <>
               <CymaticWave className="h-8" bars={6} />
-              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary-foreground">Sync pulse</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary-foreground">
+                Sync pulse
+              </span>
             </>
           ) : state === "in" ? (
             <>
               <Check className="size-10 text-accent" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">Active</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
+                Active
+              </span>
             </>
           ) : state === "break" ? (
             <>
               <Coffee className="size-10 text-amber-400" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-amber-400">On break</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-amber-400">
+                On break
+              </span>
             </>
           ) : (
             <>
               <LogOut className="size-10 text-muted-foreground" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Sealed</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Sealed
+              </span>
             </>
           )}
         </motion.div>
@@ -305,12 +361,25 @@ function PulseButton({ state, busy, onClick }: { state: "out" | "in" | "break" |
   );
 }
 
-function Stat({ label, value, tone = "ok" }: { label: string; value: string; tone?: "ok" | "warn" | "muted" }) {
-  const color = tone === "warn" ? "text-amber-400" : tone === "muted" ? "text-muted-foreground" : "text-accent";
+function Stat({
+  label,
+  value,
+  tone = "ok",
+}: {
+  label: string;
+  value: string;
+  tone?: "ok" | "warn" | "muted";
+}) {
+  const color =
+    tone === "warn" ? "text-amber-400" : tone === "muted" ? "text-muted-foreground" : "text-accent";
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-center">
-      <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={`mt-1 font-display text-base font-semibold tabular-nums ${color}`}>{value}</div>
+      <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </div>
+      <div className={`mt-1 font-display text-base font-semibold tabular-nums ${color}`}>
+        {value}
+      </div>
     </div>
   );
 }

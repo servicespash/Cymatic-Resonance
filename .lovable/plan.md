@@ -5,6 +5,7 @@
 Unless you paste credentials for a separate Supabase project, I'll stay on the current one — it's already your backend.
 
 ### New tables (one migration, with GRANTs + RLS):
+
 - **`calls`** — `id`, `org_id`, `channel_id` (FK channels — works for both DM channels and group channels), `initiator_id`, `kind` (`audio`|`video`), `status` (`ringing`|`active`|`ended`|`missed`|`declined`), `started_at`, `ended_at`. RLS: org members SELECT; initiator INSERT; participants UPDATE.
 - **`call_participants`** — `call_id`, `user_id`, `joined_at`, `left_at`, `state` (`invited`|`joined`|`declined`|`left`). RLS: participants and channel members SELECT; self UPDATE.
 - Realtime publication: `calls`, `call_participants`, plus reuse existing `messages` + `message_attachments`.
@@ -29,12 +30,14 @@ No schema change to messages — already supports threads.
 Mobile-first single-column with full-screen conversation transitions.
 
 ### List view (default on mobile, sidebar on `lg:`)
+
 - Full-width rows, **72px tall**, generous padding (`px-5 py-4`).
 - Each row: 48px avatar with online dot, name + verified badge, last message preview (1 line, truncate), right side: timestamp + unread count pill.
 - Search bar sticky top. "New chat" FAB bottom-right.
 - Tabs at top: **All / Channels / DMs / Verified** (verified = pinned/announcement channels marked by admin).
 
 ### Thread view (full-screen on mobile, right pane on `lg:`)
+
 - Sticky header: back arrow (mobile only) + avatar + name + presence + 📞 + 📹 + ⋮ menu.
 - Message area: `max-w-3xl mx-auto`, generous gap (`gap-2`), grouped by sender + minute, day separator chips.
 - WhatsApp-style bubbles:
@@ -47,6 +50,7 @@ Mobile-first single-column with full-screen conversation transitions.
 ## 5. Wider layouts across landing + auth + comms
 
 Audit & widen any `max-w-md`/`max-w-lg`/`max-w-xl` text/layout containers:
+
 - `src/routes/index.tsx` (landing) — hero + sections to `max-w-6xl` / `max-w-7xl`, content blocks `max-w-3xl mx-auto` for readability but containers go wide.
 - `src/routes/auth.tsx` — split-screen layout (`lg:grid-cols-2`): left = brand panel with imagery + tagline, right = form. Container `max-w-6xl`.
 - `src/routes/_authenticated/dashboard.tsx`, `pulse.tsx`, `settings.tsx` — bump main container to `max-w-7xl`, use cinematic grids.
@@ -65,6 +69,7 @@ Will verify `src/assets/` for these — if absent or referenced placeholders, I'
 ## Files touched
 
 **New**
+
 - `supabase/migrations/<new>.sql` — calls + call_participants + realtime
 - `src/lib/webrtc/signaling.ts`
 - `src/lib/webrtc/peer.ts`
@@ -76,12 +81,14 @@ Will verify `src/assets/` for these — if absent or referenced placeholders, I'
 - `src/components/message-bubble.tsx`
 
 **Edited**
+
 - `src/routes/_authenticated/route.tsx` — mount IncomingCallOverlay + notification permission request
 - `src/routes/_authenticated/comms.tsx` — full redesign (WhatsApp layout)
 - `src/routes/_authenticated/dashboard.tsx`, `pulse.tsx`, `settings.tsx` — widen containers
 - `src/routes/index.tsx`, `auth.tsx` — widen + split-screen auth
 
 ## Explicit non-goals (ask if you want them)
+
 - SFU/MCU for >6 participant calls (needs paid infra — LiveKit/Daily/Agora).
 - Screen sharing, call recording, picture-in-picture.
 - TURN server (calls will fail for ~15-20% of strict-NAT users; can add Twilio TURN later if needed — cheap, not free).
