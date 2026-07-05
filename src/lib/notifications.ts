@@ -2,7 +2,8 @@
 
 export async function ensureNotificationPermission(): Promise<NotificationPermission> {
   if (typeof window === "undefined" || !("Notification" in window)) return "denied";
-  if (Notification.permission === "granted" || Notification.permission === "denied") return Notification.permission;
+  if (Notification.permission === "granted" || Notification.permission === "denied")
+    return Notification.permission;
   try {
     return await Notification.requestPermission();
   } catch {
@@ -27,7 +28,9 @@ export function notify(title: string, opts: NotificationOptions & { onClick?: ()
       onClick?.();
       n.close();
     };
-  } catch {}
+  } catch (error) {
+    console.error("Failed to show notification:", error);
+  }
 }
 
 // Soft 2-tone ringtone via WebAudio — no asset required.
@@ -38,7 +41,10 @@ export function createRingtone() {
   const start = () => {
     if (stopFn) return;
     try {
-      ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      ctx = new (
+        window.AudioContext ||
+        (window as unknown as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )();
       const gain = ctx.createGain();
       gain.gain.value = 0.15;
       gain.connect(ctx.destination);
@@ -64,9 +70,18 @@ export function createRingtone() {
         setTimeout(playPair, 2200);
       };
       playPair();
-      stopFn = () => { cancelled = true; ctx?.close(); ctx = null; };
-    } catch {}
+      stopFn = () => {
+        cancelled = true;
+        ctx?.close();
+        ctx = null;
+      };
+    } catch (error) {
+      console.error("Failed to start ringtone:", error);
+    }
   };
-  const stop = () => { stopFn?.(); stopFn = null; };
+  const stop = () => {
+    stopFn?.();
+    stopFn = null;
+  };
   return { start, stop };
 }

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { VoiceRecorder, type RecordedAudio } from "@/components/voice-recorder";
 import { CommAttachment, type Attachment } from "@/components/comm-attachment";
+import { CallPanel } from "@/components/call-panel";
 import { useCallController } from "@/components/call-provider";
 import { ensureNotificationPermission, isWindowActive, notify } from "@/lib/notifications";
 
@@ -99,7 +100,6 @@ function CommsPage() {
       for (const r of (rd ?? []) as { channel_id: string; last_read_at: string }[]) readMap[r.channel_id] = r.last_read_at;
       setReads(readMap);
 
-      // Load last message per channel for the list preview
       const chanIds = list.map((c) => c.id);
       if (chanIds.length) {
         const { data: recent } = await supabase
@@ -160,7 +160,7 @@ function CommsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [active, user]);
 
-  // Org-wide message stream: update list previews + fire notifications when out-of-focus
+  // Org-wide message stream
   useEffect(() => {
     if (!orgId || !user) return;
     const ch = supabase
@@ -185,10 +185,10 @@ function CommsPage() {
     return () => { supabase.removeChannel(ch); };
   }, [orgId, user, senders, channels]);
 
-  // Typing indicator + live call state per active channel (Realtime broadcast + calls table)
-  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({}); // user_id -> expiresAt
+  // Typing indicators + live call states
+  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
   const [activeCall, setActiveCall] = useState<{ id: string; kind: "audio" | "video"; status: string; initiator_id: string } | null>(null);
-  const [callJoined, setCallJoined] = useState<string[]>([]); // user_ids joined
+  const [callJoined, setCallJoined] = useState<string[]>([]);
   const typingSendRef = useRef<((now: number) => void) | null>(null);
 
   useEffect(() => {
@@ -216,7 +216,6 @@ function CommsPage() {
     return () => { supabase.removeChannel(ch); clearInterval(gc); typingSendRef.current = null; };
   }, [active, user]);
 
-  // Subscribe to live call state on the active channel
   useEffect(() => {
     if (!active || !user) return;
     let cancelled = false;
@@ -362,16 +361,6 @@ function CommsPage() {
     await callController.startCall(active.id, recipients, kind);
   };
 
-  const dmChannels = useMemo(() => {
-    return threads
-      .map((t) => {
-        const c = channels.find((x) => x.id === t.channel_id);
-        const other = senders[t.user_a === user?.id ? t.user_b : t.user_a];
-        return c ? { channel: c, thread: t, other } : null;
-      })
-      .filter(Boolean) as { channel: Channel; thread: Thread; other?: Sender }[];
-  }, [threads, channels, senders, user]);
-
   const otherMembers = useMemo(
     () => Object.values(senders).filter((s) => s.id !== user?.id),
     [senders, user],
@@ -387,7 +376,6 @@ function CommsPage() {
     return lastMsg.created_at > last ? 1 : 0;
   };
 
-  // Conversation list: merge channels + dms with last message preview
   const conversations = useMemo(() => {
     const items = channels.map((c) => {
       const last = lastMessageByChannel[c.id];
@@ -422,8 +410,8 @@ function CommsPage() {
   const activeTitle = active ? (active.kind === "dm" ? activeOther?.full_name ?? "Direct" : `#${active.name}`) : "";
 
   return (
-    <div className="-m-4 md:-m-6 flex h-[calc(100vh-4.5rem)] flex-col lg:h-[calc(100vh-4.5rem)] lg:grid lg:grid-cols-[380px_1fr]">
-      {/* Conversation list — hidden on mobile when a chat is open */}
+    <div className="-m-4 md:-m-6 flex h-[calc(100vh-4.5rem)] flex-col lg:grid lg:grid-cols-[380px_1fr]">
+      {/* Conversation list */}
       <aside className={`flex min-h-0 flex-col border-r border-white/5 bg-card/30 ${active ? "hidden lg:flex" : "flex"}`}>
         <div className="border-b border-white/5 p-5">
           <div className="mb-4 flex items-center justify-between">
@@ -560,7 +548,7 @@ function CommsPage() {
         </div>
       </aside>
 
-      {/* Chat thread */}
+      {/* Expanded Chat thread Container */}
       <section className={`flex min-h-0 flex-col bg-background/40 ${active ? "flex" : "hidden lg:flex"}`}>
         {!active ? (
           <div className="grid flex-1 place-items-center px-6 text-center">
@@ -601,6 +589,7 @@ function CommsPage() {
               <button onClick={() => startCall("video")} className="grid size-10 place-items-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-accent" aria-label="Video call">
                 <Video className="size-4" />
               </button>
+              {active && <CallPanel channelId={active.id} />}
             </header>
 
             {activeCall && activeCall.id !== callController.activeCallId && (
@@ -629,8 +618,9 @@ function CommsPage() {
               </div>
             )}
 
+            {/* Widen Viewport Strategy Implementation */}
             <div
-              className={`relative flex-1 overflow-y-auto px-4 py-6 md:px-6 ${dragOver ? "ring-2 ring-inset ring-accent/40" : ""}`}
+              className={`relative flex-1 overflow-y-auto px-4 py-6 md:px-8 lg:px-12 ${dragOver ? "ring-2 ring-inset ring-accent/40" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={(e) => {
@@ -638,7 +628,7 @@ function CommsPage() {
                 if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
               }}
             >
-              <div className="mx-auto flex max-w-3xl flex-col gap-2">
+              <div className="mx-auto flex w-full max-w-none flex-col gap-2">
                 {msgs.length === 0 && (
                   <div className="grid place-items-center py-20 text-sm text-muted-foreground">
                     No messages yet — say hello 👋
@@ -656,7 +646,7 @@ function CommsPage() {
                   const msgAtts = attachments[m.id] ?? [];
 
                   return (
-                    <div key={m.id}>
+                    <div key={m.id} className="w-full">
                       {newDay && (
                         <div className="my-4 flex items-center justify-center">
                           <span className="rounded-full bg-card/80 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground ring-1 ring-white/5">
@@ -664,13 +654,13 @@ function CommsPage() {
                           </span>
                         </div>
                       )}
-                      <div className={`group flex items-end gap-2.5 ${me ? "justify-end" : "justify-start"} ${showHeader ? "mt-5" : "mt-1"}`}>
+                      <div className={`group flex items-end gap-3 w-full ${me ? "justify-end" : "justify-start"} ${showHeader ? "mt-5" : "mt-1"}`}>
                         {!me && (
                           <div className="w-9 shrink-0">
                             {showAvatar && <Avatar name={s?.full_name ?? "?"} size={36} />}
                           </div>
                         )}
-                        <div className={`flex max-w-[75%] flex-col ${me ? "items-end" : "items-start"}`}>
+                        <div className={`flex flex-col ${me ? "items-end text-right" : "items-start text-left"} max-w-[85%] lg:max-w-[75%]`}>
                           {showHeader && (
                             <div className="mb-1.5 flex items-center gap-1.5 px-1.5">
                               <span className="font-display text-[13px] font-semibold text-foreground/90">{s?.full_name ?? "Member"}</span>
@@ -679,15 +669,15 @@ function CommsPage() {
                               )}
                             </div>
                           )}
-                          <div className="group/bubble relative flex items-end gap-1.5">
-                            <div className={`flex flex-col gap-1.5 ${me ? "items-end" : "items-start"}`}>
+                          <div className="group/bubble relative flex items-end gap-2 max-w-full">
+                            <div className={`flex flex-col gap-1.5 ${me ? "items-end" : "items-start"} max-w-full`}>
                               {m.body && (
-                                <div className={`relative max-w-full px-5 py-3 text-[15px] leading-relaxed shadow-md ${
+                                <div className={`relative px-6 py-4 text-[15px] leading-relaxed shadow-md glass ${
                                   me
                                     ? "rounded-3xl rounded-br-lg bg-frequency text-primary-foreground"
-                                    : "rounded-3xl rounded-bl-lg bg-card text-foreground ring-1 ring-white/5"
+                                    : "rounded-3xl rounded-bl-lg bg-card text-foreground"
                                 }`}>
-                                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                                  <p className="whitespace-pre-wrap break-words text-left">{m.body}</p>
                                   <div className={`mt-1.5 flex items-center justify-end gap-1 ${me ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                     <span className="font-mono text-[10px]">{formatTime(m.created_at)}</span>
                                     {me && <CheckCheck className="size-3" />}
@@ -741,7 +731,7 @@ function CommsPage() {
             </div>
 
             {pending.length > 0 && (
-              <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-2 border-t border-white/5 px-4 pt-3 md:px-6">
+              <div className="mx-auto flex w-full max-w-none px-4 pt-3 md:px-8 lg:px-12 flex-wrap gap-2 border-t border-white/5">
                 {pending.map((f, i) => (
                   <span key={i} className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs ring-1 ring-white/10">
                     {f.type.startsWith("image/") ? <ImageIcon className="size-3.5 text-accent" /> : <FileText className="size-3.5 text-accent" />}
@@ -761,7 +751,7 @@ function CommsPage() {
               const names = activeTypers.map((id) => senders[id]?.full_name?.split(" ")[0] ?? "Someone");
               const label = names.length === 1 ? `${names[0]} is typing` : names.length === 2 ? `${names[0]} and ${names[1]} are typing` : `${names.length} people are typing`;
               return (
-                <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2 md:px-6">
+                <div className="mx-auto flex w-full max-w-none px-4 pt-2 md:px-8 lg:px-12 items-center gap-2">
                   <span className="inline-flex items-center gap-2 rounded-full bg-card/70 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-white/5 animate-fade-up">
                     <span className="flex gap-0.5">
                       <span className="size-1.5 animate-bounce rounded-full bg-accent" style={{ animationDelay: "0ms" }} />
@@ -774,8 +764,8 @@ function CommsPage() {
               );
             })()}
 
-            <form onSubmit={send} className="border-t border-white/5 bg-card/30 px-4 py-3 backdrop-blur md:px-6">
-              <div className="mx-auto flex max-w-3xl items-center gap-2">
+            <form onSubmit={send} className="border-t border-white/5 bg-card/30 px-4 py-3 backdrop-blur md:px-8 lg:px-12">
+              <div className="mx-auto flex w-full max-w-none items-center gap-2">
                 {recording ? (
                   <VoiceRecorder onCancel={() => setRecording(false)} onSend={sendVoice} />
                 ) : (

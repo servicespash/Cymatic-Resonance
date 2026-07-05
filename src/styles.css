@@ -50,6 +50,11 @@
   --font-display: "Syne", "Plus Jakarta Sans", system-ui, sans-serif;
   --font-sans: "Inter", "Geist Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Native Tailwind v4 Theme Variables for Explosive Interaction */
+  --animate-float-up: floatUp 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  --animate-shake-burst: shakeBurst 0.5s ease-in-out;
+  --animate-pulse-glow: pulseGlow 2s infinite alternate;
 }
 
 :root, .dark {
@@ -134,6 +139,44 @@
 
 @utility resonance-glow {
   box-shadow: var(--glow-resonance);
+}
+
+/* Keyframes Configuration for Reaction Stream */
+@keyframes floatUp {
+  0% { 
+    transform: translateY(100%) scale(0.3) rotate(0deg); 
+    opacity: 0; 
+  }
+  15% { 
+    opacity: 1; 
+    transform: translateY(-20px) scale(1.3) rotate(-10deg); 
+  }
+  30% {
+    transform: translateY(-100px) scale(1) rotate(10deg);
+  }
+  100% { 
+    transform: translateY(-750px) scale(0.7) rotate(-5deg); 
+    opacity: 0; 
+  }
+}
+
+@keyframes shakeBurst {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-15deg) scale(1.15); }
+  40% { transform: rotate(15deg) scale(1.15); }
+  60% { transform: rotate(-10deg) scale(1.1); }
+  80% { transform: rotate(10deg) scale(1.1); }
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.7);
+    border-color: rgba(245, 158, 11, 1);
+  }
 }
 
 @keyframes pulse-ring {
