@@ -4,6 +4,8 @@ import { CallStateMachine } from "./call-state-machine";
 import { EventEmitter } from "./event-emitter";
 import { PeerManager } from "@/core/webrtc/peer-manager";
 import { SignalingChannel } from "@/core/webrtc/signaling-channel";
+import { WakeLockManager } from "./wake-lock-manager";
+import { BackgroundListener } from "./background-listener";
 import type { CallEngineEvent, CallKind } from "./types";
 
 export interface CallEngineConfig {
@@ -18,11 +20,28 @@ export class CallEngine {
   private peerManager: PeerManager;
   private signalingChannel: SignalingChannel | null = null;
   private localMediaStream: MediaStream | null = null;
+  private wakeLock: WakeLockManager;
+  private backgroundListener: BackgroundListener;
 
   constructor(config: CallEngineConfig) {
     this.userId = config.userId;
     this.emitter = new EventEmitter();
     this.stateMachine = new CallStateMachine(this.emitter);
+    this.wakeLock = new WakeLockManager();
+
+    // Setup background listener for service worker messages
+    this.backgroundListener = new BackgroundListener(
+      ({ callId, senderId, kind }) => {
+        this.acceptCall(kind === "video").catch(console.error);
+      },
+      ({ callId }) => {
+        this.declineCall();
+      },
+      () => {
+        // Service worker is requesting ringtone play
+        console.log("[CallEngine] Service worker requesting ringtone");
+      },
+    );
 
     // Configure peer manager
     this.peerManager = new PeerManager({
@@ -130,6 +149,9 @@ export class CallEngine {
       // Update state
       this.stateMachine.acceptCall();
 
+      // Keep device awake during call
+      await this.wakeLock.acquire("call");
+
       // Announce presence in call
       await this.signalingChannel?.sendHello();
 
@@ -156,6 +178,7 @@ export class CallEngine {
   // End the call
   endCall(): void {
     this.stateMachine.endCall();
+    this.wakeLock.release().catch(console.error);
     this.cleanup();
   }
 
@@ -237,6 +260,8 @@ export class CallEngine {
   // Destroy engine
   destroy(): void {
     this.cleanup();
+    this.wakeLock.destroy();
+    this.backgroundListener.destroy();
     this.emitter.clear();
   }
 }
