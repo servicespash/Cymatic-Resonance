@@ -16,7 +16,10 @@ import { Phone, PhoneOff, Video } from "lucide-react";
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
 import { CallRoom } from "@/components/call-room";
 import { Ctx } from "@/hooks/use-call-controller";
+import { createCallEngine, getCallEngine } from "@/engine/call-engine";
+import { NotificationManager } from "@/engine/notification-manager";
 import type { Database } from "@/integrations/supabase/types";
+import type { CallEngineEvent } from "@/engine/types";
 
 type Sender = { id: string; full_name: string | null };
 type Call = Database["public"]["Tables"]["calls"]["Row"];
@@ -29,10 +32,39 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState<{ id: string; kind: "audio" | "video" } | null>(null);
   const ringtone = useRef(createRingtone());
   const activeCallRef = useRef<string | null>(null);
+  const engineRef = useRef<ReturnType<typeof getCallEngine> | null>(null);
+  const notificationManagerRef = useRef<NotificationManager | null>(null);
 
   useEffect(() => {
     activeCallRef.current = active?.id ?? null;
   }, [active]);
+
+  // Initialize call engine
+  useEffect(() => {
+    if (!user) return;
+    
+    engineRef.current = createCallEngine({ userId: user.id });
+    notificationManagerRef.current = new NotificationManager();
+
+    // Listen to engine events for background notifications
+    const unsubscribe = engineRef.current.subscribe((event: CallEngineEvent) => {
+      if (event.type === "call-incoming") {
+        const state = engineRef.current?.getState();
+        if (state && notificationManagerRef.current) {
+          notificationManagerRef.current.showIncomingCall({
+            title: "Incoming call",
+            callId: state.callId!,
+            senderId: state.initiatorId!,
+            kind: state.kind,
+          }).catch(console.error);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
