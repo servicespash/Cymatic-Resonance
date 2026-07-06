@@ -71,42 +71,86 @@ function AuthPage() {
     if (token) {
       setInviteToken(token);
       setMode("invite");
-      // Supabase RPC disabled - would require Supabase connection
+      supabase
+        .rpc("invite_preview", { _token: token })
+        .single()
+        .then(({ data }) => {
+          if (data)
+            setInvitePreview(data as { org_name: string; email: string; accepted: boolean });
+        });
     }
   }, []);
 
   // If signed in + invite token, redeem
   useEffect(() => {
     if (loading) return;
-    if (user && mode === "normal") {
+    if (user && inviteToken && !invitePreview?.accepted) {
+      (async () => {
+        const { error } = await supabase.rpc("accept_invite", { _token: inviteToken });
+        if (error) return toast.error(error.message);
+        toast.success("Joined workspace");
+        navigate({ to: "/pulse" });
+      })();
+    } else if (user && mode === "normal") {
       navigate({ to: "/pulse" });
     }
-  }, [user, loading, mode, navigate]);
+  }, [user, loading, inviteToken, invitePreview, mode, navigate]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const fd = new FormData(e.currentTarget);
     setBusy(true);
-    toast.error("Authentication disabled - Supabase not configured");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: String(fd.get("email")),
+      password: String(fd.get("password")),
+    });
     setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Resonance established");
   };
 
   const handleGoogle = async () => {
     setBusy(true);
-    toast.error("OAuth disabled - Supabase not configured");
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + "/auth" + window.location.search,
+    });
+    if (result.error) {
+      setBusy(false);
+      return toast.error(result.error.message);
+    }
+    if (result.redirected) return;
     setBusy(false);
   };
 
   const handleResetSend = async (email: string) => {
-    toast.error("Password reset disabled - Supabase not configured");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth?reset=1`,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Check your email for the reset link");
   };
 
   const handleResetSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.error("Password reset disabled - Supabase not configured");
+    const fd = new FormData(e.currentTarget);
+    const pw = String(fd.get("password"));
+    if (pw.length < 6) return toast.error("Min 6 characters");
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Password updated");
+    window.location.href = "/pulse";
   };
 
   const ensureSession = async (email: string, password: string) => {
-    return false;
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return true;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return !error;
   };
 
   const handleAdminSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -115,8 +159,39 @@ function AuthPage() {
     const parsed = adminSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setBusy(true);
-    toast.error("Signup disabled - Supabase not configured");
+    const { error } = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/pulse`,
+        data: {
+          full_name: parsed.data.full_name,
+          phone: parsed.data.phone,
+          position: parsed.data.position,
+        },
+      },
+    });
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+    const ok = await ensureSession(parsed.data.email, parsed.data.password);
+    if (!ok) {
+      setBusy(false);
+      return toast.error("Could not establish session");
+    }
+    const { data: org, error: orgErr } = await supabase
+      .rpc("create_org_as_admin", { _name: parsed.data.org_name, _org_type: parsed.data.org_type })
+      .single();
+    if (orgErr || !org) {
+      setBusy(false);
+      return toast.error(orgErr?.message ?? "Could not create workspace");
+    }
     setBusy(false);
+    toast.success(`Workspace created · ${(org as { access_code: string }).access_code}`, {
+      description: "Share this code with members.",
+    });
+    navigate({ to: "/dashboard" });
   };
 
   const handleMemberSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -125,8 +200,38 @@ function AuthPage() {
     const parsed = memberSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setBusy(true);
-    toast.error("Signup disabled - Supabase not configured");
+    const code = parsed.data.access_code.toUpperCase();
+    const { error } = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/pulse`,
+        data: {
+          full_name: parsed.data.full_name,
+          phone: parsed.data.phone,
+          position: parsed.data.position,
+        },
+      },
+    });
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+    const ok = await ensureSession(parsed.data.email, parsed.data.password);
+    if (!ok) {
+      setBusy(false);
+      return toast.error("Could not establish session");
+    }
+    const { data: org, error: joinErr } = await supabase
+      .rpc("join_org_with_code", { _code: code, _category: parsed.data.category })
+      .single();
+    if (joinErr || !org) {
+      setBusy(false);
+      return toast.error(joinErr?.message ?? "Invalid CYM access code");
+    }
     setBusy(false);
+    toast.success(`Joined ${(org as { org_name?: string }).org_name ?? "workspace"}`);
+    navigate({ to: "/pulse" });
   };
 
   const handleInviteSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -136,7 +241,28 @@ function AuthPage() {
     const parsed = inviteSignUpSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setBusy(true);
-    toast.error("Signup disabled - Supabase not configured");
+    const { error } = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth?invite=${inviteToken}`,
+        data: {
+          full_name: parsed.data.full_name,
+          phone: parsed.data.phone,
+          position: parsed.data.position,
+        },
+      },
+    });
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+    const ok = await ensureSession(parsed.data.email, parsed.data.password);
+    if (!ok) {
+      setBusy(false);
+      return toast.error("Could not establish session");
+    }
+    // Auth-effect picks up token and calls accept_invite
     setBusy(false);
   };
 
