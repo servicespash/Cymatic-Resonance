@@ -1,6 +1,8 @@
 // Global call state: ringing overlay for incoming calls, mounted active call,
 // API for the rest of the app to start a call.
 
+"use client";
+
 import {
   useCallback,
   useContext,

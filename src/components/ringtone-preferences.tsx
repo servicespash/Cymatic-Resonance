@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Volume2, Play, Check } from "lucide-react";
 import { useRingtoneSettings, RINGTONE_DESCRIPTIONS, playRingtonePreview } from "@/hooks/use-ringtone-settings";

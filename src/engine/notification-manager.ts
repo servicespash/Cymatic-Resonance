@@ -1,7 +1,6 @@
 // Notification manager — handles background notifications and ringtone for incoming calls.
 
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
-import { RINGTONE_PRESETS } from "@/audio/ringtone-library";
 import type { NotificationPayload } from "./types";
 
 export class NotificationManager {
