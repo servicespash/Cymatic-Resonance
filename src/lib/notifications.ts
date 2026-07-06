@@ -34,54 +34,21 @@ export function notify(title: string, opts: NotificationOptions & { onClick?: ()
 }
 
 // Soft 2-tone ringtone via WebAudio using the centralized audio pipeline.
-export function createRingtone() {
+// Now uses the ringtone library for multiple style options.
+export function createRingtone(style: "default" | "morning" | "gentle" | "modern" | "minimal" | "calm" | "zenith" | "whisper" | "pulse" = "default") {
   let stopFn: (() => void) | null = null;
 
   const start = () => {
     if (stopFn) return;
     try {
       // Lazy import to avoid circular dependencies
-      import("@/audio/audio-pipeline").then(({ getAudioPipeline }) => {
-        const pipeline = getAudioPipeline();
-        const ringtoneGain = pipeline.getSourceGain("ringtone");
-        if (!ringtoneGain) {
-          console.error("[Ringtone] No ringtone gain node");
-          return;
-        }
-
-        const ctx = ringtoneGain.context;
-        const ringGain = ctx.createGain();
-        ringGain.connect(ringtoneGain);
-
-        let cancelled = false;
-        const playPair = () => {
-          if (cancelled) return;
-          const tones = [880, 660];
-          tones.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const g = ctx.createGain();
-            osc.type = "sine";
-            osc.frequency.value = freq;
-            osc.connect(g);
-            g.connect(ringGain);
-            const t0 = ctx.currentTime + i * 0.35;
-            g.gain.setValueAtTime(0, t0);
-            g.gain.linearRampToValueAtTime(1, t0 + 0.03);
-            g.gain.linearRampToValueAtTime(0, t0 + 0.3);
-            osc.start(t0);
-            osc.stop(t0 + 0.32);
-          });
-          setTimeout(playPair, 2200);
-        };
-
-        pipeline.setSourceActive("ringtone", true);
-        playPair();
-
-        stopFn = () => {
-          cancelled = true;
-          pipeline.setSourceActive("ringtone", false);
-          ringGain.disconnect();
-        };
+      import("@/audio/ringtone-library").then(({ createRingtonePlayer }) => {
+        createRingtonePlayer(style).then((player) => {
+          player.start();
+          stopFn = () => {
+            player.stop();
+          };
+        }).catch(console.error);
       }).catch(console.error);
     } catch (error) {
       console.error("Failed to start ringtone:", error);

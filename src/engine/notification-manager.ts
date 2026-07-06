@@ -1,12 +1,14 @@
 // Notification manager — handles background notifications and ringtone for incoming calls.
 
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
+import { RINGTONE_PRESETS } from "@/audio/ringtone-library";
 import type { NotificationPayload } from "./types";
 
 export class NotificationManager {
-  private ringtone = createRingtone();
+  private ringtone = createRingtone("default");
   private swRegistration: ServiceWorkerRegistration | null = null;
   private isAppActive = true;
+  private ringtoneStyle: "default" | "morning" | "gentle" | "modern" | "minimal" | "calm" | "zenith" | "whisper" | "pulse" = "default";
 
   constructor() {
     ensureNotificationPermission().catch(console.error);
@@ -54,10 +56,16 @@ export class NotificationManager {
     }
   }
 
+  // Set preferred ringtone style
+  setRingtoneStyle(style: "default" | "morning" | "gentle" | "modern" | "minimal" | "calm" | "zenith" | "whisper" | "pulse"): void {
+    this.ringtoneStyle = style;
+    this.ringtone = createRingtone(style);
+  }
+
   // Show incoming call notification with ringtone
   async showIncomingCall(payload: NotificationPayload): Promise<void> {
     try {
-      // Start ringtone immediately
+      // Start ringtone immediately using configured style
       this.ringtone.start();
 
       const title = `Incoming ${payload.kind} call`;
@@ -113,9 +121,32 @@ export class NotificationManager {
   }
 
   // Play notification sound for call state changes
-  playNotificationSound(type: "accept" | "decline" | "end"): void {
-    // Stop the ringtone and optionally play a different sound
-    this.ringtone.stop();
+  async playNotificationSound(type: "accept" | "decline" | "end"): Promise<void> {
+    try {
+      // Stop the ringtone first
+      this.ringtone.stop();
+
+      // Play a brief notification sound based on the event type
+      const soundStyle = type === "accept" ? "calm" : type === "decline" ? "minimal" : "gentle";
+      const soundRingtone = createRingtone(soundStyle);
+
+      // Play once only (shorter duration)
+      const pipeline = await import("@/audio/audio-pipeline").then(m => m.getAudioPipeline());
+      const masterGain = pipeline.getSourceGain("ringtone");
+      if (masterGain) {
+        const { RingtonePlayer } = await import("@/audio/ringtone-library");
+        const player = new RingtonePlayer(masterGain.context, masterGain);
+        const stopFn = player.play({ 
+          style: soundStyle,
+          duration: 150,      // Very short beep
+          interval: 99999,    // Don't repeat
+          volume: 0.12
+        });
+        setTimeout(stopFn, 300);
+      }
+    } catch (error) {
+      console.error("[NotificationManager] Error playing notification sound:", error);
+    }
   }
 
   // Check if app is in background
