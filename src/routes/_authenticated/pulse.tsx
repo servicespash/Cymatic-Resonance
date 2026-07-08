@@ -131,6 +131,7 @@ function PulsePage() {
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-6">
+      <h1 className="sr-only">Your Resonance Pulse</h1>
       {/* Pulse card */}
       <section className="glass-strong relative overflow-hidden rounded-3xl p-8 resonance-glow animate-fade-up">
         <div className="absolute inset-0 -z-10 bg-frequency/30 blur-3xl" />

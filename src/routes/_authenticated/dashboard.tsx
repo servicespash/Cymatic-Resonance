@@ -281,6 +281,7 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <h1 className="sr-only">Workspace Analytics Dashboard</h1>
       {/* Range + presets */}
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
