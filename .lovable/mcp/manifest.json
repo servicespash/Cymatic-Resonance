@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://amoopevwutclqkyimpsx.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "cymatic-resonance-mcp",
+      "version": "0.1.0",
+      "title": "Cymatic Resonance"
+    },
+    "tools": [
+      {
+        "name": "whoami",
+        "title": "Who am I",
+        "description": "Return the signed-in user's id, email, and workspace membership.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_workspace_members",
+        "title": "List workspace members",
+        "description": "List members of the signed-in user's current workspace.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_attendance",
+        "title": "List attendance",
+        "description": "List attendance records in the signed-in user's workspace. Optionally filter by ISO date range (inclusive).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "from": {
+              "description": "Start date YYYY-MM-DD (inclusive).",
+              "type": "string"
+            },
+            "to": {
+              "description": "End date YYYY-MM-DD (inclusive).",
+              "type": "string"
+            },
+            "only_me": {
+              "description": "If true, restrict to the current user's rows.",
+              "type": "boolean"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "check_in",
+        "title": "Check in",
+        "description": "Check the signed-in user in for today with an optional note.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "note": {
+              "description": "Optional note attached to the check-in.",
+              "type": "string",
+              "maxLength": 500
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "send_channel_message",
+        "title": "Send channel message",
+        "description": "Post a message to a channel the signed-in user has access to.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "channel_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "UUID of the target channel."
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "Message body (plain text)."
+            }
+          },
+          "required": [
+            "channel_id",
+            "body"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
