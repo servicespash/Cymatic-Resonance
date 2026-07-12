@@ -675,6 +675,14 @@ export type Database = {
           org_name: string
         }[]
       }
+      lookup_org_by_code: {
+        Args: { _code: string }
+        Returns: {
+          id: string
+          name: string
+          org_type: string
+        }[]
+      }
       open_dm: {
         Args: { _other: string }
         Returns: {

@@ -92,7 +92,12 @@ function AuthPage() {
         navigate({ to: "/pulse" });
       })();
     } else if (user && mode === "normal") {
-      navigate({ to: "/pulse" });
+      const next = getQuery().get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) {
+        window.location.href = next;
+      } else {
+        navigate({ to: "/pulse" });
+      }
     }
   }, [user, loading, inviteToken, invitePreview, mode, navigate]);
 
