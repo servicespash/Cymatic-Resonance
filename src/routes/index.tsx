@@ -19,25 +19,97 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
     meta: [
-      { title: "Cymatic Resonance — Workspace presence & comms" },
+      { title: "Cymatic Resonance — Real-time team presence, DMs & group calls" },
       {
         name: "description",
         content:
-          "Elite, real-time attendance and team communications. One workspace, one CYM access code, total clarity.",
+          "Elite real-time attendance, workspace presence, DMs and group video calls. One workspace, one CYM access code, total clarity. Designed by Isabirye Latif (cymatichub.xyz).",
       },
-      { property: "og:title", content: "Cymatic Resonance — Workspace presence & comms" },
+      { property: "og:title", content: "Cymatic Resonance — Team presence, in resonance" },
       {
         property: "og:description",
-        content: "Track team presence in real-time and run elite internal comms.",
+        content:
+          "Track team presence in real-time, run elite internal comms, and host group calls. Built by Isabirye Latif at cymatichub.xyz.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://resonance.cymatichub.xyz/" },
       { property: "og:image", content: ogAsset.url },
-      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:image:alt", content: "Cymatic Resonance — workspace presence platform" },
+      { name: "twitter:title", content: "Cymatic Resonance — Team presence, in resonance" },
+      {
+        name: "twitter:description",
+        content: "Real-time attendance, DMs, and group calls for elite teams.",
+      },
       { name: "twitter:image", content: ogAsset.url },
     ],
     links: [
+      { rel: "canonical", href: "https://resonance.cymatichub.xyz/" },
       { rel: "icon", type: "image/png", href: logoAsset.url },
       { rel: "apple-touch-icon", href: logoAsset.url },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "Cymatic Resonance",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web, iOS, Android",
+          url: "https://resonance.cymatichub.xyz/",
+          image: ogAsset.url,
+          description:
+            "Real-time attendance, workspace presence, DMs and group video calls for elite teams.",
+          author: { "@type": "Person", name: "Isabirye Latif", url: "https://cymatichub.xyz" },
+          creator: { "@type": "Person", name: "Isabirye Latif", url: "https://cymatichub.xyz" },
+          publisher: { "@type": "Organization", name: "CymaticHub", url: "https://cymatichub.xyz" },
+          offers: [
+            { "@type": "Offer", name: "Pulse", price: "0", priceCurrency: "USD" },
+            { "@type": "Offer", name: "Resonance", price: "12", priceCurrency: "USD" },
+          ],
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "What is a CYM access code?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Each workspace has a private CYM-XXXX code. Members join by entering it — no email invites required, and no cross-workspace data leakage.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is data isolated per organization?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. Row-level security enforces strict workspace isolation at the database layer.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Does Sync Pulse work on mobile?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. The entire surface is responsive and works as a PWA on iOS and Android.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Can I export attendance data?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Resonance and Frequency plans include CSV exports across any date range and category.",
+              },
+            },
+          ],
+        }),
+      },
     ],
   }),
 });

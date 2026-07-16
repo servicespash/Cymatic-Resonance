@@ -92,7 +92,12 @@ function AuthPage() {
         navigate({ to: "/pulse" });
       })();
     } else if (user && mode === "normal") {
-      navigate({ to: "/pulse" });
+      const next = getQuery().get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) {
+        window.location.href = next;
+      } else {
+        navigate({ to: "/pulse" });
+      }
     }
   }, [user, loading, inviteToken, invitePreview, mode, navigate]);
 
@@ -608,13 +613,22 @@ function Field({
 }
 
 function SubmitBtn({ busy, children }: { busy: boolean; children: React.ReactNode }) {
+  const label = typeof children === "string" ? children : "Submit";
   return (
     <Button
       type="submit"
       disabled={busy}
+      aria-label={busy ? `${label} — loading` : undefined}
       className="w-full bg-frequency text-primary-foreground resonance-glow hover:brightness-110"
     >
-      {busy ? <CymaticWave className="h-4" bars={4} /> : children}
+      {busy ? (
+        <>
+          <CymaticWave className="h-4" bars={4} />
+          <span className="sr-only">{label} — loading</span>
+        </>
+      ) : (
+        children
+      )}
     </Button>
   );
 }

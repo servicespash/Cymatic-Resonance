@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /_authenticated/
+
+Sitemap: https://resonance.cymatichub.xyz/sitemap.xml
