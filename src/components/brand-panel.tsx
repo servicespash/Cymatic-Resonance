@@ -46,7 +46,7 @@ export function BrandPanel({ orgId, logoUrl, accentColor, onChange }: Props) {
     }
     const { error } = await supabase.rpc("update_org_brand", {
       _logo_url: path,
-      _accent_color: '',
+      _accent_color: "",
     });
     if (error) {
       setBusy(false);
@@ -62,7 +62,7 @@ export function BrandPanel({ orgId, logoUrl, accentColor, onChange }: Props) {
   const saveColor = async (c: string) => {
     setColor(c);
     const { error } = await supabase.rpc("update_org_brand", {
-      _logo_url: '',
+      _logo_url: "",
       _accent_color: c,
     });
     if (error) return toast.error(error.message);

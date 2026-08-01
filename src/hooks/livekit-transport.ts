@@ -28,8 +28,8 @@ export class LiveKitTransport implements CallTransport {
     await this.room.disconnect();
   }
 
-  getParticipants() {
-    return Array.from((this.room as any).participants.values()).map((p: any) => p.identity);
+  getParticipants(): string[] {
+    return Array.from(this.room.participants.values()).map((p: Participant) => p.identity);
   }
 
   onParticipantsChange(callback: (participants: string[]) => void) {

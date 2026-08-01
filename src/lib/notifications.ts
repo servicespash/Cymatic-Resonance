@@ -43,7 +43,8 @@ export function createRingtone() {
     try {
       ctx = new (
         window.AudioContext ||
-        (window as unknown as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+        (window as unknown as Window & { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext
       )();
       const gain = ctx.createGain();
       gain.gain.value = 0.15;

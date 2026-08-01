@@ -24,7 +24,7 @@ export function useCallManager(channelId: string | null) {
     setState("connecting");
 
     try {
-      const { data, error } = await (supabase as any).rpc("join_call", { _channel_id: channelId });
+      const { data, error } = await supabase.rpc("join_call", { _channel_id: channelId });
       if (error) throw error;
 
       const cId = data.call_id;
@@ -43,7 +43,7 @@ export function useCallManager(channelId: string | null) {
     if (!roomId) return;
 
     try {
-      await (supabase as any).rpc("leave_call", { _call_id: roomId });
+      await supabase.rpc("leave_call", { _call_id: roomId });
 
       await transport.disconnect();
       setRoomId(null);

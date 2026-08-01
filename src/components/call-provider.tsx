@@ -113,9 +113,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const c = payload.new as Database["public"]["Tables"]["calls"]["Row"];
 
-          if (incoming?.id === c.id &&
-                        (c.status === "ended" || c.status === "declined")
-                      ) {
+          if (incoming?.id === c.id && (c.status === "ended" || c.status === "declined")) {
             setIncoming(null);
             ringtoneRef.stop();
           }

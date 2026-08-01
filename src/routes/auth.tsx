@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -116,14 +115,8 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/auth" + window.location.search,
-    });
-    if (result.error) {
-      setBusy(false);
-      return toast.error(result.error.message);
-    }
-    if (result.redirected) return;
+    // OAuth functionality temporarily disabled due to missing integration
+    toast.warning("Google Auth is temporarily unavailable");
     setBusy(false);
   };
 
