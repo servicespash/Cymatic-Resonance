@@ -4,12 +4,10 @@
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
-  "conditions": ["style"],
+  "conditions": ["browser", "style"],
   "alias": {
     "#tanstack-start-entry": "./src/server.ts",
     "#tanstack-router-entry": "./src/router.tsx",
-    "tanstack-start-manifest": "tanstack-start-manifest",
-    "tailwindcss": "./node_modules/tailwindcss/index.css",
-    "tw-animate-css": "./node_modules/tw-animate-css/dist/tw-animate.css"
+    "tanstack-start-manifest": "tanstack-start-manifest"
   }
 }
