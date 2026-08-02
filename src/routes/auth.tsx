@@ -16,10 +16,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 
 export const Route = createFileRoute("/auth")({
-  component: AuthPage,
+  component: () => (
+    <ErrorBoundary>
+      <AuthPage />
+    </ErrorBoundary>
+  ),
   head: () => ({ meta: [{ title: "Enter workspace — Cymatic Resonance" }] }),
 });
 
@@ -65,7 +70,10 @@ function AuthPage() {
   // Detect mode from URL
   useEffect(() => {
     const q = getQuery();
-    if (q.get("reset") === "1") setMode("reset");
+    if (q.get("reset") === "1") {
+      setMode("reset");
+      return;
+    }
     const token = q.get("invite");
     if (token) {
       setInviteToken(token);
@@ -73,9 +81,12 @@ function AuthPage() {
       supabase
         .rpc("invite_preview", { _token: token })
         .single()
-        .then(({ data }) => {
-          if (data)
+        .then(({ data, error }) => {
+          if (error) {
+            toast.error("Failed to load invite");
+          } else if (data) {
             setInvitePreview(data as { org_name: string; email: string; accepted: boolean });
+          }
         });
     }
   }, []);
@@ -98,7 +109,15 @@ function AuthPage() {
         navigate({ to: "/pulse" });
       }
     }
-  }, [user, loading, inviteToken, invitePreview, mode, navigate]);
+  }, [user, loading, inviteToken, invitePreview?.accepted, mode, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <CymaticWave className="h-10" bars={6} />
+      </div>
+    );
+  }
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -115,7 +134,6 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setBusy(true);
-    // OAuth functionality temporarily disabled due to missing integration
     toast.warning("Google Auth is temporarily unavailable");
     setBusy(false);
   };
@@ -260,17 +278,8 @@ function AuthPage() {
       setBusy(false);
       return toast.error("Could not establish session");
     }
-    // Auth-effect picks up token and calls accept_invite
     setBusy(false);
   };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <CymaticWave className="h-10" bars={6} />
-      </div>
-    );
-  }
 
   return (
     <main className="relative min-h-screen px-4 py-10">

@@ -37,6 +37,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     let isMounted = true;
+    console.log("CallProvider: Fetching org/members");
 
     (async () => {
       const { data: p } = await supabase
@@ -47,6 +48,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       if (!p?.org_id || !isMounted) return;
       setOrgId(p.org_id);
+      console.log("CallProvider: Org found", p.org_id);
 
       const { data: m } = await supabase
         .from("profiles")
@@ -57,6 +59,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const map: Record<string, Sender> = {};
       for (const s of (m ?? []) as Sender[]) map[s.id] = s;
       setMembers(map);
+      console.log("CallProvider: Members fetched", Object.keys(map).length);
       ensureNotificationPermission();
     })();
 

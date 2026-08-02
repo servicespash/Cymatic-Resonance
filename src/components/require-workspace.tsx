@@ -16,12 +16,24 @@ export function RequireWorkspace({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("org_id")
-        .eq("id", user.id)
-        .maybeSingle();
-      setStatus(data?.org_id ? "linked" : "unlinked");
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("org_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("RequireWorkspace: error fetching profile", error);
+          toast.error("Failed to load workspace info");
+          setStatus("unlinked"); // Fallback to unlinked on error
+        } else {
+          setStatus(data?.org_id ? "linked" : "unlinked");
+        }
+      } catch (err) {
+        console.error("RequireWorkspace: unexpected error", err);
+        setStatus("unlinked");
+      }
     })();
   }, [user, tick]);
 
