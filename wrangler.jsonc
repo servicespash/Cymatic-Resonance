@@ -1,10 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cymatic-resonance",
-  "compatibility_date": "2025-09-24",
+  "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "src/server.ts",
-  "conditions": ["browser", "style", "import", "require"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
+  },
   "alias": {
     "#tanstack-start-entry": "./src/server.ts",
     "#tanstack-router-entry": "./src/router.tsx",
