@@ -110,8 +110,7 @@ export function useCall(opts: {
               try {
                 await pc.addIceCandidate(c);
               } catch (e) {
-                // TODO: Implement: Handle ice candidate error
-                console.error(e);
+                console.error("Failed to add pending ICE candidate:", e);
               }
             }
             delete pendingIce.current[p.from];
@@ -128,8 +127,7 @@ export function useCall(opts: {
               try {
                 await pc.addIceCandidate(p.candidate);
               } catch (e) {
-                // TODO: Implement: Handle ice candidate error
-                console.error(e);
+                console.error("Failed to add pending ICE candidate:", e);
               }
             } else {
               (pendingIce.current[p.from] ??= []).push(p.candidate);

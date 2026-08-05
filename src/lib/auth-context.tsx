@@ -1,12 +1,7 @@
 import { createContext, useContext, useEffect, useState, useMemo } from "react";
-import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-
-export type AuthCtx = {
-  session: Session | null;
-  user: User | null;
-  loading: boolean;
-};
+import type { AuthCtx } from "@/lib/auth-context-def";
+export type { AuthCtx } from "@/lib/auth-context-def";
 
 export const Ctx = createContext<AuthCtx>({ session: null, user: null, loading: true });
 

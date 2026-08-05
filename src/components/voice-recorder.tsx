@@ -78,8 +78,7 @@ export function VoiceRecorder({
     try {
       mediaRef.current?.stop();
     } catch (e) {
-      // TODO: Implement: Handle stop error
-      console.error(e);
+      console.error("Failed to stop media recorder:", e);
     }
   };
 
@@ -92,8 +91,7 @@ export function VoiceRecorder({
           mediaRef.current?.stop();
         }
       } catch (e) {
-        // TODO: Implement: Handle stop error
-        console.error(e);
+        console.error("Failed to stop media recorder on cleanup:", e);
       }
       stopTracks();
     };
