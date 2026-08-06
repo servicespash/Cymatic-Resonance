@@ -30,9 +30,11 @@ export const CommsProvider = ({ children }: { children: ReactNode }) => {
     reactions,
     setReactions,
     senders,
+    setSenders,
     reads,
+    setReads,
     lastMessageByChannel,
-    setActiveChannel,
+    setLastMessageByChannel,
     sendMessage,
     loading,
   };
