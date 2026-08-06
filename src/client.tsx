@@ -3,19 +3,21 @@ import { getRouter } from "./router";
 import { RouterProvider } from "@tanstack/react-router";
 
 async function main() {
-  const root = document.getElementById("root");
-  if (!root) return;
-
   try {
+    const root = document.getElementById("root");
+    if (!root) throw new Error("Root element not found");
+    
     const router = await getRouter();
-    // Force a full re-render, clearing the server-rendered shell
     root.innerHTML = ""; 
     createRoot(root).render(<RouterProvider router={router} />);
-  } catch (error: any) {
-    root.innerHTML = `<div style="padding: 20px; color: red;">
-        <h1>App failed to start</h1>
-        <pre>${error?.message || String(error)}</pre>
-      </div>`;
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    const stack = err?.stack || "";
+    document.body.innerHTML = `<div style="padding: 20px; color: red; background: black; min-height: 100vh; position: absolute; top: 0; left: 0; width: 100%; z-index: 9999;">
+      <h1>BOOT ERROR</h1>
+      <pre style="white-space: pre-wrap;">${errorMsg}</pre>
+      <pre style="white-space: pre-wrap; font-size: 10px;">${stack}</pre>
+    </div>`;
   }
 }
 
