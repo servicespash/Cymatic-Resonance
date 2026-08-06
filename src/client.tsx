@@ -4,8 +4,14 @@ import { RouterProvider } from "@tanstack/react-router";
 
 async function main() {
   try {
-    const root = document.getElementById("root");
-    if (!root) throw new Error("Root element not found");
+    let root = document.getElementById("root");
+    
+    // Fallback: If #root is missing, create it dynamically
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "root";
+      document.body.appendChild(root);
+    }
     
     const router = await getRouter();
     root.innerHTML = ""; 
