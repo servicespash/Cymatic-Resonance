@@ -21,21 +21,22 @@ export type Reaction = { id: string; message_id: string; user_id: string; emoji:
 
 export interface CommsContextType {
   channels: Channel[];
-  setChannels: (channels: Channel[]) => void;
+  setChannels: Dispatch<SetStateAction<Channel[]>>;
   threads: Thread[];
-  setThreads: (threads: Thread[]) => void;
+  setThreads: Dispatch<SetStateAction<Thread[]>>;
   activeChannel: Channel | null;
   messages: Msg[];
-  setMessages: (messages: Msg[]) => void;
+  setMessages: Dispatch<SetStateAction<Msg[]>>;
   reactions: Reaction[];
-  setReactions: (reactions: Reaction[]) => void;
+  setReactions: Dispatch<SetStateAction<Reaction[]>>;
   senders: Record<string, Sender>;
-  setSenders: (senders: Record<string, Sender>) => void;
+  setSenders: Dispatch<SetStateAction<Record<string, Sender>>>;
   reads: Record<string, string>;
-  setReads: (reads: Record<string, string>) => void;
+  setReads: Dispatch<SetStateAction<Record<string, string>>>;
   lastMessageByChannel: Record<string, Msg>;
-  setLastMessageByChannel: (lastMessageByChannel: Record<string, Msg>) => void;
+  setLastMessageByChannel: Dispatch<SetStateAction<Record<string, Msg>>>;
   // ...
+
 
   // Actions
   setActiveChannel: (channel: Channel | null) => void;
