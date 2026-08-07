@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { CallTransport } from "./call-transport";
 import { LiveKitTransport } from "./livekit-transport";
 
 export type CallState = "idle" | "connecting" | "connected" | "reconnecting" | "error";
@@ -24,14 +23,45 @@ export function useCallManager(channelId: string | null) {
     setState("connecting");
 
     try {
-      const { data, error } = await supabase.rpc("join_call", { _channel_id: channelId });
+      // Find an active call on this channel, otherwise start one.
+      const { data: existing } = await supabase
+        .from("calls")
+        .select("id")
+        .eq("channel_id", channelId)
+        .in("status", ["ringing", "active"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let callId = existing?.id ?? null;
+
+      if (!callId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("org_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!profile?.org_id) throw new Error("No workspace found");
+
+        const { data: created, error: createError } = await supabase
+          .from("calls")
+          .insert({
+            channel_id: channelId,
+            org_id: profile.org_id,
+            initiator_id: user.id,
+            kind: "audio",
+          })
+          .select("id")
+          .single();
+        if (createError) throw createError;
+        callId = created.id;
+      }
+
+      const { error } = await supabase.rpc("join_call", { _call_id: callId });
       if (error) throw error;
 
-      const cId = data.call_id;
-      setRoomId(cId);
-
-      await transport.connect(cId, user.id);
-
+      setRoomId(callId);
+      await transport.connect(callId, user.id);
       setState("connected");
     } catch (err) {
       console.error("Failed to join call:", err);
@@ -40,10 +70,14 @@ export function useCallManager(channelId: string | null) {
   }, [channelId, user, transport]);
 
   const leaveCall = useCallback(async () => {
-    if (!roomId) return;
+    if (!roomId || !user) return;
 
     try {
-      await supabase.rpc("leave_call", { _call_id: roomId });
+      await supabase
+        .from("call_participants")
+        .update({ state: "left", left_at: new Date().toISOString() })
+        .eq("call_id", roomId)
+        .eq("user_id", user.id);
 
       await transport.disconnect();
       setRoomId(null);
@@ -51,7 +85,7 @@ export function useCallManager(channelId: string | null) {
     } catch (err) {
       console.error("Failed to leave call:", err);
     }
-  }, [roomId, transport]);
+  }, [roomId, user, transport]);
 
   return { state, participants, joinCall, leaveCall };
 }
