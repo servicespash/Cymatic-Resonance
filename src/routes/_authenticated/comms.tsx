@@ -88,9 +88,11 @@ function CommsPage() {
     lastMessageByChannel,
     setLastMessageByChannel,
   } = useComms();
+  const { user } = useAuth();
   const callController = useCallController();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
 
   const active = activeChannel;
   const setActive = setActiveChannel;
