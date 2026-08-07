@@ -189,25 +189,34 @@ function CommsPage() {
       .eq("channel_id", active.id)
       .order("created_at")
       .then(({ data }) => {
-        if (data) setMsgs(data);
-      });
-    supabase
-      .from("message_reactions")
-      .select("*")
-      .eq("channel_id", active.id)
-      .then(({ data }) => {
-        if (data) setReactions(data);
+        if (!data) return;
+        setMsgs(data);
+        const ids = data.map((m) => m.id);
+        if (ids.length === 0) {
+          setReactions([]);
+          return;
+        }
+        supabase
+          .from("message_reactions")
+          .select("*")
+          .in("message_id", ids)
+          .then(({ data: rx }) => {
+            if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
+          });
       });
   }, [active]);
 
   const sendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
+    if (!active || !user || !orgId) return;
     setSending(true);
     const { error } = await supabase.from("messages").insert({
-      channel_id: active!.id,
-      sender_id: user!.id,
+      channel_id: active.id,
+      org_id: orgId,
+      sender_id: user.id,
       body: body,
     });
+
     setSending(false);
     if (error) return toast.error(error.message);
     setBody("");
