@@ -1,4 +1,4 @@
-import { type Tables } from "@/integrations/supabase/types";
+import type { Dispatch, SetStateAction } from "react";
 
 // Re-using existing types inferred from the original file
 export type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
