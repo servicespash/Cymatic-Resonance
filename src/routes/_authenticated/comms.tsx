@@ -312,11 +312,14 @@ function CommsPage() {
                       <button
                         className="rounded-md bg-frequency px-4 py-2"
                         onClick={async () => {
+                          if (!user) return;
                           const { error } = await supabase.from("channels").insert({
                             name: newChannelName,
                             kind: "broadcast",
                             org_id: orgId,
+                            created_by: user.id,
                           });
+
                           if (!error) {
                             setNewChannelOpen(false);
                             setNewChannelName("");
