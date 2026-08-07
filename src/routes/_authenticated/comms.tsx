@@ -172,7 +172,7 @@ function CommsPage() {
             });
         } else if (user?.id !== m.sender_id) {
           const sender = senders[m.sender_id]?.full_name ?? "Someone";
-          notify(sender, m.body);
+          notify(sender, { body: m.body });
         }
       })
       .subscribe();
