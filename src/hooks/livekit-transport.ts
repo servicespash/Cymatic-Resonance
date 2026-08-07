@@ -1,4 +1,4 @@
-import { Room, RoomEvent, Participant, Track } from "livekit-client";
+import { Room, RoomEvent, Participant } from "livekit-client";
 import { CallTransport } from "./call-transport";
 
 export class LiveKitTransport implements CallTransport {
@@ -29,7 +29,8 @@ export class LiveKitTransport implements CallTransport {
   }
 
   getParticipants(): string[] {
-    return Array.from(this.room.participants.values()).map((p: Participant) => p.identity);
+    const remotes: Participant[] = Array.from(this.room.remoteParticipants.values());
+    return [this.room.localParticipant, ...remotes].map((p) => p.identity);
   }
 
   onParticipantsChange(callback: (participants: string[]) => void) {
@@ -43,7 +44,7 @@ export class LiveKitTransport implements CallTransport {
   };
 
   private async fetchToken(roomId: string, userId: string): Promise<string> {
-    // Implement token fetching from your backend (e.g., Supabase Edge Function)
-    return "your-generated-token";
+    // Implement token fetching from your backend
+    return `${roomId}:${userId}`;
   }
 }
