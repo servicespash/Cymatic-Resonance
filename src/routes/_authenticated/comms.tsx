@@ -456,7 +456,7 @@ function CommsPage() {
       </main>
 
       {/* Call panel for incoming/active calls */}
-      <CallPanel />
+      {active && <CallPanel channelId={active.id} />}
     </div>
   );
 }
