@@ -37,7 +37,6 @@ export interface CommsContextType {
   setLastMessageByChannel: Dispatch<SetStateAction<Record<string, Msg>>>;
   // ...
 
-
   // Actions
   setActiveChannel: (channel: Channel | null) => void;
   sendMessage: (body: string) => Promise<void>;

@@ -6,7 +6,6 @@ import type { Session, User } from "@supabase/supabase-js";
 
 export type { AuthCtx } from "@/lib/auth-context-def";
 
-
 export const Ctx = createContext<AuthCtx>({ session: null, user: null, loading: true });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
