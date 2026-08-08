@@ -12,6 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { AppErrorBoundary } from "@/components/error-boundary";
 
 function NotFoundComponent() {
   return (
@@ -171,10 +172,12 @@ function InnerApp() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <InnerApp />
-      </AuthProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <InnerApp />
+        </AuthProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }

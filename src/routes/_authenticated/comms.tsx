@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useComms, CommsProvider } from "@/lib/comms-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
+import { useCallController } from "@/hooks/use-call-controller";
 import {
   Hash,
   Send,
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/_authenticated/comms")({
 
 type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
 type Msg = { id: string; channel_id: string; sender_id: string; body: string; created_at: string };
+type Reaction = { id: string; message_id: string; emoji: string; user_id: string };
 
 const VERIFIED_CHANNELS = new Set(["announcements", "general", "leadership"]);
 
@@ -62,9 +64,11 @@ function CommsPage() {
     lastMessageByChannel,
     setLastMessageByChannel,
   } = useComms();
-
+  const callController = useCallController();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [pending, setPending] = useState<string[]>([]);
 
   const active = activeChannel;
   const setActive = setActiveChannel;
@@ -128,7 +132,7 @@ function CommsPage() {
           });
         } else if (user?.id !== m.sender_id) {
           const sender = senders[m.sender_id]?.full_name ?? "Someone";
-          notify(sender, m.body);
+          notify(sender, { body: m.body });
         }
       })
       .subscribe();
@@ -145,18 +149,34 @@ function CommsPage() {
       .eq("channel_id", active.id)
       .order("created_at")
       .then(({ data }) => {
-        if (data) setMsgs(data);
+        if (!data) return;
+        setMsgs(data);
+        const ids = data.map((m) => m.id);
+        if (ids.length === 0) {
+          setReactions([]);
+          return;
+        }
+        supabase
+          .from("message_reactions")
+          .select("*")
+          .in("message_id", ids)
+          .then(({ data: rx }) => {
+            if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
+          });
       });
-  }, [active, setMsgs]);
+  }, [active]);
 
   const sendMessage = async () => {
-    if (!body.trim()) return;
+    if (!body.trim() && pending.length === 0) return;
+    if (!active || !user || !orgId) return;
     setSending(true);
     const { error } = await supabase.from("messages").insert({
-      channel_id: active!.id,
-      sender_id: user!.id,
+      channel_id: active.id,
+      org_id: orgId,
+      sender_id: user.id,
       body: body,
     });
+
     setSending(false);
     if (error) return toast.error(error.message);
     setBody("");
@@ -251,11 +271,14 @@ function CommsPage() {
                       <button
                         className="rounded-md bg-frequency px-4 py-2"
                         onClick={async () => {
+                          if (!user) return;
                           const { error } = await supabase.from("channels").insert({
                             name: newChannelName,
                             kind: "broadcast",
                             org_id: orgId,
+                            created_by: user.id,
                           });
+
                           if (!error) {
                             setNewChannelOpen(false);
                             setNewChannelName("");
@@ -391,7 +414,8 @@ function CommsPage() {
         )}
       </main>
 
-      <CallPanel />
+      {/* Call panel for incoming/active calls */}
+      {active && <CallPanel channelId={active.id} />}
     </div>
   );
 }

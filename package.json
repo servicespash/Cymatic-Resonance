@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "deploy": "npm run build",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:dev": "vite build --mode development"
   },
   "overrides": {
     "undici": "^7.29.0"
