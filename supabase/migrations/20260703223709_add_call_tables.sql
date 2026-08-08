@@ -79,7 +79,22 @@ CREATE INDEX IF NOT EXISTS participants_call_idx ON public.call_participants(cal
 CREATE INDEX IF NOT EXISTS participants_user_idx ON public.call_participants(user_id, state);
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.calls;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.call_participants;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'calls'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.calls;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'call_participants'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.call_participants;
+  END IF;
+END
+$$;
 ALTER TABLE public.calls REPLICA IDENTITY FULL;
 ALTER TABLE public.call_participants REPLICA IDENTITY FULL;
