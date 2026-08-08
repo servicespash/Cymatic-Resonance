@@ -7,11 +7,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "dev-spa": "vite dev -c vite.dev-spa.config.ts",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build",
     "lint": "eslint .",
     "format": "prettier --write ."
+  },
+  "overrides": {
+    "undici": "^7.29.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -88,9 +92,11 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "msw": "^2.15.0",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
+    "undici": "^7.29.0",
     "vite": "^7.3.1",
     "wrangler": "^4.118.0"
   },

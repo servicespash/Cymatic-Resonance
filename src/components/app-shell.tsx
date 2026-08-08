@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform glass-strong border-r border-white/5 transition-transform md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-white/5 glass-strong transition-transform md:static md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -135,13 +135,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="glass sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/5 px-4 py-3 md:px-6">
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/5 glass px-4 py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
               <Menu className="size-5" />
             </button>
             <div className="min-w-0">
-              <div className="font-display text-base font-semibold truncate">
+              <div className="truncate font-display text-base font-semibold">
                 {org?.name ?? "Cymatic Resonance"}
               </div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">

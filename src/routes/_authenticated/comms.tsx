@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { type Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/lib/auth-context";
 import { useComms, CommsProvider } from "@/lib/comms-context";
 import { CymaticWave } from "@/components/cymatic-wave";
@@ -16,15 +15,8 @@ import {
   Video,
   SmilePlus,
   Paperclip,
-  Mic,
-  X,
-  FileText,
-  ImageIcon,
-  CheckCheck,
-  BadgeCheck,
-  MessageSquarePlus,
-  PhoneIncoming,
   Users,
+  BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,14 +27,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { VoiceRecorder, type RecordedAudio } from "@/components/voice-recorder";
-import { CommAttachment, type Attachment } from "@/components/comm-attachment";
 import { CallPanel } from "@/components/call-panel";
-import { useCallController } from "@/hooks/use-call-controller";
-import { ensureNotificationPermission, isWindowActive, notify } from "@/lib/notifications";
-
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const MAX_FILES = 5;
+import { ensureNotificationPermission, notify } from "@/lib/notifications";
 
 export const Route = createFileRoute("/_authenticated/comms")({
   component: () => (
@@ -56,20 +42,11 @@ export const Route = createFileRoute("/_authenticated/comms")({
 
 type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
 type Msg = { id: string; channel_id: string; sender_id: string; body: string; created_at: string };
-type Sender = { id: string; full_name: string | null; role: string };
-type Thread = {
-  id: string;
-  channel_id: string;
-  user_a: string;
-  user_b: string;
-  last_message_at: string;
-};
-type Reaction = { id: string; message_id: string; user_id: string; emoji: string };
 
-const QUICK_EMOJIS = ["👍", "❤️", "🔥", "🎉", "😂", "🙏", "👀", "✨"];
 const VERIFIED_CHANNELS = new Set(["announcements", "general", "leadership"]);
 
 function CommsPage() {
+  const { user } = useAuth();
   const {
     channels,
     setChannels,
@@ -79,40 +56,25 @@ function CommsPage() {
     setThreads,
     messages: msgs,
     setMessages: setMsgs,
-    reactions,
-    setReactions,
     senders,
     setSenders,
-    reads,
     setReads,
     lastMessageByChannel,
     setLastMessageByChannel,
   } = useComms();
-  const callController = useCallController();
+
   const [orgId, setOrgId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const active = activeChannel;
   const setActive = setActiveChannel;
 
-  // const [senders, setSenders] = useState<Record<string, Sender>>({}); // Removed local state
-  // const [reads, setReads] = useState<Record<string, string>>({}); // Removed local state
-  // const [lastMessageByChannel, setLastMessageByChannel] = useState<Record<string, Msg>>({}); // Removed local state
-  // ...
-
-  const [tab, setTab] = useState<"all" | "channels" | "direct" | "verified">("all");
+  const [tab] = useState<"all" | "channels" | "direct" | "verified">("all");
   const [search, setSearch] = useState("");
   const [body, setBody] = useState("");
   const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
-  const [newDmOpen, setNewDmOpen] = useState(false);
-  const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<Record<string, Attachment[]>>({});
-  const [pending, setPending] = useState<File[]>([]);
-  const [recording, setRecording] = useState(false);
   const [sending, setSending] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const activeRef = useRef<Channel | null>(null);
   activeRef.current = active;
@@ -121,7 +83,6 @@ function CommsPage() {
     ensureNotificationPermission();
   }, []);
 
-  // init
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -149,9 +110,8 @@ function CommsPage() {
       if (th) setThreads(th);
       if (rd) setReads(Object.fromEntries(rd.map((r) => [r.channel_id, r.last_read_at])));
     })();
-  }, [user]);
+  }, [user, setChannels, setSenders, setThreads, setReads]);
 
-  // messages
   useEffect(() => {
     if (!orgId) return;
     const ch = supabase
@@ -161,13 +121,11 @@ function CommsPage() {
         setMsgs((prev) => [...prev, m]);
         setLastMessageByChannel((prev) => ({ ...prev, [m.channel_id]: m }));
         if (activeRef.current?.id === m.channel_id) {
-          supabase
-            .from("message_reads")
-            .upsert({
-              channel_id: m.channel_id,
-              user_id: user!.id,
-              last_read_at: new Date().toISOString(),
-            });
+          supabase.from("message_reads").upsert({
+            channel_id: m.channel_id,
+            user_id: user!.id,
+            last_read_at: new Date().toISOString(),
+          });
         } else if (user?.id !== m.sender_id) {
           const sender = senders[m.sender_id]?.full_name ?? "Someone";
           notify(sender, m.body);
@@ -177,7 +135,7 @@ function CommsPage() {
     return () => {
       ch.unsubscribe();
     };
-  }, [orgId, senders, user]);
+  }, [orgId, senders, user, setMsgs, setLastMessageByChannel]);
 
   useEffect(() => {
     if (!active) return;
@@ -189,17 +147,10 @@ function CommsPage() {
       .then(({ data }) => {
         if (data) setMsgs(data);
       });
-    supabase
-      .from("message_reactions")
-      .select("*")
-      .eq("channel_id", active.id)
-      .then(({ data }) => {
-        if (data) setReactions(data);
-      });
-  }, [active]);
+  }, [active, setMsgs]);
 
   const sendMessage = async () => {
-    if (!body.trim() && pending.length === 0) return;
+    if (!body.trim()) return;
     setSending(true);
     const { error } = await supabase.from("messages").insert({
       channel_id: active!.id,
@@ -209,7 +160,6 @@ function CommsPage() {
     setSending(false);
     if (error) return toast.error(error.message);
     setBody("");
-    setPending([]);
   };
 
   const conversations = useMemo(() => {
@@ -234,7 +184,7 @@ function CommsPage() {
     });
     items.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
     return items;
-  }, [channels, lastMessageByChannel, threads, senders, user]);
+  }, [channels, lastMessageByChannel, threads, senders, user?.id]);
 
   const filtered = useMemo(() => {
     let list = conversations;
@@ -271,7 +221,7 @@ function CommsPage() {
     : "";
 
   return (
-    <div className="-m-4 md:-m-6 flex h-[calc(100vh-4.5rem)] flex-col lg:grid lg:grid-cols-[380px_1fr]">
+    <div className="-m-4 flex h-[calc(100vh-4.5rem)] flex-col md:-m-6 lg:grid lg:grid-cols-[380px_1fr]">
       {/* Conversation list */}
       <aside
         className={`flex min-h-0 flex-col border-r border-white/5 bg-card/30 ${active ? "hidden lg:flex" : "flex"}`}
@@ -386,7 +336,7 @@ function CommsPage() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
               {msgs.map((m) => (
                 <div key={m.id} className="flex gap-3">
                   <div className="h-8 w-8 rounded-full bg-white/5" />
@@ -441,7 +391,6 @@ function CommsPage() {
         )}
       </main>
 
-      {/* Call panel for incoming/active calls */}
       <CallPanel />
     </div>
   );

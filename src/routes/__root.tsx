@@ -1,3 +1,4 @@
+import { CymaticWave } from "@/components/cymatic-wave";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -9,7 +10,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { AuthProvider } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -143,13 +144,36 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function InnerApp() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#030712] text-white font-mono text-xs">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="tracking-widest uppercase text-muted-foreground">
+            Synchronizing Cymatic Frequency...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Outlet />
+      <Toaster theme="dark" />
+    </>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
-        <Toaster theme="dark" />
+        <InnerApp />
       </AuthProvider>
     </QueryClientProvider>
   );

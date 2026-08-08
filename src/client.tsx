@@ -11,20 +11,19 @@ async function main() {
       root.id = "root";
       document.body.appendChild(root);
     }
-    
-    root.innerHTML = ""; 
+
+    root.innerHTML = "";
     const router = await getRouter();
-    
-    // Use StrictMode to surface potential rendering errors
+
     const rootElement = createRoot(root);
     rootElement.render(
       <StrictMode>
         <RouterProvider router={router} />
-      </StrictMode>
+      </StrictMode>,
     );
-  } catch (err: any) {
-    const errorMsg = err?.message || String(err);
-    const stack = err?.stack || "";
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack || "" : "";
     document.body.innerHTML = `<div style="padding: 20px; color: red; background: black; min-height: 100vh; position: absolute; top: 0; left: 0; width: 100%; z-index: 9999;">
       <h1>RENDER ERROR</h1>
       <pre style="white-space: pre-wrap;">${errorMsg}</pre>

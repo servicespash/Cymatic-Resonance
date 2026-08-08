@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { AuthCtx } from "@/lib/auth-context-def";
+import type { Session, User } from "@supabase/supabase-js";
+
 export type { AuthCtx } from "@/lib/auth-context-def";
 
 export const Ctx = createContext<AuthCtx>({ session: null, user: null, loading: true });
@@ -11,23 +13,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions immediately on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    let isMounted = true;
 
-    // Listen for auth state changes globally
+    // Hard safety timer to prevent Cloudflare SSR / Hydration deadlock
+
+    async function initAuth() {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (isMounted) {
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+        }
+      } catch (err) {
+        console.error("[Auth Context] Failed to fetch session:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initAuth();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      if (isMounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo(() => ({ session, user, loading }), [session, user, loading]);
