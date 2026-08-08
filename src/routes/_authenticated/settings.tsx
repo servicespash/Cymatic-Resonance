@@ -238,12 +238,7 @@ function SettingsPage() {
       )}
 
       {/* Brand */}
-      {isAdmin && org && (
-        <BrandPanel
-          orgId={org.id}
-          logoUrl={org.logo_url}
-          accentColor={org.accent_color}
-          onChange={(patch) => setOrg({ ...org, ...patch } as Org)}
+{isAdmin && org && (<BrandPanel ... />)}
         />
       )}
 
@@ -336,33 +331,7 @@ function SettingsPage() {
       </section>
 
       {/* Danger zone */}
-      {isAdmin && org && (
-        <section className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
-          <div className="flex items-center gap-2 text-red-300">
-            <ShieldAlert className="size-4" />
-            <h3 className="font-display text-lg font-semibold">Danger zone</h3>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Deleting this workspace removes every channel, message, attendance record, and unlinks
-            all members. This cannot be undone.
-          </p>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/20">
-                Delete workspace
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="glass-strong border-red-500/20">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {org.name}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Type the workspace name <span className="font-mono text-red-300">{org.name}</span>{" "}
-                  to confirm.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <input
-                value={confirmName}
-                onChange={(e) => setConfirmName(e.target.value)}
+{isAdmin && org && (<BrandPanel ... />)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-red-500/40"
               />
               <AlertDialogFooter>
