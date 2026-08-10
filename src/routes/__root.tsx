@@ -1,4 +1,3 @@
-import { CymaticWave } from "@/components/cymatic-wave";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,

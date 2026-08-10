@@ -5,7 +5,6 @@ import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import {
   ArrowRight,
   Radio,
-  Activity,
   ShieldCheck,
   MessagesSquare,
   Waves,

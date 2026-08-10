@@ -1,15 +1,7 @@
 // Global call state: ringing overlay for incoming calls, mounted active call,
 // API for the rest of the app to start a call.
 
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Phone, PhoneOff, Video } from "lucide-react";

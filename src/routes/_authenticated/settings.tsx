@@ -251,7 +251,6 @@ function SettingsPage() {
       {/* Sound preferences */}
       <SoundSettings />
 
-
       {/* Invites */}
       {isAdmin && <InvitePanel />}
 

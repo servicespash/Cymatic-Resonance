@@ -677,7 +677,6 @@ export function CallContainer({
                       stream={p.stream}
                       name={peers[p.userId]?.full_name ?? (p.isSelf ? "You" : "Participant")}
                       isSelf={p.isSelf}
-                      state={p.state}
                       video={video}
                       isHandRaised={!!raisedHands[p.userId]}
                       onClick={() => setFeaturedUserId(p.userId)}
@@ -746,7 +745,7 @@ export function CallContainer({
                   </p>
                 </div>
               ) : (
-                messages.map((m, i) => {
+                messages.map((m) => {
                   const isMine = m.sender_id === selfId;
                   const senderName =
                     peers[m.sender_id]?.full_name ?? (isMine ? "You" : "Participant");
@@ -1117,7 +1116,6 @@ function ThumbnailTile({
   stream,
   name,
   isSelf,
-  state,
   video,
   isHandRaised,
   onClick,
@@ -1125,7 +1123,6 @@ function ThumbnailTile({
   stream: MediaStream | null;
   name: string;
   isSelf: boolean;
-  state: RTCPeerConnectionState;
   video: boolean;
   isHandRaised: boolean;
   onClick: () => void;

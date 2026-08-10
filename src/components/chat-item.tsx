@@ -1,5 +1,5 @@
 import { useLongPress } from "@/hooks/use-long-press";
-import { Users, Hash, BadgeCheck, Trash2 } from "lucide-react";
+import { Users, Hash, BadgeCheck } from "lucide-react";
 import { Msg, Channel } from "@/lib/comms-context-def";
 
 export const ChatItem = ({

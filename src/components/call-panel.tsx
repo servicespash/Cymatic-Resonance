@@ -1,5 +1,5 @@
 import { Phone, PhoneOff, Users } from "lucide-react";
-import { useCallManager, CallState } from "@/hooks/useCallManager";
+import { useCallManager } from "@/hooks/useCallManager";
 
 export function CallPanel({ channelId }: { channelId: string }) {
   const { state, participants, joinCall, leaveCall } = useCallManager(channelId);

@@ -40,6 +40,7 @@ export interface CommsContextType {
   // Actions
   setActiveChannel: (channel: Channel | null) => void;
   sendMessage: (body: string) => Promise<void>;
+  startDm: (otherId: string) => Promise<void>;
   // ... future actions: addReaction, deleteMessage, etc.
 
   loading: boolean;
