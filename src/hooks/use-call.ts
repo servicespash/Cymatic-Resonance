@@ -83,7 +83,7 @@ export function useCall(opts: {
           if (p.from === selfId) return;
           if (p.type === "hello") {
             // Deterministic offerer: lexicographically smaller id initiates
-            if (selfId < p.from) await callTo(p.from);
+            if (selfId.localeCompare(p.from) < 0) await callTo(p.from);
             else ensurePeer(p.from);
             return;
           }
