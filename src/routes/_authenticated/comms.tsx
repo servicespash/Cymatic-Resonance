@@ -111,7 +111,7 @@ function CommsPage() {
   };
 
   const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
-    if ('clientX' in e) {
+    if ("clientX" in e) {
       return { x: e.clientX, y: e.clientY };
     }
     const touchEvent = e as React.TouchEvent;
