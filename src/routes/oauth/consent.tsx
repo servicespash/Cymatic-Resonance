@@ -30,9 +30,9 @@ function ConsentPage() {
       } else {
         throw new Error("No session established. Please try logging in again.");
       }
-    } catch (err: Error) {
+    } catch (err: unknown) {
       console.error("Consent error:", err);
-      setError(err.message || "An unexpected error occurred.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

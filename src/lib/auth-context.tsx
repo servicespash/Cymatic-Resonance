@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { AuthCtx } from "@/lib/auth-context-def";
-import type { Session, User } from "@supabase/supabase-js";
 
 export type { AuthCtx } from "@/lib/auth-context-def";
 

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InvitePanel } from "@/components/invite-panel";
 import { BrandPanel } from "@/components/brand-panel";
+import { SoundSettings } from "@/components/sound-settings";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: () => (
@@ -238,9 +239,18 @@ function SettingsPage() {
       )}
 
       {/* Brand */}
-{isAdmin && org && (<BrandPanel ... />)}
+      {isAdmin && org && (
+        <BrandPanel
+          orgId={org.id}
+          logoUrl={org.logo_url}
+          accentColor={org.accent_color}
+          onChange={(patch) => setOrg({ ...org, ...patch })}
         />
       )}
+
+      {/* Sound preferences */}
+      <SoundSettings />
+
 
       {/* Invites */}
       {isAdmin && <InvitePanel />}
@@ -331,9 +341,36 @@ function SettingsPage() {
       </section>
 
       {/* Danger zone */}
-{isAdmin && org && (<BrandPanel ... />)}
+      {isAdmin && org && (
+        <section className="glass rounded-2xl border border-red-500/20 p-6">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="size-4 text-red-400" />
+            <h3 className="font-display text-lg font-semibold">Danger zone</h3>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Deleting the workspace removes all members, attendance and messages. This cannot be
+            undone.
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-500/20">
+                Delete workspace
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="glass-strong">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete “{org.name}”?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Type the workspace name to confirm permanent deletion.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <input
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                placeholder={org.name}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-red-500/40"
               />
+
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={deleteOrg} className="bg-red-500/80 hover:bg-red-500">
