@@ -13,7 +13,7 @@ export const useCymaticAudio = () => {
       if (!audioContextRef.current) {
         const AudioContextConstructor =
           window.AudioContext ||
-          (window as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         audioContextRef.current = new AudioContextConstructor();
       }
 

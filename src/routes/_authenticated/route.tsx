@@ -5,6 +5,12 @@ import { CallProvider } from "@/components/call-provider";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Workspace — Cymatic Resonance" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.user) throw redirect({ to: "/auth" });

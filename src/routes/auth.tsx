@@ -25,7 +25,12 @@ export const Route = createFileRoute("/auth")({
       <AuthPage />
     </ErrorBoundary>
   ),
-  head: () => ({ meta: [{ title: "Enter workspace — Cymatic Resonance" }] }),
+  head: () => ({
+    meta: [
+      { title: "Enter workspace — Cymatic Resonance" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 const baseSignUp = {

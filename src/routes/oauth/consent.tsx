@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/oauth/consent")({
   component: ConsentPage,
+  head: () => ({
+    meta: [
+      { title: "Grant Access — Cymatic Resonance" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 function ConsentPage() {

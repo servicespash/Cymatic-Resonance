@@ -26,6 +26,8 @@ export const Route = createFileRoute("/")({
         content:
           "Elite real-time attendance, workspace presence, DMs and group video calls. One workspace, one CYM access code, total clarity. Designed by Isabirye Latif (cymatichub.xyz).",
       },
+      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1" },
+      { name: "googlebot", content: "index, follow" },
       { property: "og:title", content: "Cymatic Resonance — Team presence, in resonance" },
       {
         property: "og:description",

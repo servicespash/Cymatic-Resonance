@@ -110,6 +110,20 @@ function CommsPage() {
     setContextMenu(null);
   };
 
+  const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('clientX' in e) {
+      return { x: e.clientX, y: e.clientY };
+    }
+    const touchEvent = e as React.TouchEvent;
+    if (touchEvent.touches && touchEvent.touches[0]) {
+      return { x: touchEvent.touches[0].clientX, y: touchEvent.touches[0].clientY };
+    }
+    if (touchEvent.changedTouches && touchEvent.changedTouches[0]) {
+      return { x: touchEvent.changedTouches[0].clientX, y: touchEvent.changedTouches[0].clientY };
+    }
+    return { x: 0, y: 0 };
+  };
+
   const active = activeChannel;
   const setActive = setActiveChannel;
 
@@ -640,9 +654,10 @@ function CommsPage() {
               c={c}
               active={active}
               setActive={setActive}
-              onLongPress={(e) =>
-                setContextMenu({ x: e.clientX, y: e.clientY, id: c.channel.id, type: "chat" })
-              }
+              onLongPress={(e) => {
+                const coords = getCoords(e);
+                setContextMenu({ x: coords.x, y: coords.y, id: c.channel.id, type: "chat" });
+              }}
               isSelectionMode={isSelectionMode}
               isSelected={selectedChats.has(c.channel.id)}
               onToggleSelection={() => {
@@ -750,9 +765,10 @@ function CommsPage() {
                     setActiveReactionPicker={setActiveReactionPicker}
                     handleToggleReaction={handleToggleReaction}
                     handleDeleteMessage={handleDeleteMessage}
-                    onLongPress={(e) =>
-                      setContextMenu({ x: e.clientX, y: e.clientY, id: m.id, type: "message" })
-                    }
+                    onLongPress={(e) => {
+                      const coords = getCoords(e);
+                      setContextMenu({ x: coords.x, y: coords.y, id: m.id, type: "message" });
+                    }}
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedMessages.has(m.id)}
                     onToggleSelection={() => {

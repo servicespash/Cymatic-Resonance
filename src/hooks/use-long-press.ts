@@ -5,7 +5,7 @@ export const useLongPress = (
   ms = 500,
 ) => {
   const [startLongPress, setStartLongPress] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const start = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
