@@ -1,0 +1,11 @@
+Default inspector port 9229 not available, using 9230 instead
+
+Port 3000 is in use, trying another one...
+
+  VITE v7.3.6  ready in 9552 ms
+
+  ➜  Local:   http://localhost:3001/
+  ➜  Network: http://169.254.8.1:3001/
+  ➜  Network: http://169.254.9.1:3001/
+  ➜  Network: http://169.254.169.1:3001/
+  ➜  Debug:   http://localhost:3001/__debug
