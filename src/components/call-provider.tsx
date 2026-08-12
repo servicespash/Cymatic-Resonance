@@ -169,16 +169,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (!incoming || !user) return;
     ringtone.current.stop();
 
-    await supabase
-      .from("call_participants")
-      .update({
-        state: "joined",
-        joined_at: new Date().toISOString(),
-      })
-      .eq("call_id", incoming.id)
-      .eq("user_id", user.id);
-
-    await supabase.from("calls").update({ status: "active" }).eq("id", incoming.id);
+    await supabase.rpc("join_call", { _call_id: incoming.id });
     setActive({ id: incoming.id, kind: incoming.kind });
     setIncoming(null);
   }, [incoming, user]);
@@ -199,16 +190,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const joinCall = useCallback(
     async (callId: string, kind: "audio" | "video") => {
       if (!user) return;
-      await supabase.from("call_participants").upsert(
-        {
-          call_id: callId,
-          user_id: user.id,
-          state: "joined",
-          joined_at: new Date().toISOString(),
-        } as Database["public"]["Tables"]["call_participants"]["Insert"],
-        { onConflict: "call_id,user_id" },
-      );
-      await supabase.from("calls").update({ status: "active" }).eq("id", callId);
+      await supabase.rpc("join_call", { _call_id: callId });
       setActive({ id: callId, kind });
     },
     [user],
@@ -217,12 +199,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const handleLeaveCall = useCallback(async () => {
     if (!active || !user) return;
 
-    await supabase
-      .from("call_participants")
-      .update({ state: "left" })
-      .eq("call_id", active.id)
-      .eq("user_id", user.id);
-
+    await supabase.rpc("leave_call", { _call_id: active.id });
     setActive(null);
   }, [active, user]);
 
