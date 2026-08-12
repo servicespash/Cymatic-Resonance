@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InvitePanel } from "@/components/invite-panel";
 import { BrandPanel } from "@/components/brand-panel";
-import { SoundSettings } from "@/components/sound-settings";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: () => (
@@ -248,9 +247,6 @@ function SettingsPage() {
         />
       )}
 
-      {/* Sound preferences */}
-      <SoundSettings />
-
       {/* Invites */}
       {isAdmin && <InvitePanel />}
 
@@ -342,25 +338,21 @@ function SettingsPage() {
       {/* Danger zone */}
       {isAdmin && org && (
         <section className="glass rounded-2xl border border-red-500/20 p-6">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="size-4 text-red-400" />
-            <h3 className="font-display text-lg font-semibold">Danger zone</h3>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Deleting the workspace removes all members, attendance and messages. This cannot be
-            undone.
+          <h3 className="font-display text-lg font-semibold text-red-400">Danger Zone</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Delete this organization and all its data permanently.
           </p>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <button className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-500/20">
-                Delete workspace
+              <button className="mt-4 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20">
+                Delete organization
               </button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="glass-strong">
+            <AlertDialogContent className="bg-background/95 backdrop-blur-xl border-white/10">
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete “{org.name}”?</AlertDialogTitle>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Type the workspace name to confirm permanent deletion.
+                  This action cannot be undone. Type <span className="font-mono text-foreground font-bold">{org.name}</span> to confirm.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <input
@@ -369,7 +361,6 @@ function SettingsPage() {
                 placeholder={org.name}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-red-500/40"
               />
-
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={deleteOrg} className="bg-red-500/80 hover:bg-red-500">

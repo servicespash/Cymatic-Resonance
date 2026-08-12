@@ -1,10 +1,11 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth-context";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import {
   ArrowRight,
   Radio,
+  Activity,
   ShieldCheck,
   MessagesSquare,
   Waves,

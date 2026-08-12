@@ -1,9 +1,17 @@
 // Global call state: ringing overlay for incoming calls, mounted active call,
 // API for the rest of the app to start a call.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth-context";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
 import { CallRoom } from "@/components/call-room";
@@ -169,7 +177,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (!incoming || !user) return;
     ringtone.current.stop();
 
-    await supabase.rpc("join_call", { _call_id: incoming.id });
+    await supabase
+      .from("call_participants")
+      .update({
+        state: "joined",
+        joined_at: new Date().toISOString(),
+      })
+      .eq("call_id", incoming.id)
+      .eq("user_id", user.id);
+
+    await supabase.from("calls").update({ status: "active" }).eq("id", incoming.id);
     setActive({ id: incoming.id, kind: incoming.kind });
     setIncoming(null);
   }, [incoming, user]);
@@ -190,7 +207,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const joinCall = useCallback(
     async (callId: string, kind: "audio" | "video") => {
       if (!user) return;
-      await supabase.rpc("join_call", { _call_id: callId });
+      await supabase.from("call_participants").upsert(
+        {
+          call_id: callId,
+          user_id: user.id,
+          state: "joined",
+          joined_at: new Date().toISOString(),
+        } as Database["public"]["Tables"]["call_participants"]["Insert"],
+        { onConflict: "call_id,user_id" },
+      );
+      await supabase.from("calls").update({ status: "active" }).eq("id", callId);
       setActive({ id: callId, kind });
     },
     [user],
@@ -199,7 +225,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const handleLeaveCall = useCallback(async () => {
     if (!active || !user) return;
 
-    await supabase.rpc("leave_call", { _call_id: active.id });
+    await supabase
+      .from("call_participants")
+      .update({ state: "left" })
+      .eq("call_id", active.id)
+      .eq("user_id", user.id);
+
     setActive(null);
   }, [active, user]);
 

@@ -1,7 +1,7 @@
 import { useLongPress } from "@/hooks/use-long-press";
 import type { User } from "@supabase/supabase-js";
 import { Shield, Smile, Trash2 } from "lucide-react";
-import { Msg, Sender } from "@/lib/comms-context-def";
+import { Msg, Reaction, Sender } from "@/lib/comms-context-def";
 import { CommAttachment, type Attachment } from "@/components/comm-attachment";
 import { getNotificationPrefs } from "@/lib/notifications";
 

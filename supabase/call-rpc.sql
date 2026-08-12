@@ -1,43 +1,40 @@
 -- RPC: Join Call
-CREATE OR REPLACE FUNCTION public.join_call(_call_id uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  -- 1. Insert participant if not exists (state 'joined')
-  INSERT INTO public.call_participants (call_id, user_id, state, joined_at)
-  VALUES (_call_id, auth.uid(), 'joined', now())
-  ON CONFLICT (call_id, user_id) 
-  DO UPDATE SET state = 'joined', joined_at = now();
+-- Robustly joins a call room, handles room creation if it doesn't exist
+create or replace function join_call(_channel_id uuid)
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  _room_id uuid;
+  _user_id uuid := auth.uid();
+begin
+  -- Get or create active room
+  select id into _room_id from call_rooms where channel_id = _channel_id and active = true limit 1;
+  
+  if _room_id is null then
+    insert into call_rooms (channel_id, active) values (_channel_id, true) returning id into _room_id;
+  end if;
 
-  -- 2. If call was 'ringing', update status to 'active'
-  UPDATE public.calls 
-  SET status = 'active'
-  WHERE id = _call_id AND status = 'ringing';
-END;
+  -- Upsert participant
+  insert into call_participants (room_id, user_id, status)
+  values (_room_id, _user_id, 'active')
+  on conflict (room_id, user_id)
+  do update set status = 'active', last_seen_at = now();
+
+  return jsonb_build_object('room_id', _room_id);
+end;
 $$;
 
 -- RPC: Leave Call
-CREATE OR REPLACE FUNCTION public.leave_call(_call_id uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  -- 1. Mark participant as left
-  UPDATE public.call_participants 
-  SET state = 'left', left_at = now()
-  WHERE call_id = _call_id AND user_id = auth.uid();
-
-  -- 2. If no 'joined' participants left, end the call
-  IF NOT EXISTS (
-    SELECT 1 FROM public.call_participants 
-    WHERE call_id = _call_id AND state = 'joined'
-  ) THEN
-    UPDATE public.calls SET status = 'ended', ended_at = now() WHERE id = _call_id;
-  END IF;
-END;
+create or replace function leave_call(_room_id uuid)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update call_participants 
+  set status = 'inactive' 
+  where room_id = _room_id and user_id = auth.uid();
+end;
 $$;

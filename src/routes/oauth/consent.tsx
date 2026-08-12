@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/oauth/consent")({
@@ -32,7 +32,7 @@ function ConsentPage() {
       }
     } catch (err: unknown) {
       console.error("Consent error:", err);
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setError((err as Error).message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

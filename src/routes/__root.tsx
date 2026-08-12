@@ -1,3 +1,4 @@
+import { CymaticWave } from "@/components/cymatic-wave";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -9,8 +10,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { AuthProvider } from "@/lib/auth-context";
-import { useAuth } from "@/hooks/use-auth";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { AppErrorBoundary } from "@/components/error-boundary";
 

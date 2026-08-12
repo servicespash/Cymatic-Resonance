@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useComms } from "@/hooks/use-comms";
-import { CommsProvider } from "@/lib/comms-context";
+import { useAuth } from "@/lib/auth-context";
+import { useComms, CommsProvider } from "@/lib/comms-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { useCallController } from "@/hooks/use-call-controller";
@@ -19,8 +18,6 @@ import {
   Paperclip,
   Users,
   BadgeCheck,
-  ListTodo,
-  MessageSquarePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -31,9 +28,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { CallPanel } from "@/components/call-panel";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
-import { CallHistoryPanel } from "@/components/call-history";
-import { TasksPanel } from "@/components/tasks-panel";
 
 export const Route = createFileRoute("/_authenticated/comms")({
   component: () => (
@@ -67,14 +63,12 @@ function CommsPage() {
     setReads,
     lastMessageByChannel,
     setLastMessageByChannel,
-    sendMessage,
-    startDm,
   } = useComms();
   const callController = useCallController();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [, setReactions] = useState<Reaction[]>([]);
-  const [pending] = useState<string[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [pending, setPending] = useState<string[]>([]);
 
   const active = activeChannel;
   const setActive = setActiveChannel;
@@ -83,8 +77,6 @@ function CommsPage() {
   const [search, setSearch] = useState("");
   const [body, setBody] = useState("");
   const [newChannelOpen, setNewChannelOpen] = useState(false);
-  const [newDmOpen, setNewDmOpen] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [sending, setSending] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -121,39 +113,8 @@ function CommsPage() {
       if (mem) setSenders(Object.fromEntries(mem.map((s) => [s.id, s])));
       if (th) setThreads(th);
       if (rd) setReads(Object.fromEntries(rd.map((r) => [r.channel_id, r.last_read_at])));
-
-      // Restore the last opened conversation so chat history survives reloads.
-      const lastId =
-        typeof window !== "undefined" ? window.localStorage.getItem("cym.lastChannel") : null;
-      const restored = lastId ? (chs ?? []).find((c) => c.id === lastId) : null;
-      if (restored) setActiveChannel(restored as Channel);
     })();
-  }, [user, setChannels, setSenders, setThreads, setReads, setActiveChannel]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (active?.id) window.localStorage.setItem("cym.lastChannel", active.id);
-    else window.localStorage.removeItem("cym.lastChannel");
-  }, [active?.id]);
-
-  // Cache the loaded history per channel so it renders instantly on return.
-  useEffect(() => {
-    if (!active || typeof window === "undefined") return;
-    const cached = window.localStorage.getItem(`cym.msgs.${active.id}`);
-    if (cached && msgs.length === 0) {
-      try {
-        setMsgs(JSON.parse(cached) as Msg[]);
-      } catch {
-        /* ignore malformed cache */
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id]);
-
-  useEffect(() => {
-    if (!active || typeof window === "undefined" || msgs.length === 0) return;
-    window.localStorage.setItem(`cym.msgs.${active.id}`, JSON.stringify(msgs.slice(-100)));
-  }, [msgs, active?.id, active]);
+  }, [user, setChannels, setSenders, setThreads, setReads]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -203,34 +164,22 @@ function CommsPage() {
             if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
           });
       });
-  }, [active, setMsgs]);
+  }, [active]);
 
-  const handleSendMessage = async () => {
+  const sendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
+    if (!active || !user || !orgId) return;
     setSending(true);
-    await sendMessage(body);
+    const { error } = await supabase.from("messages").insert({
+      channel_id: active.id,
+      org_id: orgId,
+      sender_id: user.id,
+      body: body,
+    });
+
     setSending(false);
+    if (error) return toast.error(error.message);
     setBody("");
-  };
-
-  const handleStartDm = async (otherId: string) => {
-    setNewDmOpen(false);
-    await startDm(otherId);
-  };
-
-  const dmTarget = () => {
-    if (!active || active.kind !== "dm" || !user) return null;
-    const t = threads.find((x) => x.channel_id === active.id);
-    if (!t) return null;
-    return t.user_a === user.id ? t.user_b : t.user_a;
-  };
-
-  const placeCall = (kind: "audio" | "video") => {
-    if (!active) return;
-    const target = dmTarget();
-    const recipients = target ? [target] : Object.keys(senders).filter((id) => id !== user?.id);
-    if (recipients.length === 0) return toast.error("No one else in this workspace yet");
-    callController.startCall(active.id, recipients, kind);
   };
 
   const conversations = useMemo(() => {
@@ -301,67 +250,6 @@ function CommsPage() {
           <div className="mb-4 flex items-center justify-between">
             <h1 className="font-display text-2xl font-bold tracking-tight">Chats</h1>
             <div className="flex items-center gap-1">
-              <Dialog open={newDmOpen} onOpenChange={setNewDmOpen}>
-                <DialogTrigger asChild>
-                  <button className="rounded-lg p-2 hover:bg-white/5" aria-label="New chat">
-                    <MessageSquarePlus className="h-5 w-5" />
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="glass-strong">
-                  <DialogHeader>
-                    <DialogTitle>New chat</DialogTitle>
-                  </DialogHeader>
-                  <div className="max-h-72 space-y-1 overflow-y-auto">
-                    {Object.values(senders)
-                      .filter((s) => s.id !== user?.id)
-                      .map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => handleStartDm(s.id)}
-                          className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-sm hover:bg-white/5"
-                        >
-                          <span className="grid size-8 place-items-center rounded-full bg-frequency/20">
-                            <Users className="size-4" />
-                          </span>
-                          <span className="flex-1 truncate">{s.full_name ?? "Member"}</span>
-                          <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                            {s.role}
-                          </span>
-                        </button>
-                      ))}
-                    {Object.keys(senders).length <= 1 && (
-                      <p className="py-4 text-center text-xs text-muted-foreground">
-                        Invite teammates to start chatting.
-                      </p>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog open={tasksOpen} onOpenChange={setTasksOpen}>
-                <DialogTrigger asChild>
-                  <button className="rounded-lg p-2 hover:bg-white/5" aria-label="Tasks">
-                    <ListTodo className="h-5 w-5" />
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="glass-strong max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Tasks</DialogTitle>
-                  </DialogHeader>
-                  {user && (
-                    <TasksPanel
-                      orgId={orgId}
-                      userId={user.id}
-                      isAdmin={isAdmin}
-                      members={Object.values(senders).map((s) => ({
-                        id: s.id,
-                        full_name: s.full_name,
-                      }))}
-                    />
-                  )}
-                </DialogContent>
-              </Dialog>
-
               {isAdmin && (
                 <Dialog open={newChannelOpen} onOpenChange={setNewChannelOpen}>
                   <DialogTrigger asChild>
@@ -448,8 +336,6 @@ function CommsPage() {
             </button>
           ))}
         </nav>
-
-        <CallHistoryPanel />
       </aside>
 
       {/* Main chat */}
@@ -464,18 +350,10 @@ function CommsPage() {
                 <h2 className="font-semibold">{activeTitle}</h2>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => placeCall("audio")}
-                  aria-label="Start audio call"
-                  className="rounded-full p-2 hover:bg-white/5"
-                >
+                <button className="rounded-full p-2 hover:bg-white/5">
                   <Phone className="h-5 w-5" />
                 </button>
-                <button
-                  onClick={() => placeCall("video")}
-                  aria-label="Start video call"
-                  className="rounded-full p-2 hover:bg-white/5"
-                >
+                <button className="rounded-full p-2 hover:bg-white/5">
                   <Video className="h-5 w-5" />
                 </button>
               </div>
@@ -517,12 +395,12 @@ function CommsPage() {
                   placeholder="Message..."
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 />
                 <button
                   className="rounded-lg bg-frequency p-2 text-primary-foreground disabled:opacity-50"
                   disabled={!body.trim() || sending}
-                  onClick={handleSendMessage}
+                  onClick={sendMessage}
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -537,6 +415,7 @@ function CommsPage() {
       </main>
 
       {/* Call panel for incoming/active calls */}
+      {active && <CallPanel channelId={active.id} />}
     </div>
   );
 }
