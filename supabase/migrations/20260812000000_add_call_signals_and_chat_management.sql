@@ -11,8 +11,11 @@ CREATE TABLE IF NOT EXISTS public.call_signals (
 CREATE INDEX IF NOT EXISTS call_signals_call_idx ON public.call_signals(call_id, created_at);
 ALTER TABLE public.call_signals ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "participants read signals" ON public.call_signals;
 CREATE POLICY "participants read signals" ON public.call_signals FOR SELECT TO authenticated
 USING (EXISTS (SELECT 1 FROM public.call_participants cp WHERE cp.call_id = call_signals.call_id AND cp.user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "participants insert signals" ON public.call_signals;
 CREATE POLICY "participants insert signals" ON public.call_signals FOR INSERT TO authenticated
 WITH CHECK (EXISTS (SELECT 1 FROM public.call_participants cp WHERE cp.call_id = call_signals.call_id AND cp.user_id = auth.uid()));
 
