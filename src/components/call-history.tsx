@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ChevronDown, Phone, PhoneOff, PhoneIncoming, RefreshCw, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/use-auth";
 
 interface CallRow {
   id: string;
@@ -20,7 +20,7 @@ export const CallHistoryPanel = () => {
   const [calls, setCalls] = useState<CallRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchCalls = async () => {
+  const fetchCalls = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     // Fetch recent calls where user is initiator or in org
@@ -34,13 +34,13 @@ export const CallHistoryPanel = () => {
       setCalls(data);
     }
     setLoading(false);
-  };
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
       fetchCalls();
     }
-  }, [isOpen, user]);
+  }, [isOpen, fetchCalls]);
 
   const groupedHistory = calls.reduce(
     (acc, call) => {
@@ -68,7 +68,9 @@ export const CallHistoryPanel = () => {
       {isOpen && (
         <div className="p-2 space-y-4 max-h-64 overflow-y-auto">
           {loading ? (
-            <p className="text-xs text-muted-foreground text-center py-2">Loading call history...</p>
+            <p className="text-xs text-muted-foreground text-center py-2">
+              Loading call history...
+            </p>
           ) : Object.keys(groupedHistory).length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-2">No recent call history</p>
           ) : (

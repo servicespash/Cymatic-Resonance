@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,18 +13,27 @@ type Task = {
   assigned_to: string | null;
 };
 
-export function TasksPanel({ orgId, userId, members }: { orgId: string, userId: string, isAdmin: boolean, members: any[] }) {
+export function TasksPanel({
+  orgId,
+  userId,
+  members,
+}: {
+  orgId: string;
+  userId: string;
+  isAdmin: boolean;
+  members: { id: string; full_name: string | null }[];
+}) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
 
-  useEffect(() => {
-    fetchTasks();
-  }, [orgId]);
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     const { data } = await supabase.from("tasks").select("*").eq("org_id", orgId);
     if (data) setTasks(data);
-  };
+  }, [orgId]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [orgId, fetchTasks]);
 
   const addTask = async () => {
     if (!newTask.trim()) return;
@@ -54,13 +63,26 @@ export function TasksPanel({ orgId, userId, members }: { orgId: string, userId: 
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        <Input placeholder="New task..." value={newTask} onChange={(e) => setNewTask(e.target.value)} />
-        <Button onClick={addTask}><Plus className="size-4" /></Button>
+        <Input
+          placeholder="New task..."
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
+        />
+        <Button onClick={addTask}>
+          <Plus className="size-4" />
+        </Button>
       </div>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <div key={task.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
-            <span className={task.status === "completed" ? "line-through text-muted-foreground" : ""}>{task.title}</span>
+          <div
+            key={task.id}
+            className="flex items-center justify-between p-2 bg-white/5 rounded-lg"
+          >
+            <span
+              className={task.status === "completed" ? "line-through text-muted-foreground" : ""}
+            >
+              {task.title}
+            </span>
             <div className="flex gap-2">
               <Button size="icon" variant="ghost" onClick={() => toggleTask(task.id, task.status)}>
                 <Check className="size-4" />

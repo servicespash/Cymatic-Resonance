@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";
@@ -352,7 +352,9 @@ function SettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. Type <span className="font-mono text-foreground font-bold">{org.name}</span> to confirm.
+                  This action cannot be undone. Type{" "}
+                  <span className="font-mono text-foreground font-bold">{org.name}</span> to
+                  confirm.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <input

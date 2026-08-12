@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/use-auth";
 import { LiveKitTransport } from "./livekit-transport";
 
 export type CallState = "idle" | "connecting" | "connected" | "reconnecting" | "error";

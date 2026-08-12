@@ -1,7 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { useContext, useState, ReactNode } from "react";
 import { CommsContextType, Channel, Msg, Thread, Reaction, Sender } from "./comms-context-def";
-
-const CommsContext = createContext<CommsContextType | undefined>(undefined);
+import { CommsContext } from "./comms-context-core";
 
 export const CommsProvider = ({ children }: { children: ReactNode }) => {
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -40,12 +39,4 @@ export const CommsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return <CommsContext.Provider value={value}>{children}</CommsContext.Provider>;
-};
-
-export const useComms = () => {
-  const context = useContext(CommsContext);
-  if (context === undefined) {
-    throw new Error("useComms must be used within a CommsProvider");
-  }
-  return context;
 };
