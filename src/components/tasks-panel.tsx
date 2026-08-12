@@ -1,10 +1,77 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { Check, Plus, Trash2 } from "lucide-react";
 
-export function TasksPanel({ orgId, userId, isAdmin, members }: { orgId: string, userId: string, isAdmin: boolean, members: any[] }) {
+type Task = {
+  id: string;
+  title: string;
+  status: string;
+  assigned_to: string | null;
+};
+
+export function TasksPanel({ orgId, userId, members }: { orgId: string, userId: string, isAdmin: boolean, members: any[] }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTask, setNewTask] = useState("");
+
+  useEffect(() => {
+    fetchTasks();
+  }, [orgId]);
+
+  const fetchTasks = async () => {
+    const { data } = await supabase.from("tasks").select("*").eq("org_id", orgId);
+    if (data) setTasks(data);
+  };
+
+  const addTask = async () => {
+    if (!newTask.trim()) return;
+    const { error } = await supabase.from("tasks").insert({
+      org_id: orgId,
+      title: newTask,
+      created_by: userId,
+    });
+    if (error) toast.error("Failed to add task");
+    else {
+      setNewTask("");
+      fetchTasks();
+    }
+  };
+
+  const toggleTask = async (id: string, status: string) => {
+    const newStatus = status === "pending" ? "completed" : "pending";
+    await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
+    fetchTasks();
+  };
+
+  const deleteTask = async (id: string) => {
+    await supabase.from("tasks").delete().eq("id", id);
+    fetchTasks();
+  };
+
   return (
-    <Card className="p-4">
-      <h3 className="text-lg font-semibold">Tasks</h3>
-      <p className="text-sm text-muted-foreground">Task management functionality coming soon.</p>
-    </Card>
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Input placeholder="New task..." value={newTask} onChange={(e) => setNewTask(e.target.value)} />
+        <Button onClick={addTask}><Plus className="size-4" /></Button>
+      </div>
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <div key={task.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
+            <span className={task.status === "completed" ? "line-through text-muted-foreground" : ""}>{task.title}</span>
+            <div className="flex gap-2">
+              <Button size="icon" variant="ghost" onClick={() => toggleTask(task.id, task.status)}>
+                <Check className="size-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => deleteTask(task.id)}>
+                <Trash2 className="size-4 text-red-500" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
