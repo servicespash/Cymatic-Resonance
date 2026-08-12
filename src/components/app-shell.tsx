@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, Radio, Users, MessageSquare, Settings, LogOut, Menu } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import { toast } from "sonner";
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { Radio, Plus, KeyRound } from "lucide-react";
 import { toast } from "sonner";

@@ -9,7 +9,7 @@ import {
   Video,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { useCallController } from "@/hooks/use-call-controller";
 
 interface CallRow {

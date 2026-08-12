@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";

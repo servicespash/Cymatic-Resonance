@@ -1,6 +1,6 @@
 import { useReducer, useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { LiveKitTransport } from "./livekit-transport";
 import { audioEngine } from "@/lib/audio-engine";
 
