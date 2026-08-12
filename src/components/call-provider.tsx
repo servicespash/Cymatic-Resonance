@@ -251,14 +251,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
         />
       )}
       {active && user && (
-        <CallRoom
-          callId={active.id}
-          selfId={user.id}
-          video={active.kind === "video"}
-          kind={active.kind}
-          peers={members}
-          onLeave={handleLeaveCall}
-        />
+        <div className="fixed inset-0 z-[100]">
+          <CallRoom
+            callId={active.id}
+            selfId={user.id}
+            video={active.kind === "video"}
+            kind={active.kind}
+            peers={members}
+            onLeave={handleLeaveCall}
+          />
+        </div>
       )}
     </Ctx.Provider>
   );

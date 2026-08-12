@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Users, Hand } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  PhoneOff,
+  Users,
+  Hand,
+  Minimize,
+  Maximize,
+} from "lucide-react";
 import { useCall } from "@/hooks/use-call";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -46,6 +56,7 @@ export function CallRoom({
   });
 
   const [duration, setDuration] = useState(0);
+  const [minimized, setMinimized] = useState(false);
   const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
   const [bursts, setBursts] = useState<FloatingReaction[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
@@ -169,7 +180,9 @@ export function CallRoom({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-xl relative overflow-hidden selection:bg-primary/30">
+    <div
+      className={`fixed z-50 flex flex-col bg-background/95 backdrop-blur-xl relative overflow-hidden selection:bg-primary/30 ${minimized ? "bottom-4 right-4 w-64 h-48 rounded-2xl border border-white/10 shadow-2xl" : "inset-0"}`}
+    >
       {/* Particle Overlay Plane */}
       <div className="absolute inset-x-0 bottom-36 top-0 pointer-events-none z-40 overflow-hidden">
         {bursts.map((particle) => (
@@ -194,17 +207,25 @@ export function CallRoom({
           <span className="grid size-10 place-items-center rounded-full bg-frequency text-primary-foreground resonance-glow">
             {kind === "video" ? <Video className="size-5" /> : <Mic className="size-5" />}
           </span>
-          <div>
-            <div className="font-display text-base font-semibold tracking-wide text-foreground">
-              {kind === "video"
-                ? "Cymatic Resonance Video Stream"
-                : "Cymatic Resonance Audio Workspace"}
+          {!minimized && (
+            <div>
+              <div className="font-display text-base font-semibold tracking-wide text-foreground">
+                {kind === "video"
+                  ? "Cymatic Resonance Video Stream"
+                  : "Cymatic Resonance Audio Workspace"}
+              </div>
+              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <span className="text-accent animate-pulse">●</span> live · {mmss(duration)}
+              </div>
             </div>
-            <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-              <span className="text-accent animate-pulse">●</span> live · {mmss(duration)}
-            </div>
-          </div>
+          )}
         </div>
+        <button
+          onClick={() => setMinimized(!minimized)}
+          className="p-2 hover:bg-white/5 rounded-lg"
+        >
+          {minimized ? <Maximize className="size-4" /> : <Minimize className="size-4" />}
+        </button>
         <div className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-xs font-medium text-muted-foreground ring-1 ring-white/10">
           <Users className="size-4 text-primary" /> {all.length} Execution Partners Connected
         </div>

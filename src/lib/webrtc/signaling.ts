@@ -1,6 +1,4 @@
-// Signaling via Supabase Realtime Broadcast channels.
-// Each call gets its own channel `call-{callId}`; peers broadcast targeted
-// offers/answers/ICE candidates keyed by the recipient's user_id.
+// Signaling via Supabase `call_signals` table with `postgres_changes`.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -21,45 +19,55 @@ export function joinCallChannel(
   send: (payload: SignalPayload) => Promise<void>;
   leave: () => Promise<void>;
 } {
-  const channel = supabase.channel(`call-${callId}`, {
-    config: { broadcast: { self: false, ack: false }, presence: { key: selfId } },
-  });
+  const channel = supabase.channel(`call-signals-${callId}`);
 
-  channel.on("broadcast", { event: "signal" }, ({ payload }) => {
-    const p = payload as SignalPayload;
-    // Drop messages not addressed to us (except hello/bye which are broadcasts)
-    if ("to" in p && p.to !== selfId) return;
-    if (p.from === selfId) return;
-    onSignal(p);
-  });
+  channel
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "call_signals",
+        filter: `call_id=eq.${callId}`,
+      },
+      (payload) => {
+        const p = payload.new as { payload: SignalPayload };
+        const signal = p.payload;
+        // Drop messages not addressed to us (except hello/bye which are broadcasts)
+        if ("to" in signal && signal.to !== selfId) return;
+        if (signal.from === selfId) return;
+        onSignal(signal);
+      },
+    )
+    .subscribe();
 
-  channel.subscribe(async (status) => {
-    if (status === "SUBSCRIBED") {
-      await channel.track({ user_id: selfId, online_at: new Date().toISOString() });
-      await channel.send({
-        type: "broadcast",
-        event: "signal",
-        payload: { type: "hello", from: selfId } as SignalPayload,
-      });
-    }
+  // Send "hello" to announce presence
+  supabase.from("call_signals").insert({
+    call_id: callId,
+    from_uid: selfId,
+    type: "hello",
+    payload: { type: "hello", from: selfId },
   });
 
   return {
     channel,
     send: async (payload: SignalPayload) => {
-      await channel.send({ type: "broadcast", event: "signal", payload });
+      await supabase.from("call_signals").insert({
+        call_id: callId,
+        from_uid: selfId,
+        to_uid: "to" in payload ? payload.to : null,
+        type: payload.type,
+        payload,
+      });
     },
     leave: async () => {
-      try {
-        await channel.send({
-          type: "broadcast",
-          event: "signal",
-          payload: { type: "bye", from: selfId } as SignalPayload,
-        });
-      } catch (error) {
-        console.error("Failed to send leave signal:", error);
-      }
-      await supabase.removeChannel(channel);
+      await supabase.from("call_signals").insert({
+        call_id: callId,
+        from_uid: selfId,
+        type: "bye",
+        payload: { type: "bye", from: selfId },
+      });
+      supabase.removeChannel(channel);
     },
   };
 }

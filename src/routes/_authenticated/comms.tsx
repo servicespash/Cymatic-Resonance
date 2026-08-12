@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
-import { useComms, CommsProvider } from "@/lib/comms-context";
+import { useAuth } from "@/hooks/use-auth";
+import { useComms } from "@/hooks/use-comms";
+import { CommsProvider } from "@/lib/comms-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { useCallController } from "@/hooks/use-call-controller";
@@ -18,6 +19,11 @@ import {
   Paperclip,
   Users,
   BadgeCheck,
+  ListTodo,
+  MessageSquarePlus,
+  Trash2,
+  Archive,
+  Mic,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -28,8 +34,10 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { CallPanel } from "@/components/call-panel";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
+import { CallHistoryPanel } from "@/components/call-history";
+import { TasksPanel } from "@/components/tasks-panel";
+import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-message";
 
 export const Route = createFileRoute("/_authenticated/comms")({
   component: () => (
@@ -63,12 +71,14 @@ function CommsPage() {
     setReads,
     lastMessageByChannel,
     setLastMessageByChannel,
+    sendMessage,
+    startDm,
   } = useComms();
   const callController = useCallController();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [pending, setPending] = useState<string[]>([]);
+  const [, setReactions] = useState<Reaction[]>([]);
+  const [pending] = useState<string[]>([]);
 
   const active = activeChannel;
   const setActive = setActiveChannel;
@@ -77,6 +87,9 @@ function CommsPage() {
   const [search, setSearch] = useState("");
   const [body, setBody] = useState("");
   const [newChannelOpen, setNewChannelOpen] = useState(false);
+  const [newDmOpen, setNewDmOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [sending, setSending] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -113,8 +126,39 @@ function CommsPage() {
       if (mem) setSenders(Object.fromEntries(mem.map((s) => [s.id, s])));
       if (th) setThreads(th);
       if (rd) setReads(Object.fromEntries(rd.map((r) => [r.channel_id, r.last_read_at])));
+
+      // Restore the last opened conversation so chat history survives reloads.
+      const lastId =
+        typeof window !== "undefined" ? window.localStorage.getItem("cym.lastChannel") : null;
+      const restored = lastId ? (chs ?? []).find((c) => c.id === lastId) : null;
+      if (restored) setActiveChannel(restored as Channel);
     })();
-  }, [user, setChannels, setSenders, setThreads, setReads]);
+  }, [user, setChannels, setSenders, setThreads, setReads, setActiveChannel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (active?.id) window.localStorage.setItem("cym.lastChannel", active.id);
+    else window.localStorage.removeItem("cym.lastChannel");
+  }, [active?.id]);
+
+  // Cache the loaded history per channel so it renders instantly on return.
+  useEffect(() => {
+    if (!active || typeof window === "undefined") return;
+    const cached = window.localStorage.getItem(`cym.msgs.${active.id}`);
+    if (cached && msgs.length === 0) {
+      try {
+        setMsgs(JSON.parse(cached) as Msg[]);
+      } catch {
+        /* ignore malformed cache */
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.id]);
+
+  useEffect(() => {
+    if (!active || typeof window === "undefined" || msgs.length === 0) return;
+    window.localStorage.setItem(`cym.msgs.${active.id}`, JSON.stringify(msgs.slice(-100)));
+  }, [msgs, active?.id, active]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -164,22 +208,42 @@ function CommsPage() {
             if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
           });
       });
-  }, [active]);
+  }, [active, setMsgs]);
 
-  const sendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
-    if (!active || !user || !orgId) return;
     setSending(true);
-    const { error } = await supabase.from("messages").insert({
-      channel_id: active.id,
-      org_id: orgId,
-      sender_id: user.id,
-      body: body,
-    });
-
+    await sendMessage(body);
     setSending(false);
-    if (error) return toast.error(error.message);
     setBody("");
+  };
+
+  const handleArchive = async (channelId: string) => {
+    const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
+    await supabase
+      .from(isDm ? "direct_threads" : "channels")
+      .update({ archived_at: new Date().toISOString() })
+      .eq(isDm ? "channel_id" : "id", channelId);
+    setChannels((prev) => prev.filter((c) => c.id !== channelId));
+    toast.success("Archived");
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    await supabase.from("messages").delete().eq("id", msgId);
+    setMsgs((prev) => prev.filter((m) => m.id !== msgId));
+    toast.success("Message deleted");
+  };
+
+  const handleStartDm = async (otherId: string) => {
+    setNewDmOpen(false);
+    await startDm(otherId);
+  };
+
+  const dmTarget = () => {
+    if (!active || active.kind !== "dm" || !user) return null;
+    const t = threads.find((x) => x.channel_id === active.id);
+    if (!t) return null;
+    return t.user_a === user.id ? t.user_b : t.user_a;
   };
 
   const conversations = useMemo(() => {
@@ -250,6 +314,67 @@ function CommsPage() {
           <div className="mb-4 flex items-center justify-between">
             <h1 className="font-display text-2xl font-bold tracking-tight">Chats</h1>
             <div className="flex items-center gap-1">
+              <Dialog open={newDmOpen} onOpenChange={setNewDmOpen}>
+                <DialogTrigger asChild>
+                  <button className="rounded-lg p-2 hover:bg-white/5" aria-label="New chat">
+                    <MessageSquarePlus className="h-5 w-5" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="glass-strong">
+                  <DialogHeader>
+                    <DialogTitle>New chat</DialogTitle>
+                  </DialogHeader>
+                  <div className="max-h-72 space-y-1 overflow-y-auto">
+                    {Object.values(senders)
+                      .filter((s) => s.id !== user?.id)
+                      .map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => handleStartDm(s.id)}
+                          className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-sm hover:bg-white/5"
+                        >
+                          <span className="grid size-8 place-items-center rounded-full bg-frequency/20">
+                            <Users className="size-4" />
+                          </span>
+                          <span className="flex-1 truncate">{s.full_name ?? "Member"}</span>
+                          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                            {s.role}
+                          </span>
+                        </button>
+                      ))}
+                    {Object.keys(senders).length <= 1 && (
+                      <p className="py-4 text-center text-xs text-muted-foreground">
+                        Invite teammates to start chatting.
+                      </p>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={tasksOpen} onOpenChange={setTasksOpen}>
+                <DialogTrigger asChild>
+                  <button className="rounded-lg p-2 hover:bg-white/5" aria-label="Tasks">
+                    <ListTodo className="h-5 w-5" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="glass-strong max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Tasks</DialogTitle>
+                  </DialogHeader>
+                  {user && (
+                    <TasksPanel
+                      orgId={orgId}
+                      userId={user.id}
+                      isAdmin={isAdmin}
+                      members={Object.values(senders).map((s) => ({
+                        id: s.id,
+                        full_name: s.full_name,
+                      }))}
+                    />
+                  )}
+                </DialogContent>
+              </Dialog>
+
               {isAdmin && (
                 <Dialog open={newChannelOpen} onOpenChange={setNewChannelOpen}>
                   <DialogTrigger asChild>
@@ -305,37 +430,67 @@ function CommsPage() {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2">
-          {filtered.map((c) => (
-            <button
-              key={c.channel.id}
-              onClick={() => setActive(c.channel)}
-              className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${
-                active?.id === c.channel.id ? "bg-white/10" : "hover:bg-white/5"
-              }`}
-            >
-              <div className="relative">
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ${c.channel.kind === "dm" ? "bg-frequency/20" : ""}`}
-                >
-                  {c.channel.kind === "dm" ? (
-                    <Users className="h-5 w-5" />
-                  ) : (
-                    <Hash className="h-5 w-5" />
+          {filtered.map((c) => {
+            const isRead =
+              c.last &&
+              reads[c.channel.id] &&
+              new Date(reads[c.channel.id]) >= new Date(c.last.created_at);
+            const unreadCount = 0; // Needs implementing: fetch unread count logic
+            return (
+              <button
+                key={c.channel.id}
+                onClick={() => setActive(c.channel)}
+                className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${
+                  active?.id === c.channel.id ? "bg-white/10" : "hover:bg-white/5"
+                }`}
+              >
+                <div className="relative">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ${c.channel.kind === "dm" ? "bg-frequency/20" : ""}`}
+                  >
+                    {c.channel.kind === "dm" ? (
+                      <Users className="h-5 w-5" />
+                    ) : (
+                      <Hash className="h-5 w-5" />
+                    )}
+                  </div>
+                  {!isRead && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
+                      !
+                    </span>
                   )}
                 </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="truncate font-medium">{c.title}</span>
-                  {c.verified && <BadgeCheck className="h-4 w-4 text-frequency" />}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`truncate font-medium ${!isRead ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {c.title}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleArchive(c.channel.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-foreground transition"
+                      aria-label="Archive chat"
+                    >
+                      <Archive className="h-4 w-4" />
+                    </button>
+                    {c.verified && <BadgeCheck className="h-4 w-4 text-frequency" />}
+                  </div>
+                  <p
+                    className={`truncate text-xs ${!isRead ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {c.last?.body ?? "No messages"}
+                  </p>
                 </div>
-                <p className="truncate text-xs text-muted-foreground">
-                  {c.last?.body ?? "No messages"}
-                </p>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </nav>
+
+        <CallHistoryPanel />
       </aside>
 
       {/* Main chat */}
@@ -349,31 +504,35 @@ function CommsPage() {
                 </button>
                 <h2 className="font-semibold">{activeTitle}</h2>
               </div>
-              <div className="flex items-center gap-2">
-                <button className="rounded-full p-2 hover:bg-white/5">
-                  <Phone className="h-5 w-5" />
-                </button>
-                <button className="rounded-full p-2 hover:bg-white/5">
-                  <Video className="h-5 w-5" />
-                </button>
-              </div>
+              <div className="flex items-center gap-2"></div>
             </header>
 
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
               {msgs.map((m) => (
-                <div key={m.id} className="flex gap-3">
+                <div key={m.id} className="flex gap-3 group">
                   <div className="h-8 w-8 rounded-full bg-white/5" />
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">
-                        {senders[m.sender_id]?.full_name ?? "Unknown"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(m.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">
+                          {senders[m.sender_id]?.full_name ?? "Unknown"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(m.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      {m.sender_id === user?.id && (
+                        <button
+                          onClick={() => handleDeleteMessage(m.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 transition"
+                          aria-label="Delete message"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground/90">{m.body}</p>
                   </div>
@@ -382,8 +541,28 @@ function CommsPage() {
               <div ref={bottom} />
             </div>
 
+            {isRecording && (
+              <div className="absolute bottom-20 left-4 right-4 z-50">
+                <RecordAudioMessage
+                  onCancel={() => setIsRecording(false)}
+                  onSend={async (audio: RecordedAudio) => {
+                    setIsRecording(false);
+                    // Actual upload logic would go here
+                    toast.success("Voice message sent!");
+                  }}
+                />
+              </div>
+            )}
+
             <footer className="border-t border-white/5 p-4">
               <div className="flex items-center gap-2 rounded-xl bg-white/5 p-2">
+                <button
+                  className="p-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsRecording(true)}
+                  aria-label="Record voice message"
+                >
+                  <Mic className="h-5 w-5" />
+                </button>
                 <button className="p-2 text-muted-foreground hover:text-foreground">
                   <SmilePlus className="h-5 w-5" />
                 </button>
@@ -395,12 +574,12 @@ function CommsPage() {
                   placeholder="Message..."
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                 />
                 <button
                   className="rounded-lg bg-frequency p-2 text-primary-foreground disabled:opacity-50"
                   disabled={!body.trim() || sending}
-                  onClick={sendMessage}
+                  onClick={handleSendMessage}
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -415,7 +594,6 @@ function CommsPage() {
       </main>
 
       {/* Call panel for incoming/active calls */}
-      {active && <CallPanel channelId={active.id} />}
     </div>
   );
 }
