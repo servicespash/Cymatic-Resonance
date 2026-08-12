@@ -30,7 +30,6 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { CallPanel } from "@/components/call-panel";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
 import { CallHistoryPanel } from "@/components/call-history";
 import { TasksPanel } from "@/components/tasks-panel";
@@ -537,7 +536,6 @@ function CommsPage() {
       </main>
 
       {/* Call panel for incoming/active calls */}
-      {active && <CallPanel channelId={active.id} />}
     </div>
   );
 }

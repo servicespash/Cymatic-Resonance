@@ -1,10 +1,8 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-import { CommsContextType, Channel, Msg, Thread, Reaction, Sender } from "./comms-context-def";
+import { useState, ReactNode } from "react";
+import { CommsContext, Channel, Msg, Thread, Reaction, Sender } from "./comms-context-def";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-
-const CommsContext = createContext<CommsContextType | undefined>(undefined);
 
 export const CommsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
@@ -114,12 +112,4 @@ export const CommsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return <CommsContext.Provider value={value}>{children}</CommsContext.Provider>;
-};
-
-export const useComms = () => {
-  const context = useContext(CommsContext);
-  if (context === undefined) {
-    throw new Error("useComms must be used within a CommsProvider");
-  }
-  return context;
 };

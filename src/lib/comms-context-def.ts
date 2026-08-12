@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { createContext, Dispatch, SetStateAction } from "react";
 
 // Re-using existing types inferred from the original file
 export type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
@@ -45,3 +45,5 @@ export interface CommsContextType {
 
   loading: boolean;
 }
+
+export const CommsContext = createContext<CommsContextType | undefined>(undefined);

@@ -10,8 +10,8 @@ describe("cn utility", () => {
     expect(cn("p-4", "p-2")).toBe("p-2");
   });
 
-  it('handles conditional classes', () => {
-    expect(cn('base', 'active')).toBe('base active');
+  it("handles conditional classes", () => {
+    expect(cn("base", "active")).toBe("base active");
   });
 
   it("handles undefined/null inputs", () => {

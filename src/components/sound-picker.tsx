@@ -33,7 +33,7 @@ export const SoundPicker = ({ onSelect }: { onSelect: (id: string) => void }) =>
               <button
                 key={s.id}
                 onClick={() => {
-                  engine.playTone(s.freq, s.duration);
+                  engine.playTone(s.freq, 0.02, 0.05, 0.8, 0.05, s.duration);
                   onSelect(s.id);
                 }}
                 className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-left"

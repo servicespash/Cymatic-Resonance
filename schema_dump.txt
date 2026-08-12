@@ -12,15 +12,6 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      get_unread_counts: {
-        Args: { _user_id: string };
-        Returns: { channel_id: string; unread_count: number }[];
-      };
-      mark_channel_as_read: {
-        Args: { _user_id: string; _channel_id: string };
-        Returns: void;
-      };
-
       graphql: {
         Args: {
           extensions?: Json;

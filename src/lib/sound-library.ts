@@ -1,4 +1,5 @@
 // Professional sound library + persisted user preferences (client-only).
+import { audioEngine } from "./audio-engine";
 
 export type SoundDef = {
   id: string;
@@ -150,48 +151,24 @@ export function setNotificationPrefs(patch: Partial<SoundPrefs>): SoundPrefs {
   return next;
 }
 
-let ctx: AudioContext | null = null;
-function audioCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  if (!ctx) {
-    const Ctor =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) return null;
-    ctx = new Ctor();
-  }
-  return ctx;
-}
-
 /** Play one library sound once. Returns the total duration in seconds. */
 export function playSound(id: string, opts: { volume?: number; force?: boolean } = {}): number {
   const prefs = getNotificationPrefs();
   if (prefs.muted && !opts.force) return 0;
-  const c = audioCtx();
-  if (!c) return 0;
-  if (c.state === "suspended") void c.resume();
+
+  audioEngine.resume();
 
   const sound = findSound(id);
-  const master = c.createGain();
-  master.gain.value = opts.volume ?? prefs.volume;
-  master.connect(c.destination);
+  const volume = opts.volume ?? prefs.volume;
 
-  let t = c.currentTime;
+  let t = 0;
   for (const [freq, dur] of sound.pattern) {
-    const osc = c.createOscillator();
-    const g = c.createGain();
-    osc.type = sound.type;
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(1, t + 0.02);
-    g.gain.linearRampToValueAtTime(0, t + dur);
-    osc.connect(g);
-    g.connect(master);
-    osc.start(t);
-    osc.stop(t + dur + 0.02);
+    // Professional ADSR Envelope mapping
+    // Attack: 0.02s, Decay: 0.05s, Sustain: 0.8, Release: 0.05s
+    audioEngine.playTone(freq, 0.02, 0.05, 0.8, 0.05, dur, sound.type, volume);
     t += dur;
   }
-  return t - c.currentTime;
+  return t;
 }
 
 export function playMessageSound() {

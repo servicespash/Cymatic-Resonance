@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { CommsProvider, useComms } from "./comms-context";
+import { CommsProvider } from "./comms-context";
+import { useComms } from "@/hooks/use-comms";
 import React, { ReactNode } from "react";
 
 // Mock Supabase and Auth context
