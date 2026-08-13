@@ -39,8 +39,10 @@ export interface CommsContextType {
 
   // Actions
   setActiveChannel: (channel: Channel | null) => void;
-  sendMessage: (body: string) => Promise<void>;
+  sendMessage: (body: string, files: File[], audio?: any) => Promise<void>;
+  startDm: (otherId: string) => Promise<void>;
   // ... future actions: addReaction, deleteMessage, etc.
 
   loading: boolean;
+  sending: boolean;
 }

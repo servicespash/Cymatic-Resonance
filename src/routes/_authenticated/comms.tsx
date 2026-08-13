@@ -68,6 +68,7 @@ function CommsPage() {
     setMessages: setMsgs,
     senders,
     setSenders,
+    reads,
     setReads,
     lastMessageByChannel,
     setLastMessageByChannel,
@@ -213,17 +214,24 @@ function CommsPage() {
   const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
     setSending(true);
-    await sendMessage(body);
+    await sendMessage(body, []);
     setSending(false);
     setBody("");
   };
 
   const handleArchive = async (channelId: string) => {
     const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
-    await supabase
-      .from(isDm ? "direct_threads" : "channels")
-      .update({ archived_at: new Date().toISOString() })
-      .eq(isDm ? "channel_id" : "id", channelId);
+    if (isDm) {
+      await supabase
+        .from("direct_threads")
+        .update({ archived_at: new Date().toISOString() } as any)
+        .eq("channel_id", channelId);
+    } else {
+      await supabase
+        .from("channels")
+        .update({ archived_at: new Date().toISOString() } as any)
+        .eq("id", channelId);
+    }
     setChannels((prev) => prev.filter((c) => c.id !== channelId));
     toast.success("Archived");
   };

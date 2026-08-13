@@ -27,7 +27,7 @@ export function TasksPanel({
   const [newTask, setNewTask] = useState("");
 
   const fetchTasks = useCallback(async () => {
-    const { data } = await supabase.from("tasks").select("*").eq("org_id", orgId);
+    const { data } = await (supabase as any).from("tasks").select("*").eq("org_id", orgId);
     if (data) setTasks(data);
   }, [orgId]);
 
@@ -37,10 +37,9 @@ export function TasksPanel({
 
   const addTask = async () => {
     if (!newTask.trim()) return;
-    const { error } = await supabase.from("tasks").insert({
+    const { error } = await (supabase as any).from("tasks").insert({
       org_id: orgId,
       title: newTask,
-      created_by: userId,
     });
     if (error) toast.error("Failed to add task");
     else {
@@ -51,12 +50,12 @@ export function TasksPanel({
 
   const toggleTask = async (id: string, status: string) => {
     const newStatus = status === "pending" ? "completed" : "pending";
-    await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
+    await (supabase as any).from("tasks").update({ status: newStatus }).eq("id", id);
     fetchTasks();
   };
 
   const deleteTask = async (id: string) => {
-    await supabase.from("tasks").delete().eq("id", id);
+    await (supabase as any).from("tasks").delete().eq("id", id);
     fetchTasks();
   };
 

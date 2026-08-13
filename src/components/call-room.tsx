@@ -10,7 +10,7 @@ import {
   Minimize,
   Maximize,
 } from "lucide-react";
-import { useCall } from "@/hooks/use-call";
+import { useLiveKitCall } from "@/hooks/use-livekit-call";
 import { supabase } from "@/integrations/supabase/client";
 
 type Sender = { id: string; full_name: string | null };
@@ -48,7 +48,7 @@ export function CallRoom({
   kind: "audio" | "video";
   onLeave: () => void;
 }) {
-  const { localStream, remotes, micOn, camOn, toggleMic, toggleCam, error } = useCall({
+  const { localStream, remotes, micOn, camOn, toggleMic, toggleCam, error } = useLiveKitCall({
     callId,
     selfId,
     video,
