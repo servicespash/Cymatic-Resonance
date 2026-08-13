@@ -10,7 +10,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { AuthProvider, useAuth } from "@/lib/use-auth";
+import { AuthProvider } from "@/lib/auth-context";
+import { useAuth } from "@/lib/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { AppErrorBoundary } from "@/components/error-boundary";
 
