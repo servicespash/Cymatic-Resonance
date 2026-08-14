@@ -1,86 +1,94 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { type Attachment } from "@/components/comm-attachment";
-import { type RecordedAudio } from "@/components/voice-recorder";
-
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 export function useMessageSender(
   orgId: string | null,
-  channelId: string | null,
   userId: string | undefined,
+  activeChannelId: string | undefined,
 ) {
   const [sending, setSending] = useState(false);
 
-  const kindOf = (mime: string): "image" | "audio" | "file" =>
-    mime.startsWith("image/") ? "image" : mime.startsWith("audio/") ? "audio" : "file";
+  const sendMessage = useCallback(
+    async (
+      body: string,
+      files: File[] = [],
+      audio?: { blob: Blob; mime: string; ext: string; durationMs?: number } | null,
+    ) => {
+      if (!orgId || !userId || !activeChannelId) return;
 
-  const uploadOne = async (
-    file: Blob,
-    filename: string,
-    mime: string,
-    messageId: string,
-    extra: Partial<Attachment> = {},
-  ) => {
-    if (!orgId || !channelId || !userId) return;
-    const safe = filename.replace(/[^\w.-]+/g, "_");
-    const path = `${orgId}/${channelId}/${messageId}/${crypto.randomUUID()}-${safe}`;
+      setSending(true);
+      try {
+        const { data: msgData, error: msgError } = await supabase
+          .from("messages")
+          .insert({
+            channel_id: activeChannelId,
+            sender_id: userId,
+            org_id: orgId,
+            body: body.trim(),
+          })
+          .select()
+          .single();
 
-    const { error: upErr } = await supabase.storage.from("comm-attachments").upload(path, file, {
-      contentType: mime,
-      upsert: false,
-    });
-    if (upErr) throw upErr;
+        if (msgError || !msgData) throw msgError;
 
-    const { error: insErr } = await supabase.from("message_attachments").insert({
-      message_id: messageId,
-      org_id: orgId,
-      uploader_id: userId,
-      storage_path: path,
-      mime_type: mime,
-      size_bytes: (file as File).size ?? (file as Blob).size,
-      kind: kindOf(mime),
-      filename: safe,
-      ...extra,
-    });
-    if (insErr) throw insErr;
-  };
+        // Process file attachments if present
+        if (files.length > 0) {
+          for (const file of files) {
+            const path = `${orgId}/${msgData.id}/${Date.now()}_${file.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from("comm-attachments")
+              .upload(path, file);
 
-  const sendMessage = async (text: string, files: File[], audio?: RecordedAudio) => {
-    if (!userId || !channelId || !orgId) return;
-    if (!text && files.length === 0 && !audio) return;
+            if (!uploadError) {
+              const isImage = file.type.startsWith("image/");
+              const isAudio = file.type.startsWith("audio/");
+              const kind = isImage ? "image" : isAudio ? "audio" : "file";
 
-    setSending(true);
-    try {
-      const { data: msg, error } = await supabase
-        .from("messages")
-        .insert({ org_id: orgId, channel_id: channelId, sender_id: userId, body: text || "" })
-        .select()
-        .single();
+              await supabase.from("message_attachments").insert({
+                message_id: msgData.id,
+                org_id: orgId,
+                uploader_id: userId,
+                filename: file.name,
+                kind,
+                storage_path: path,
+                mime_type: file.type,
+                size_bytes: file.size,
+              });
+            }
+          }
+        }
 
-      if (error || !msg) throw error ?? new Error("send failed");
+        // Process audio recording if present
+        if (audio) {
+          const path = `${orgId}/${msgData.id}/audio_${Date.now()}.${audio.ext}`;
+          const { error: audioUploadError } = await supabase.storage
+            .from("comm-attachments")
+            .upload(path, audio.blob, { contentType: audio.mime });
 
-      const uploads: Promise<void>[] = [];
-      for (const f of files)
-        uploads.push(uploadOne(f, f.name, f.type || "application/octet-stream", msg.id));
-      if (audio)
-        uploads.push(
-          uploadOne(audio.blob, `voice-${Date.now()}.${audio.ext}`, audio.mime, msg.id, {
-            duration_ms: audio.durationMs,
-          }),
-        );
+          if (!audioUploadError) {
+            await supabase.from("message_attachments").insert({
+              message_id: msgData.id,
+              org_id: orgId,
+              uploader_id: userId,
+              filename: `voice_message.${audio.ext}`,
+              kind: "audio",
+              storage_path: path,
+              mime_type: audio.mime,
+              size_bytes: audio.blob.size,
+              duration_ms: audio.durationMs || null,
+            });
+          }
+        }
+      } finally {
+        setSending(false);
+      }
+    },
+    [orgId, userId, activeChannelId],
+  );
 
-      const results = await Promise.allSettled(uploads);
-      const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed) toast.error(`${failed} attachment(s) failed to upload`);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to send");
-      throw e;
-    } finally {
-      setSending(false);
-    }
-  };
+  const deleteMessage = useCallback(async (msgId: string) => {
+    await supabase.from("messages").delete().eq("id", msgId);
+  }, []);
 
-  return { sendMessage, sending, MAX_FILE_BYTES };
+  return { sendMessage, deleteMessage, sending };
 }

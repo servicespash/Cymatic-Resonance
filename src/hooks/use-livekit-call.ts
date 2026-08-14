@@ -1,16 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import {
-  Room,
-  RoomEvent,
-  Participant,
-  RemoteParticipant,
-  RemoteTrackPublication,
-} from "livekit-client";
+import { Room, RoomEvent, ConnectionQuality, RemoteParticipant, Track } from "livekit-client";
 
 export type RemotePeer = {
   userId: string;
   stream: MediaStream | null;
   state: "connected" | "disconnected" | "connecting";
+  connectionQuality: ConnectionQuality;
 };
 
 export function useLiveKitCall(opts: {
@@ -20,123 +15,230 @@ export function useLiveKitCall(opts: {
   enabled: boolean;
 }) {
   const { callId, selfId, video, enabled } = opts;
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotes, setRemotes] = useState<Record<string, RemotePeer>>({});
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(video);
+  const [networkQuality, setNetworkQuality] = useState<ConnectionQuality>(
+    ConnectionQuality.Excellent,
+  );
   const [error, setError] = useState<string | null>(null);
+  const [isCallAnswered, setIsCallAnswered] = useState(false);
 
   const roomRef = useRef<Room | null>(null);
+  const micStateRef = useRef(micOn);
+  const camStateRef = useRef(camOn);
 
+  // Keep state refs perfectly updated for async room callbacks without re-triggering main effect
+  useEffect(() => {
+    micStateRef.current = micOn;
+  }, [micOn]);
+
+  useEffect(() => {
+    camStateRef.current = camOn;
+  }, [camOn]);
+
+  // Synchronize local participant media state safely
+  const syncLocalTracks = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room || room.state !== "connected") return;
+
+    try {
+      await room.localParticipant.setMicrophoneEnabled(micStateRef.current);
+      await room.localParticipant.setCameraEnabled(camStateRef.current);
+
+      const tracks: MediaStreamTrack[] = [];
+
+      // Target specific track sources rather than arbitrary indexes
+      const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+
+      if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
+        tracks.push(camPub.track.mediaStreamTrack);
+      }
+      if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
+        tracks.push(micPub.track.mediaStreamTrack);
+      }
+
+      setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
+    } catch (err) {
+      console.error("[Cymatic Resonance Engine] Track sync failure:", err);
+    }
+  }, []);
+
+  // Update Remote Peer representations cleanly
+  const updateRemotes = useCallback(() => {
+    const room = roomRef.current;
+    if (!room) return;
+
+    const newRemotes: Record<string, RemotePeer> = {};
+    let activeCallPeerDetected = false;
+
+    room.remoteParticipants.forEach((p: RemoteParticipant) => {
+      const tracks: MediaStreamTrack[] = [];
+
+      const camPub = p.getTrackPublication(Track.Source.Camera);
+      const micPub = p.getTrackPublication(Track.Source.Microphone);
+
+      if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
+        tracks.push(camPub.track.mediaStreamTrack);
+      }
+      if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
+        tracks.push(micPub.track.mediaStreamTrack);
+      }
+
+      if (
+        tracks.length > 0 ||
+        p.connectionQuality === ConnectionQuality.Excellent ||
+        p.connectionQuality === ConnectionQuality.Good
+      ) {
+        activeCallPeerDetected = true;
+      }
+
+      newRemotes[p.identity] = {
+        userId: p.identity,
+        stream: tracks.length > 0 ? new MediaStream(tracks) : null,
+        state: "connected",
+        connectionQuality: p.connectionQuality,
+      };
+    });
+
+    setRemotes(newRemotes);
+    if (activeCallPeerDetected) {
+      setIsCallAnswered(true);
+    }
+  }, []);
+
+  // Primary WebRTC Room Lifecycle Engine
   useEffect(() => {
     if (!enabled || !callId || !selfId) return;
 
     let cancelled = false;
+
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      publishDefaults: {
+        simulcast: true,
+        videoCodec: "vp8",
+      },
+      videoCaptureDefaults: {
+        resolution: { width: 640, height: 360 }, // Optimized for low-bandwidth 2Mbps lines
+      },
     });
     roomRef.current = room;
 
-    const setup = async () => {
-      let connected = false;
+    const setupLiveKit = async () => {
       try {
-        // Placeholder token fetch
-        const tokenResponse = await fetch(`/api/livekit-token?room=${callId}&user=${selfId}`);
-        if (tokenResponse.ok) {
-          const token = await tokenResponse.text();
-          const url = import.meta.env.VITE_LIVEKIT_URL ?? "wss://localhost:8080";
-          await room.connect(url, token);
-          await room.localParticipant.setCameraEnabled(camOn);
-          await room.localParticipant.setMicrophoneEnabled(micOn);
-          connected = true;
+        const tokenResponse = await fetch(
+          `/api/livekit-token?room=${encodeURIComponent(callId)}&user=${encodeURIComponent(selfId)}`,
+        );
+        if (!tokenResponse.ok) throw new Error("Could not acquire media signaling token.");
 
-          if (cancelled) {
-            await room.disconnect();
-            return;
-          }
+        const token = await tokenResponse.text();
+        const url = import.meta.env.VITE_LIVEKIT_URL ?? "wss://livekit.cymatichub.xyz";
 
-          // Set local stream
-          const videoPub = Array.from(room.localParticipant.videoTrackPublications.values())[0];
-          if (videoPub?.track) {
-            setLocalStream(new MediaStream([videoPub.track.mediaStreamTrack]));
-          }
-
-          // Remote participants handling
-          const updateRemotes = () => {
-            const newRemotes: Record<string, RemotePeer> = {};
-            room.remoteParticipants.forEach((p) => {
-              const videoPub = Array.from(p.videoTrackPublications.values())[0];
-              newRemotes[p.identity] = {
-                userId: p.identity,
-                stream: videoPub?.track?.mediaStream ?? null,
-                state: "connected",
-              };
-            });
-            setRemotes(newRemotes);
-          };
-
-          room.on(RoomEvent.ParticipantConnected, updateRemotes);
-          room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
-          room.on(RoomEvent.TrackSubscribed, updateRemotes);
-          room.on(RoomEvent.TrackUnsubscribed, updateRemotes);
+        await room.connect(url, token);
+        if (cancelled) {
+          await room.disconnect();
+          return;
         }
-      } catch (e) {
-        console.warn("LiveKit connection skipped, falling back to local media:", e);
-      }
 
-      if (!connected && !cancelled) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: camOn,
-          });
-          setLocalStream(stream);
-        } catch (mediaErr) {
-          console.warn("Failed to acquire local media stream, using fallback:", mediaErr);
-          try {
-            const AudioCtx =
-              window.AudioContext ||
-              (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            const ctx = new AudioCtx();
-            const dst = ctx.createMediaStreamDestination();
-            setLocalStream(dst.stream);
-          } catch {
-            setLocalStream(new MediaStream());
+        // Initial track state sync
+        await syncLocalTracks();
+        updateRemotes();
+
+        // Register WebRTC Event Listeners
+        room.on(RoomEvent.ParticipantConnected, updateRemotes);
+        room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
+
+        room.on(RoomEvent.TrackSubscribed, () => {
+          updateRemotes();
+          syncLocalTracks();
+        });
+        room.on(RoomEvent.TrackUnsubscribed, () => {
+          updateRemotes();
+          syncLocalTracks();
+        });
+        room.on(RoomEvent.TrackMuted, () => {
+          updateRemotes();
+          syncLocalTracks();
+        });
+        room.on(RoomEvent.TrackUnmuted, () => {
+          updateRemotes();
+          syncLocalTracks();
+        });
+
+        // Network Reconnection State Machine
+        room.on(RoomEvent.Reconnecting, () => {
+          console.warn("[Cymatic Resonance] WebRTC reconnecting...");
+        });
+        room.on(RoomEvent.Reconnected, async () => {
+          console.log("[Cymatic Resonance] WebRTC reconnected. Re-asserting track states.");
+          await syncLocalTracks();
+          updateRemotes();
+        });
+
+        room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+          if (!participant || participant === room.localParticipant) {
+            setNetworkQuality(quality);
+          } else {
+            updateRemotes();
           }
+        });
+      } catch (err: unknown) {
+        console.error("LiveKit Engine Error:", err);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Media bridge failure");
         }
       }
     };
 
-    setup();
+    setupLiveKit();
 
     return () => {
       cancelled = true;
-      room.disconnect();
-      roomRef.current = null;
+      if (roomRef.current) {
+        roomRef.current.disconnect();
+        roomRef.current = null;
+      }
+      setLocalStream(null);
+      setRemotes({});
+      setIsCallAnswered(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, callId, selfId, video]);
+  }, [enabled, callId, selfId, syncLocalTracks, updateRemotes]);
 
-  const toggleMic = useCallback(() => {
-    if (!roomRef.current) return;
+  // Robust Controls
+  const toggleMic = useCallback(async () => {
     const next = !micOn;
-    roomRef.current.localParticipant.setMicrophoneEnabled(next);
     setMicOn(next);
-  }, [micOn]);
+    micStateRef.current = next;
 
-  const toggleCam = useCallback(() => {
-    if (!roomRef.current) return;
+    if (roomRef.current && roomRef.current.state === "connected") {
+      await roomRef.current.localParticipant.setMicrophoneEnabled(next);
+      await syncLocalTracks();
+    }
+  }, [micOn, syncLocalTracks]);
+
+  const toggleCam = useCallback(async () => {
     const next = !camOn;
-    roomRef.current.localParticipant.setCameraEnabled(next);
     setCamOn(next);
-  }, [camOn]);
+    camStateRef.current = next;
+
+    if (roomRef.current && roomRef.current.state === "connected") {
+      await roomRef.current.localParticipant.setCameraEnabled(next);
+      await syncLocalTracks();
+    }
+  }, [camOn, syncLocalTracks]);
 
   return {
     localStream,
     remotes: Object.values(remotes),
     micOn,
     camOn,
+    networkQuality,
+    isCallAnswered,
     toggleMic,
     toggleCam,
     error,

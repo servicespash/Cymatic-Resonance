@@ -7,9 +7,7 @@ import { CommsProvider } from "@/lib/comms-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { useCallController } from "@/hooks/use-call-controller";
-import { Button } from "@/components/ui/button";
 import {
-  Hash,
   Send,
   Plus,
   Search,
@@ -17,13 +15,9 @@ import {
   SmilePlus,
   Paperclip,
   Users,
-  BadgeCheck,
   ListTodo,
   MessageSquarePlus,
-  Trash2,
   Mic,
-  Phone,
-  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,6 +34,7 @@ import { CallHistoryPanel } from "@/components/call-history";
 import { TasksPanel } from "@/components/tasks-panel";
 import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-message";
 import { MessageItem } from "@/components/message-item";
+import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
 
 const CommsComponent = () => (
@@ -85,6 +80,7 @@ function CommsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
   const [pending] = useState<string[]>([]);
 
@@ -110,6 +106,7 @@ function CommsPage() {
     ensureNotificationPermission();
   }, []);
 
+  // Hydrate initial organization state & load channel message previews + unread logic
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -122,70 +119,119 @@ function CommsPage() {
       setOrgId(p.org_id);
       setIsAdmin(p.role === "admin");
 
-      const [{ data: chs }, { data: mem }, { data: th }, { data: rd }] = await Promise.all([
-        supabase.from("channels").select("*").eq("org_id", p.org_id).order("created_at"),
-        supabase.from("profiles").select("id, full_name, role").eq("org_id", p.org_id),
-        supabase
-          .from("direct_threads")
-          .select("*")
-          .eq("org_id", p.org_id)
-          .order("last_message_at", { ascending: false }),
-        supabase.from("message_reads").select("channel_id, last_read_at").eq("user_id", user.id),
-      ]);
+      const [{ data: chs }, { data: mem }, { data: th }, { data: rd }, { data: allMsgs }] =
+        await Promise.all([
+          supabase.from("channels").select("*").eq("org_id", p.org_id).order("created_at"),
+          supabase.from("profiles").select("id, full_name, role").eq("org_id", p.org_id),
+          supabase
+            .from("direct_threads")
+            .select("*")
+            .eq("org_id", p.org_id)
+            .order("last_message_at", { ascending: false }),
+          supabase.from("message_reads").select("channel_id, last_read_at").eq("user_id", user.id),
+          supabase
+            .from("messages")
+            .select("id, channel_id, sender_id, body, created_at")
+            .eq("org_id", p.org_id)
+            .order("created_at", { ascending: false }),
+        ]);
+
       if (chs) setChannels(chs);
       if (mem) setSenders(Object.fromEntries(mem.map((s) => [s.id, s])));
       if (th) setThreads(th);
-      if (rd) setReads(Object.fromEntries(rd.map((r) => [r.channel_id, r.last_read_at])));
+
+      const readsMap: Record<string, string> = {};
+      if (rd) {
+        rd.forEach((r) => {
+          readsMap[r.channel_id] = r.last_read_at;
+        });
+        setReads(readsMap);
+      }
+
+      // Map last message per channel & build accurate unread message counts
+      if (allMsgs && allMsgs.length > 0) {
+        const lastMap: Record<string, Msg> = {};
+        const unreadMap: Record<string, number> = {};
+
+        (allMsgs as Msg[]).forEach((m) => {
+          if (!lastMap[m.channel_id]) {
+            lastMap[m.channel_id] = m;
+          }
+
+          const lastReadAt = readsMap[m.channel_id];
+          const isUnread =
+            m.sender_id !== user.id &&
+            (!lastReadAt || new Date(m.created_at) > new Date(lastReadAt));
+
+          if (isUnread) {
+            unreadMap[m.channel_id] = (unreadMap[m.channel_id] || 0) + 1;
+          }
+        });
+
+        setLastMessageByChannel(lastMap);
+        setUnreadCounts(unreadMap);
+      }
 
       const lastId =
         typeof window !== "undefined" ? window.localStorage.getItem("cym.lastChannel") : null;
       const restored = lastId ? (chs ?? []).find((c) => c.id === lastId) : null;
       if (restored) setActiveChannel(restored as Channel);
     })();
-  }, [user, setChannels, setSenders, setThreads, setReads, setActiveChannel]);
+  }, [
+    user,
+    setChannels,
+    setSenders,
+    setThreads,
+    setReads,
+    setLastMessageByChannel,
+    setActiveChannel,
+  ]);
+
+  // Update read receipts when opening a channel
+  const markChannelAsRead = useCallback(
+    async (channelId: string) => {
+      if (!user) return;
+      const now = new Date().toISOString();
+      setReads((prev) => ({ ...prev, [channelId]: now }));
+      setUnreadCounts((prev) => ({ ...prev, [channelId]: 0 }));
+
+      await supabase.from("message_reads").upsert({
+        channel_id: channelId,
+        user_id: user.id,
+        last_read_at: now,
+      });
+    },
+    [user, setReads],
+  );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (active?.id) window.localStorage.setItem("cym.lastChannel", active.id);
-    else window.localStorage.removeItem("cym.lastChannel");
-  }, [active?.id]);
-
-  useEffect(() => {
-    if (!active || typeof window === "undefined") return;
-    const cached = window.localStorage.getItem(`cym.msgs.${active.id}`);
-    if (cached && msgs.length === 0) {
-      try {
-        setMsgs(JSON.parse(cached) as Msg[]);
-      } catch {
-        /* ignore malformed cache */
-      }
+    if (active?.id) {
+      markChannelAsRead(active.id);
+      if (typeof window !== "undefined") window.localStorage.setItem("cym.lastChannel", active.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.id]);
+  }, [active?.id, markChannelAsRead]);
 
-  useEffect(() => {
-    if (!active || typeof window === "undefined" || msgs.length === 0) return;
-    window.localStorage.setItem(`cym.msgs.${active.id}`, JSON.stringify(msgs.slice(-100)));
-  }, [msgs, active?.id, active]);
-
+  // Realtime subscription for incoming messages
   useEffect(() => {
     if (!orgId) return;
     const ch = supabase
       .channel("comms")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) => {
         const m = p.new as Msg;
-        setMsgs((prev) => [...prev, m]);
-        setLastMessageByChannel((prev) => ({ ...prev, [m.channel_id]: m }));
         if (activeRef.current?.id === m.channel_id) {
-          supabase.from("message_reads").upsert({
-            channel_id: m.channel_id,
-            user_id: user!.id,
-            last_read_at: new Date().toISOString(),
-          });
-        } else if (user?.id !== m.sender_id) {
-          const sender = senders[m.sender_id]?.full_name ?? "Someone";
-          notify(sender, { body: m.body });
+          setMsgs((prev) => [...prev, m]);
+          markChannelAsRead(m.channel_id);
+        } else {
+          if (user?.id !== m.sender_id) {
+            setUnreadCounts((prev) => ({
+              ...prev,
+              [m.channel_id]: (prev[m.channel_id] || 0) + 1,
+            }));
+            const sender = senders[m.sender_id]?.full_name ?? "Someone";
+            notify(sender, { body: m.body });
+          }
         }
+        setLastMessageByChannel((prev) => ({ ...prev, [m.channel_id]: m }));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (p) => {
         if (p.eventType === "INSERT") {
@@ -198,7 +244,7 @@ function CommsPage() {
     return () => {
       ch.unsubscribe();
     };
-  }, [orgId, senders, user, setMsgs, setLastMessageByChannel, setReactions]);
+  }, [orgId, senders, user, setMsgs, setLastMessageByChannel, markChannelAsRead]);
 
   const fetchActiveMessagesAndAttachments = useCallback(() => {
     if (!active) return;
@@ -240,17 +286,20 @@ function CommsPage() {
   };
 
   const handleDeleteChat = async (channelId: string) => {
-    const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
-    if (isDm) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from("direct_threads").delete().eq("channel_id", channelId);
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from("channels").delete().eq("id", channelId);
+    if (!user) return;
+    try {
+      const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
+      if (isDm) {
+        await supabase.from("direct_threads").delete().eq("channel_id", channelId);
+      } else {
+        await supabase.from("channels").delete().eq("id", channelId);
+      }
+      setChannels((prev) => prev.filter((c) => c.id !== channelId));
+      if (active?.id === channelId) setActive(null);
+      toast.success("Chat removed successfully");
+    } catch {
+      toast.error("Failed to delete chat");
     }
-    setChannels((prev) => prev.filter((c) => c.id !== channelId));
-    if (active?.id === channelId) setActive(null);
-    toast.success("Chat deleted completely");
   };
 
   const handleDeleteMessage = async (msgId: string) => {
@@ -299,18 +348,20 @@ function CommsPage() {
           : undefined;
       const title = isDm ? (other?.full_name ?? "Direct Message") : c.name;
       const sortKey = last?.created_at ?? "0";
+      const unreadCount = unreadCounts[c.id] || 0;
       return {
         channel: c,
         last,
         title,
         other,
         sortKey,
+        unreadCount,
         verified: !isDm && VERIFIED_CHANNELS.has(c.name),
       };
     });
     items.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
     return items;
-  }, [channels, lastMessageByChannel, threads, senders, user?.id]);
+  }, [channels, lastMessageByChannel, threads, senders, user?.id, unreadCounts]);
 
   const filtered = useMemo(() => {
     let list = conversations;
@@ -348,9 +399,11 @@ function CommsPage() {
 
   return (
     <div className="-m-4 flex h-[calc(100vh-4.5rem)] flex-col md:-m-6 lg:grid lg:grid-cols-[380px_1fr]">
-      {/* Conversation list */}
+      {/* Sidebar - Conversation list */}
       <aside
-        className={`flex min-h-0 flex-col border-r border-white/5 bg-card/30 ${active ? "hidden lg:flex" : "flex"}`}
+        className={`flex min-h-0 flex-col border-r border-white/5 bg-card/30 ${
+          active ? "hidden lg:flex" : "flex"
+        }`}
       >
         <div className="border-b border-white/5 p-5">
           <div className="mb-4 flex items-center justify-between">
@@ -384,11 +437,6 @@ function CommsPage() {
                           </span>
                         </button>
                       ))}
-                    {Object.keys(senders).length <= 1 && (
-                      <p className="py-4 text-center text-xs text-muted-foreground">
-                        Invite teammates to start chatting.
-                      </p>
-                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -471,78 +519,39 @@ function CommsPage() {
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-2">
-          {filtered.map((c) => {
-            const isRead =
-              c.last &&
-              reads[c.channel.id] &&
-              new Date(reads[c.channel.id]) >= new Date(c.last.created_at);
-            return (
-              <div
-                key={c.channel.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setActive(c.channel)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    setActive(c.channel);
-                  }
+        {/* Dynamic Chat Items with Unread Badges */}
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filtered.map((c) => (
+            <div key={c.channel.id} className="relative group">
+              <ChatItem
+                c={{
+                  channel: c.channel,
+                  title: c.title,
+                  verified: c.verified,
+                  last: c.last,
                 }}
-                className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl p-3 text-left transition ${
-                  active?.id === c.channel.id ? "bg-white/10" : "hover:bg-white/5"
-                }`}
-              >
-                <div className="relative">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full bg-white/5 ${c.channel.kind === "dm" ? "bg-frequency/20" : ""}`}
-                  >
-                    {c.channel.kind === "dm" ? (
-                      <Users className="h-5 w-5" />
-                    ) : (
-                      <Hash className="h-5 w-5" />
-                    )}
-                  </div>
-                  {!isRead && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
-                      !
-                    </span>
-                  )}
+                active={active}
+                setActive={setActive}
+                onLongPress={() => {}}
+                isSelectionMode={false}
+                isSelected={false}
+                onToggleSelection={() => {}}
+                onDeleteChannel={handleDeleteChat}
+              />
+              {/* Live Unread Badge */}
+              {c.unreadCount > 0 && active?.id !== c.channel.id && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center bg-accent text-accent-foreground font-mono text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md pointer-events-none">
+                  {c.unreadCount > 99 ? "99+" : c.unreadCount}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`truncate font-medium ${!isRead ? "text-foreground" : "text-muted-foreground"}`}
-                    >
-                      {c.title}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChat(c.channel.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 transition"
-                      aria-label="Delete chat"
-                      title="Delete chat"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                    {c.verified && <BadgeCheck className="h-4 w-4 text-frequency" />}
-                  </div>
-                  <p
-                    className={`truncate text-xs ${!isRead ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-                  >
-                    {c.last?.body ?? "No messages"}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+              )}
+            </div>
+          ))}
         </nav>
 
         <CallHistoryPanel />
       </aside>
 
-      {/* Main chat */}
+      {/* Main Active Chat View */}
       <main className={`flex min-h-0 flex-col ${active ? "flex" : "hidden lg:flex"}`}>
         {active ? (
           <>
@@ -666,7 +675,7 @@ function CommsPage() {
                       await sendMessage("", [], audio);
                       toast.success("Voice message sent!");
                       fetchActiveMessagesAndAttachments();
-                    } catch (e) {
+                    } catch {
                       toast.error("Failed to send audio message");
                     } finally {
                       setSending(false);
@@ -715,8 +724,6 @@ function CommsPage() {
           </div>
         )}
       </main>
-
-      {/* Call panel for incoming/active calls */}
     </div>
   );
 }

@@ -1,11 +1,41 @@
-import { useLongPress } from "@/hooks/use-long-press";
-import type { User } from "@supabase/supabase-js";
-import { Shield, Smile, Trash2 } from "lucide-react";
-import { Msg, Reaction, Sender } from "@/lib/comms-context-def";
-import { CommAttachment, type Attachment } from "@/components/comm-attachment";
-import { getNotificationPrefs } from "@/lib/notifications";
+import React from "react";
+import { User, Trash2, SmilePlus } from "lucide-react";
+import { CommAttachment, Attachment } from "./comm-attachment";
 
-export const MessageItem = ({
+export type Msg = {
+  id: string;
+  channel_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
+
+export type Sender = {
+  id: string;
+  full_name: string | null;
+  role: string;
+};
+
+interface MessageItemProps {
+  m: Msg;
+  showHeader: boolean;
+  senders: Record<string, Sender>;
+  user: { id: string } | null;
+  msgAttachments: Attachment[];
+  reactionGroups: Record<string, { count: number; users: string[]; hasReacted: boolean }>;
+  activeReactionPicker: string | null;
+  setActiveReactionPicker: (id: string | null) => void;
+  handleToggleReaction: (messageId: string, emoji: string) => void;
+  handleDeleteMessage: (msgId: string) => void;
+  onLongPress?: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: () => void;
+}
+
+const EMOJI_OPTIONS = ["👍", "❤️", "🔥", "🚀", "💡", "🎉"];
+
+export const MessageItem: React.FC<MessageItemProps> = ({
   m,
   showHeader,
   senders,
@@ -20,150 +50,121 @@ export const MessageItem = ({
   isSelectionMode,
   isSelected,
   onToggleSelection,
-}: {
-  m: Msg;
-  showHeader: boolean;
-  senders: Record<string, Sender>;
-  user: User | null;
-  msgAttachments: Attachment[];
-  reactionGroups: Record<string, { count: number; users: string[]; hasReacted: boolean }>;
-  activeReactionPicker: string | null;
-  setActiveReactionPicker: (id: string | null) => void;
-  handleToggleReaction: (messageId: string, emoji: string) => void;
-  handleDeleteMessage: (messageId: string) => void;
-  onLongPress: (e: React.MouseEvent | React.TouchEvent) => void;
-  isSelectionMode: boolean;
-  isSelected: boolean;
-  onToggleSelection: () => void;
 }) => {
-  const messageLongPress = useLongPress((e) => onLongPress(e), 500);
-  const isMine = !!(user?.id && m.sender_id === user.id);
+  const isMe = m.sender_id === user?.id;
+  const senderInfo = senders[m.sender_id];
+  const senderName =
+    senderInfo?.full_name || (m.sender_id ? `User ${m.sender_id.slice(0, 4)}` : "Unknown");
+
+  const initials = senderName
+    .split(" ")
+    .filter(Boolean)
+    .map((x: string) => x[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const formattedTime = new Date(m.created_at).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div
-      key={`msg-${m.id}`}
-      {...messageLongPress}
-      className={`group relative flex gap-3 ${showHeader ? "mt-4" : "mt-1"} ${
-        isMine ? "flex-row-reverse text-right" : "flex-row text-left"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (onLongPress) onLongPress();
+      }}
+      onClick={() => {
+        if (isSelectionMode && onToggleSelection) {
+          onToggleSelection();
+        }
+      }}
+      className={`group relative flex gap-3 transition-colors rounded-xl p-2 ${
+        isSelected ? "bg-white/10 ring-1 ring-frequency" : "hover:bg-white/5"
       }`}
     >
-      {isSelectionMode && (
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelection}
-          className="size-4 accent-accent mt-2"
-        />
-      )}
-
       {showHeader ? (
-        <div
-          className={`grid size-9 place-items-center rounded-xl font-mono text-xs font-bold shrink-0 border ${
-            isMine
-              ? "bg-frequency/20 text-frequency border-frequency/30"
-              : "bg-accent/10 text-accent border-accent/20"
-          }`}
-        >
-          {senders[m.sender_id]?.full_name
-            ?.split(" ")
-            .map((x) => x[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase() || "U"}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-frequency/20 font-mono text-xs font-bold text-frequency">
+          {initials || <User className="h-4 w-4" />}
         </div>
       ) : (
-        <div className="w-9 shrink-0" />
+        <div className="w-8 shrink-0" />
       )}
 
-      <div className={`flex-1 min-w-0 flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+      <div className="min-w-0 flex-1">
         {showHeader && (
-          <div className={`flex items-center gap-2 mb-1 ${isMine ? "flex-row-reverse" : ""}`}>
-            <span className="text-xs font-bold tracking-tight text-foreground">
-              {senders[m.sender_id]?.full_name ?? "Member"}
-            </span>
-            <span className="font-mono text-[9px] uppercase tracking-tighter text-muted-foreground/60">
-              {new Date(m.created_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="font-semibold text-xs text-foreground">{senderName}</span>
+            <span className="text-[10px] text-muted-foreground font-mono">{formattedTime}</span>
           </div>
         )}
 
-        {/* Text Body */}
-        {m.body && (
-          <div
-            className={`inline-block rounded-2xl px-4 py-2.5 text-sm ring-1 shadow-sm max-w-[85%] break-words leading-relaxed ${
-              isMine
-                ? "bg-frequency text-primary-foreground rounded-tr-none ring-frequency/30"
-                : "bg-white/5 text-foreground/90 rounded-tl-none ring-white/5"
-            }`}
-          >
-            {m.body.startsWith("[e2ee]") ? (
-              <div className="flex flex-col gap-1">
-                {getNotificationPrefs().showEncryptionBadges && (
-                  <div className="flex items-center gap-1 text-[10px] font-mono text-accent font-semibold tracking-wider">
-                    <Shield className="size-3" /> E2EE ENCRYPTED
-                  </div>
-                )}
-                <span>{m.body.slice(6)}</span>
-              </div>
-            ) : (
-              m.body
-            )}
-          </div>
-        )}
+        <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words">{m.body}</div>
 
-        {/* Attachments rendering */}
         {msgAttachments.length > 0 && (
-          <div className={`mt-2 flex flex-col gap-2 ${isMine ? "items-end" : "items-start"}`}>
-            {msgAttachments.map((att, j) => (
-              <CommAttachment key={`${att.id}-${j}`} a={att} mine={isMine} />
+          <div className="mt-2 flex flex-wrap gap-2">
+            {msgAttachments.map((att) => (
+              <CommAttachment key={att.id} a={att} mine={isMe} />
             ))}
           </div>
         )}
 
-        {/* Reaction Badges */}
-        <div
-          className={`flex items-center gap-1.5 flex-wrap mt-1.5 ${isMine ? "flex-row-reverse" : ""}`}
+        {Object.keys(reactionGroups).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {Object.entries(reactionGroups).map(([emoji, group]) => (
+              <button
+                key={emoji}
+                onClick={() => handleToggleReaction(m.id, emoji)}
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs border transition ${
+                  group.hasReacted
+                    ? "bg-frequency/20 border-frequency/40 text-frequency font-bold"
+                    : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10"
+                }`}
+              >
+                <span>{emoji}</span>
+                <span>{group.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="absolute right-2 top-2 hidden group-hover:flex items-center gap-1 rounded-lg bg-card border border-white/10 p-1 shadow-md">
+        <button
+          onClick={() => setActiveReactionPicker(activeReactionPicker === m.id ? null : m.id)}
+          className="p-1 text-muted-foreground hover:text-foreground rounded transition"
+          aria-label="Add reaction"
         >
-          {Object.entries(reactionGroups).map(([emoji, g]) => (
+          <SmilePlus className="h-3.5 w-3.5" />
+        </button>
+        {isMe && (
+          <button
+            onClick={() => handleDeleteMessage(m.id)}
+            className="p-1 text-muted-foreground hover:text-red-400 rounded transition"
+            aria-label="Delete message"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {activeReactionPicker === m.id && (
+        <div className="absolute right-2 top-9 z-20 flex gap-1 rounded-xl bg-card border border-white/10 p-2 shadow-xl backdrop-blur-xl animate-fade-in">
+          {EMOJI_OPTIONS.map((emoji) => (
             <button
               key={emoji}
-              onClick={() => handleToggleReaction(m.id, emoji)}
-              className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs transition-all border ${
-                g.hasReacted
-                  ? "bg-accent/20 border-accent/50 text-accent font-bold"
-                  : "bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:text-foreground"
-              }`}
+              onClick={() => {
+                handleToggleReaction(m.id, emoji);
+                setActiveReactionPicker(null);
+              }}
+              className="p-1 hover:scale-125 transition text-base"
             >
-              <span>{emoji}</span>
-              <span className="font-mono text-[10px]">{g.count}</span>
+              {emoji}
             </button>
           ))}
-
-          {/* Trigger Reaction Picker */}
-          <div className="relative">
-            <button
-              onClick={() => setActiveReactionPicker(activeReactionPicker === m.id ? null : m.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground"
-              title="Add Reaction"
-            >
-              <Smile className="size-3.5" />
-            </button>
-          </div>
-
-          {isMine && (
-            <button
-              onClick={() => handleDeleteMessage(m.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-400"
-              title="Delete message"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
