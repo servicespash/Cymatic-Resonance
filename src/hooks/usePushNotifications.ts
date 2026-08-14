@@ -25,15 +25,28 @@ export function usePushNotifications() {
         applicationServerKey: outputArray,
       });
 
-      // Absolute local Supabase development URL
-      const response = await fetch("http://localhost:54321/functions/v1/store-push-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(subscription),
-      });
+      // Absolute local Supabase development URL (graceful fallback if not running)
+      try {
+        const response = await fetch(
+          "http://localhost:54321/functions/v1/store-push-subscription",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(subscription),
+          },
+        );
 
-      if (!response.ok) throw new Error("Failed to store subscription");
-      console.log("Push subscription stored");
+        if (!response.ok) {
+          console.warn("Failed to store push subscription on server:", response.statusText);
+        } else {
+          console.log("Push subscription stored");
+        }
+      } catch (fetchErr) {
+        console.warn(
+          "Push subscription server unreachable (local edge function not running):",
+          fetchErr,
+        );
+      }
     } catch (err) {
       console.error("Push notification registration failed:", err);
     }

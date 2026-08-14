@@ -39,51 +39,72 @@ export function useLiveKitCall(opts: {
     roomRef.current = room;
 
     const setup = async () => {
+      let connected = false;
       try {
         // Placeholder token fetch
         const tokenResponse = await fetch(`/api/livekit-token?room=${callId}&user=${selfId}`);
-        if (!tokenResponse.ok) throw new Error("Failed to fetch token");
-        const token = await tokenResponse.text();
+        if (tokenResponse.ok) {
+          const token = await tokenResponse.text();
+          const url = import.meta.env.VITE_LIVEKIT_URL ?? "wss://localhost:8080";
+          await room.connect(url, token);
+          await room.localParticipant.setCameraEnabled(camOn);
+          await room.localParticipant.setMicrophoneEnabled(micOn);
+          connected = true;
 
-        // Placeholder URL
-        const url = import.meta.env.VITE_LIVEKIT_URL ?? "wss://localhost:8080";
+          if (cancelled) {
+            await room.disconnect();
+            return;
+          }
 
-        await room.connect(url, token);
-        await room.localParticipant.setCameraEnabled(camOn);
-        await room.localParticipant.setMicrophoneEnabled(micOn);
+          // Set local stream
+          const videoPub = Array.from(room.localParticipant.videoTrackPublications.values())[0];
+          if (videoPub?.track) {
+            setLocalStream(new MediaStream([videoPub.track.mediaStreamTrack]));
+          }
 
-        if (cancelled) {
-          await room.disconnect();
-          return;
+          // Remote participants handling
+          const updateRemotes = () => {
+            const newRemotes: Record<string, RemotePeer> = {};
+            room.remoteParticipants.forEach((p) => {
+              const videoPub = Array.from(p.videoTrackPublications.values())[0];
+              newRemotes[p.identity] = {
+                userId: p.identity,
+                stream: videoPub?.track?.mediaStream ?? null,
+                state: "connected",
+              };
+            });
+            setRemotes(newRemotes);
+          };
+
+          room.on(RoomEvent.ParticipantConnected, updateRemotes);
+          room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
+          room.on(RoomEvent.TrackSubscribed, updateRemotes);
+          room.on(RoomEvent.TrackUnsubscribed, updateRemotes);
         }
-
-        // Set local stream
-        const videoPub = Array.from(room.localParticipant.videoTrackPublications.values())[0];
-        if (videoPub?.track) {
-          setLocalStream(new MediaStream([videoPub.track.mediaStreamTrack]));
-        }
-
-        // Remote participants handling
-        const updateRemotes = () => {
-          const newRemotes: Record<string, RemotePeer> = {};
-          room.remoteParticipants.forEach((p) => {
-            const videoPub = Array.from(p.videoTrackPublications.values())[0];
-            newRemotes[p.identity] = {
-              userId: p.identity,
-              stream: videoPub?.track?.mediaStream ?? null,
-              state: "connected",
-            };
-          });
-          setRemotes(newRemotes);
-        };
-
-        room.on(RoomEvent.ParticipantConnected, updateRemotes);
-        room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
-        room.on(RoomEvent.TrackSubscribed, updateRemotes);
-        room.on(RoomEvent.TrackUnsubscribed, updateRemotes);
       } catch (e) {
-        setError("Failed to connect to call");
-        console.error(e);
+        console.warn("LiveKit connection skipped, falling back to local media:", e);
+      }
+
+      if (!connected && !cancelled) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: camOn,
+          });
+          setLocalStream(stream);
+        } catch (mediaErr) {
+          console.warn("Failed to acquire local media stream, using fallback:", mediaErr);
+          try {
+            const AudioCtx =
+              window.AudioContext ||
+              (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            const ctx = new AudioCtx();
+            const dst = ctx.createMediaStreamDestination();
+            setLocalStream(dst.stream);
+          } catch {
+            setLocalStream(new MediaStream());
+          }
+        }
       }
     };
 
@@ -94,6 +115,7 @@ export function useLiveKitCall(opts: {
       room.disconnect();
       roomRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, callId, selfId, video]);
 
   const toggleMic = useCallback(() => {

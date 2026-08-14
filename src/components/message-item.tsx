@@ -37,12 +37,15 @@ export const MessageItem = ({
   onToggleSelection: () => void;
 }) => {
   const messageLongPress = useLongPress((e) => onLongPress(e), 500);
+  const isMine = !!(user?.id && m.sender_id === user.id);
 
   return (
     <div
       key={`msg-${m.id}`}
       {...messageLongPress}
-      className={`group relative flex gap-3 ${showHeader ? "mt-4" : "mt-1"}`}
+      className={`group relative flex gap-3 ${showHeader ? "mt-4" : "mt-1"} ${
+        isMine ? "flex-row-reverse text-right" : "flex-row text-left"
+      }`}
     >
       {isSelectionMode && (
         <input
@@ -52,24 +55,31 @@ export const MessageItem = ({
           className="size-4 accent-accent mt-2"
         />
       )}
+
       {showHeader ? (
-        <div className="grid size-9 place-items-center rounded-xl bg-accent/10 font-mono text-xs font-bold text-accent shrink-0 border border-accent/20">
+        <div
+          className={`grid size-9 place-items-center rounded-xl font-mono text-xs font-bold shrink-0 border ${
+            isMine
+              ? "bg-frequency/20 text-frequency border-frequency/30"
+              : "bg-accent/10 text-accent border-accent/20"
+          }`}
+        >
           {senders[m.sender_id]?.full_name
             ?.split(" ")
             .map((x) => x[0])
             .join("")
             .slice(0, 2)
-            .toUpperCase()}
+            .toUpperCase() || "U"}
         </div>
       ) : (
         <div className="w-9 shrink-0" />
       )}
 
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 flex flex-col ${isMine ? "items-end" : "items-start"}`}>
         {showHeader && (
-          <div className="flex items-center gap-2 mb-1">
+          <div className={`flex items-center gap-2 mb-1 ${isMine ? "flex-row-reverse" : ""}`}>
             <span className="text-xs font-bold tracking-tight text-foreground">
-              {senders[m.sender_id]?.full_name ?? "Unknown Partner"}
+              {senders[m.sender_id]?.full_name ?? "Member"}
             </span>
             <span className="font-mono text-[9px] uppercase tracking-tighter text-muted-foreground/60">
               {new Date(m.created_at).toLocaleTimeString([], {
@@ -82,7 +92,13 @@ export const MessageItem = ({
 
         {/* Text Body */}
         {m.body && (
-          <div className="inline-block rounded-2xl rounded-tl-none bg-white/5 px-4 py-2.5 text-sm text-foreground/90 ring-1 ring-white/5 shadow-sm max-w-[85%] break-words leading-relaxed">
+          <div
+            className={`inline-block rounded-2xl px-4 py-2.5 text-sm ring-1 shadow-sm max-w-[85%] break-words leading-relaxed ${
+              isMine
+                ? "bg-frequency text-primary-foreground rounded-tr-none ring-frequency/30"
+                : "bg-white/5 text-foreground/90 rounded-tl-none ring-white/5"
+            }`}
+          >
             {m.body.startsWith("[e2ee]") ? (
               <div className="flex flex-col gap-1">
                 {getNotificationPrefs().showEncryptionBadges && (
@@ -100,15 +116,17 @@ export const MessageItem = ({
 
         {/* Attachments rendering */}
         {msgAttachments.length > 0 && (
-          <div className="mt-2 flex flex-col gap-2">
+          <div className={`mt-2 flex flex-col gap-2 ${isMine ? "items-end" : "items-start"}`}>
             {msgAttachments.map((att, j) => (
-              <CommAttachment key={`${att.id}-${j}`} a={att} mine={m.sender_id === user?.id} />
+              <CommAttachment key={`${att.id}-${j}`} a={att} mine={isMine} />
             ))}
           </div>
         )}
 
         {/* Reaction Badges */}
-        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+        <div
+          className={`flex items-center gap-1.5 flex-wrap mt-1.5 ${isMine ? "flex-row-reverse" : ""}`}
+        >
           {Object.entries(reactionGroups).map(([emoji, g]) => (
             <button
               key={emoji}
@@ -135,7 +153,7 @@ export const MessageItem = ({
             </button>
           </div>
 
-          {m.sender_id === user?.id && (
+          {isMine && (
             <button
               onClick={() => handleDeleteMessage(m.id)}
               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-400"

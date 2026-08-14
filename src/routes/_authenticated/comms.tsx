@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { useComms } from "@/lib/use-comms";
@@ -7,14 +7,13 @@ import { CommsProvider } from "@/lib/comms-context";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { useCallController } from "@/hooks/use-call-controller";
+import { Button } from "@/components/ui/button";
 import {
   Hash,
   Send,
   Plus,
   Search,
   ArrowLeft,
-  Phone,
-  Video,
   SmilePlus,
   Paperclip,
   Users,
@@ -22,8 +21,9 @@ import {
   ListTodo,
   MessageSquarePlus,
   Trash2,
-  Archive,
   Mic,
+  Phone,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,18 +35,23 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
+import { CallControls } from "@/components/call-controls";
 import { CallHistoryPanel } from "@/components/call-history";
 import { TasksPanel } from "@/components/tasks-panel";
 import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-message";
+import { MessageItem } from "@/components/message-item";
+import type { Attachment } from "@/components/comm-attachment";
+
+const CommsComponent = () => (
+  <RequireWorkspace>
+    <CommsProvider>
+      <CommsPage />
+    </CommsProvider>
+  </RequireWorkspace>
+);
 
 export const Route = createFileRoute("/_authenticated/comms")({
-  component: () => (
-    <RequireWorkspace>
-      <CommsProvider>
-        <CommsPage />
-      </CommsProvider>
-    </RequireWorkspace>
-  ),
+  component: CommsComponent,
 });
 
 type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
@@ -78,7 +83,9 @@ function CommsPage() {
   const callController = useCallController();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [, setReactions] = useState<Reaction[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
   const [pending] = useState<string[]>([]);
 
   const active = activeChannel;
@@ -91,6 +98,8 @@ function CommsPage() {
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [newChannelName, setNewChannelName] = useState("");
   const [sending, setSending] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -128,7 +137,6 @@ function CommsPage() {
       if (th) setThreads(th);
       if (rd) setReads(Object.fromEntries(rd.map((r) => [r.channel_id, r.last_read_at])));
 
-      // Restore the last opened conversation so chat history survives reloads.
       const lastId =
         typeof window !== "undefined" ? window.localStorage.getItem("cym.lastChannel") : null;
       const restored = lastId ? (chs ?? []).find((c) => c.id === lastId) : null;
@@ -142,7 +150,6 @@ function CommsPage() {
     else window.localStorage.removeItem("cym.lastChannel");
   }, [active?.id]);
 
-  // Cache the loaded history per channel so it renders instantly on return.
   useEffect(() => {
     if (!active || typeof window === "undefined") return;
     const cached = window.localStorage.getItem(`cym.msgs.${active.id}`);
@@ -180,13 +187,20 @@ function CommsPage() {
           notify(sender, { body: m.body });
         }
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (p) => {
+        if (p.eventType === "INSERT") {
+          setReactions((prev) => [...prev, p.new as Reaction]);
+        } else if (p.eventType === "DELETE") {
+          setReactions((prev) => prev.filter((r) => r.id !== p.old.id));
+        }
+      })
       .subscribe();
     return () => {
       ch.unsubscribe();
     };
-  }, [orgId, senders, user, setMsgs, setLastMessageByChannel]);
+  }, [orgId, senders, user, setMsgs, setLastMessageByChannel, setReactions]);
 
-  useEffect(() => {
+  const fetchActiveMessagesAndAttachments = useCallback(() => {
     if (!active) return;
     supabase
       .from("messages")
@@ -199,17 +213,22 @@ function CommsPage() {
         const ids = data.map((m) => m.id);
         if (ids.length === 0) {
           setReactions([]);
+          setAttachments([]);
           return;
         }
-        supabase
-          .from("message_reactions")
-          .select("*")
-          .in("message_id", ids)
-          .then(({ data: rx }) => {
-            if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
-          });
+        Promise.all([
+          supabase.from("message_reactions").select("*").in("message_id", ids),
+          supabase.from("message_attachments").select("*").in("message_id", ids),
+        ]).then(([{ data: rx }, { data: att }]) => {
+          if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
+          if (att) setAttachments(att as Attachment[]);
+        });
       });
   }, [active, setMsgs]);
+
+  useEffect(() => {
+    fetchActiveMessagesAndAttachments();
+  }, [fetchActiveMessagesAndAttachments]);
 
   const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
@@ -217,23 +236,21 @@ function CommsPage() {
     await sendMessage(body, []);
     setSending(false);
     setBody("");
+    fetchActiveMessagesAndAttachments();
   };
 
-  const handleArchive = async (channelId: string) => {
+  const handleDeleteChat = async (channelId: string) => {
     const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
     if (isDm) {
-      await supabase
-        .from("direct_threads")
-        .update({ archived_at: new Date().toISOString() } as any)
-        .eq("channel_id", channelId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("direct_threads").delete().eq("channel_id", channelId);
     } else {
-      await supabase
-        .from("channels")
-        .update({ archived_at: new Date().toISOString() } as any)
-        .eq("id", channelId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("channels").delete().eq("id", channelId);
     }
     setChannels((prev) => prev.filter((c) => c.id !== channelId));
-    toast.success("Archived");
+    if (active?.id === channelId) setActive(null);
+    toast.success("Chat deleted completely");
   };
 
   const handleDeleteMessage = async (msgId: string) => {
@@ -242,16 +259,33 @@ function CommsPage() {
     toast.success("Message deleted");
   };
 
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+    const existing = reactions.find(
+      (r) => r.message_id === messageId && r.emoji === emoji && r.user_id === user.id,
+    );
+    if (existing) {
+      await supabase.from("message_reactions").delete().eq("id", existing.id);
+      setReactions((prev) => prev.filter((r) => r.id !== existing.id));
+    } else {
+      const { data, error } = await supabase
+        .from("message_reactions")
+        .insert({
+          message_id: messageId,
+          emoji,
+          user_id: user.id,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        setReactions((prev) => [...prev, data]);
+      }
+    }
+  };
+
   const handleStartDm = async (otherId: string) => {
     setNewDmOpen(false);
     await startDm(otherId);
-  };
-
-  const dmTarget = () => {
-    if (!active || active.kind !== "dm" || !user) return null;
-    const t = threads.find((x) => x.channel_id === active.id);
-    if (!t) return null;
-    return t.user_a === user.id ? t.user_b : t.user_a;
   };
 
   const conversations = useMemo(() => {
@@ -263,7 +297,7 @@ function CommsPage() {
         isDm && thread
           ? senders[thread.user_a === user?.id ? thread.user_b : thread.user_a]
           : undefined;
-      const title = isDm ? (other?.full_name ?? "Direct") : c.name;
+      const title = isDm ? (other?.full_name ?? "Direct Message") : c.name;
       const sortKey = last?.created_at ?? "0";
       return {
         channel: c,
@@ -308,7 +342,7 @@ function CommsPage() {
       : undefined;
   const activeTitle = active
     ? active.kind === "dm"
-      ? (activeOther?.full_name ?? "Direct")
+      ? (activeOther?.full_name ?? "Direct Message")
       : `#${active.name}`
     : "";
 
@@ -365,9 +399,9 @@ function CommsPage() {
                     <ListTodo className="h-5 w-5" />
                   </button>
                 </DialogTrigger>
-                <DialogContent className="glass-strong max-h-[80vh] overflow-y-auto">
+                <DialogContent className="glass-strong max-w-4xl max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Tasks</DialogTitle>
+                    <DialogTitle>Task Management Board</DialogTitle>
                   </DialogHeader>
                   {user && (
                     <TasksPanel
@@ -402,7 +436,7 @@ function CommsPage() {
                     />
                     <DialogFooter>
                       <button
-                        className="rounded-md bg-frequency px-4 py-2"
+                        className="rounded-md bg-frequency px-4 py-2 text-primary-foreground"
                         onClick={async () => {
                           if (!user) return;
                           const { error } = await supabase.from("channels").insert({
@@ -443,12 +477,18 @@ function CommsPage() {
               c.last &&
               reads[c.channel.id] &&
               new Date(reads[c.channel.id]) >= new Date(c.last.created_at);
-            const unreadCount = 0; // Needs implementing: fetch unread count logic
             return (
-              <button
+              <div
                 key={c.channel.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setActive(c.channel)}
-                className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    setActive(c.channel);
+                  }
+                }}
+                className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl p-3 text-left transition ${
                   active?.id === c.channel.id ? "bg-white/10" : "hover:bg-white/5"
                 }`}
               >
@@ -478,12 +518,13 @@ function CommsPage() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleArchive(c.channel.id);
+                        handleDeleteChat(c.channel.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-foreground transition"
-                      aria-label="Archive chat"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 transition"
+                      aria-label="Delete chat"
+                      title="Delete chat"
                     >
-                      <Archive className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                     {c.verified && <BadgeCheck className="h-4 w-4 text-frequency" />}
                   </div>
@@ -493,7 +534,7 @@ function CommsPage() {
                     {c.last?.body ?? "No messages"}
                   </p>
                 </div>
-              </button>
+              </div>
             );
           })}
         </nav>
@@ -512,42 +553,107 @@ function CommsPage() {
                 </button>
                 <h2 className="font-semibold">{activeTitle}</h2>
               </div>
-              <div className="flex items-center gap-2"></div>
+              <CallControls
+                onStartAudioCall={() => {
+                  const recipientId = active.kind === "dm" && activeOther ? activeOther.id : "";
+                  callController.startCall(active.id, recipientId ? [recipientId] : [], "audio");
+                }}
+                onStartVideoCall={() => {
+                  const recipientId = active.kind === "dm" && activeOther ? activeOther.id : "";
+                  callController.startCall(active.id, recipientId ? [recipientId] : [], "video");
+                }}
+              />
             </header>
 
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {msgs.map((m) => (
-                <div key={m.id} className="flex gap-3 group">
-                  <div className="h-8 w-8 rounded-full bg-white/5" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">
-                          {senders[m.sender_id]?.full_name ?? "Unknown"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(m.created_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {m.sender_id === user?.id && (
-                        <button
-                          onClick={() => handleDeleteMessage(m.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 transition"
-                          aria-label="Delete message"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground/90">{m.body}</p>
-                  </div>
-                </div>
-              ))}
+              {msgs.map((m, i) => {
+                const prev = msgs[i - 1];
+                const showHeader =
+                  !prev ||
+                  prev.sender_id !== m.sender_id ||
+                  new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > 300000;
+                const msgAttachments = attachments.filter((a) => a.message_id === m.id);
+                const msgReactions = reactions.filter((r) => r.message_id === m.id);
+                const reactionGroups = msgReactions.reduce(
+                  (acc, r) => {
+                    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, users: [], hasReacted: false };
+                    acc[r.emoji].count++;
+                    acc[r.emoji].users.push(r.user_id);
+                    if (r.user_id === user?.id) acc[r.emoji].hasReacted = true;
+                    return acc;
+                  },
+                  {} as Record<string, { count: number; users: string[]; hasReacted: boolean }>,
+                );
+
+                return (
+                  <MessageItem
+                    key={m.id}
+                    m={m}
+                    showHeader={showHeader}
+                    senders={senders}
+                    user={user}
+                    msgAttachments={msgAttachments}
+                    reactionGroups={reactionGroups}
+                    activeReactionPicker={activeReactionPicker}
+                    setActiveReactionPicker={setActiveReactionPicker}
+                    handleToggleReaction={handleToggleReaction}
+                    handleDeleteMessage={handleDeleteMessage}
+                    onLongPress={() => {
+                      setIsSelectionMode(true);
+                      setSelectedMessageIds((prev) => new Set(prev).add(m.id));
+                    }}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedMessageIds.has(m.id)}
+                    onToggleSelection={() => {
+                      setSelectedMessageIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(m.id)) next.delete(m.id);
+                        else next.add(m.id);
+                        return next;
+                      });
+                    }}
+                  />
+                );
+              })}
               <div ref={bottom} />
             </div>
+
+            {isSelectionMode && (
+              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card/95 border border-white/10 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl animate-fade-up">
+                <span className="text-xs font-mono font-bold text-muted-foreground">
+                  {selectedMessageIds.size} selected
+                </span>
+                <button
+                  onClick={() => {
+                    toast.success(`Archived ${selectedMessageIds.size} messages`);
+                    setSelectedMessageIds(new Set());
+                    setIsSelectionMode(false);
+                  }}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-foreground text-xs font-semibold rounded-xl transition"
+                >
+                  Archive
+                </button>
+                <button
+                  onClick={() => {
+                    selectedMessageIds.forEach((id) => handleDeleteMessage(id));
+                    setSelectedMessageIds(new Set());
+                    setIsSelectionMode(false);
+                  }}
+                  className="px-3 py-1.5 bg-destructive/20 hover:bg-destructive/30 text-destructive text-xs font-semibold rounded-xl transition"
+                >
+                  Delete ({selectedMessageIds.size})
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMessageIds(new Set());
+                    setIsSelectionMode(false);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
 
             {isRecording && (
               <div className="absolute bottom-20 left-4 right-4 z-50">
@@ -555,8 +661,16 @@ function CommsPage() {
                   onCancel={() => setIsRecording(false)}
                   onSend={async (audio: RecordedAudio) => {
                     setIsRecording(false);
-                    // Actual upload logic would go here
-                    toast.success("Voice message sent!");
+                    try {
+                      setSending(true);
+                      await sendMessage("", [], audio);
+                      toast.success("Voice message sent!");
+                      fetchActiveMessagesAndAttachments();
+                    } catch (e) {
+                      toast.error("Failed to send audio message");
+                    } finally {
+                      setSending(false);
+                    }
                   }}
                 />
               </div>
@@ -568,6 +682,7 @@ function CommsPage() {
                   className="p-2 text-muted-foreground hover:text-foreground"
                   onClick={() => setIsRecording(true)}
                   aria-label="Record voice message"
+                  title="Record voice message"
                 >
                   <Mic className="h-5 w-5" />
                 </button>

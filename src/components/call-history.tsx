@@ -23,7 +23,6 @@ export const CallHistoryPanel = () => {
   const fetchCalls = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // Fetch recent calls where user is initiator or in org
     const { data, error } = await supabase
       .from("calls")
       .select("id, channel_id, created_at, started_at, ended_at, initiator_id, kind, status")
@@ -39,6 +38,16 @@ export const CallHistoryPanel = () => {
   useEffect(() => {
     if (isOpen) {
       fetchCalls();
+      const subscription = supabase
+        .channel("calls-history-realtime")
+        .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, () => {
+          fetchCalls();
+        })
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, [isOpen, fetchCalls]);
 
@@ -55,6 +64,34 @@ export const CallHistoryPanel = () => {
     },
     {} as Record<string, CallRow[]>,
   );
+
+  const getStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "ended":
+      case "active":
+      case "connected":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            Connected
+          </span>
+        );
+      case "declined":
+      case "rejected":
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+            Declined
+          </span>
+        );
+      case "missed":
+      case "ringing":
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            {status}
+          </span>
+        );
+    }
+  };
 
   return (
     <div className="border-t border-white/10 mt-2">
@@ -99,7 +136,7 @@ export const CallHistoryPanel = () => {
                       ) : call.status === "declined" ? (
                         <PhoneOff className="size-3.5 text-red-400 shrink-0" />
                       ) : (
-                        <Phone className="size-3.5 text-yellow-400 shrink-0" />
+                        <Phone className="size-3.5 text-amber-400 shrink-0" />
                       )}
 
                       <div className="flex-1 min-w-0">
@@ -113,9 +150,12 @@ export const CallHistoryPanel = () => {
                             {call.initiator_id === user?.id ? "Outbound Call" : "Inbound Call"}
                           </span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground capitalize">
-                          {call.status} • {durationSec > 0 ? `${durationSec}s` : "0s"}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {getStatusBadge(call.status)}
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {durationSec > 0 ? `${durationSec}s` : "0s"}
+                          </span>
+                        </div>
                       </div>
 
                       <button

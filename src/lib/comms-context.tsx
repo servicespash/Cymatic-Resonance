@@ -1,4 +1,4 @@
-import { useContext, useState, ReactNode } from "react";
+import React, { useContext, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CommsContextType, Channel, Msg, Thread, Reaction, Sender } from "./comms-context-def";
 import { CommsContext } from "./comms-context-core";
@@ -7,18 +7,22 @@ import { useAuth } from "./use-auth";
 
 export const CommsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [senders, setSenders] = useState<Record<string, Sender>>({});
-  const [reads, setReads] = useState<Record<string, string>>({});
-  const [lastMessageByChannel, setLastMessageByChannel] = useState<Record<string, Msg>>({});
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [channels, setChannels] = React.useState<Channel[]>([]);
+  const [threads, setThreads] = React.useState<Thread[]>([]);
+  const [activeChannel, setActiveChannel] = React.useState<Channel | null>(null);
+  const [messages, setMessages] = React.useState<Msg[]>([]);
+  const [reactions, setReactions] = React.useState<Reaction[]>([]);
+  const [senders, setSenders] = React.useState<Record<string, Sender>>({});
+  const [reads, setReads] = React.useState<Record<string, string>>({});
+  const [lastMessageByChannel, setLastMessageByChannel] = React.useState<Record<string, Msg>>({});
+  const [loading, setLoading] = React.useState(true);
+  const [sending, setSending] = React.useState(false);
 
-  const sendMessage = async (body: string, files: File[], audio?: any) => {
+  const sendMessage = async (
+    body: string,
+    files: File[],
+    audio?: { blob: Blob; mime: string; ext: string; durationMs?: number } | null,
+  ) => {
     if (!activeChannel || !user) return;
     setSending(true);
     try {

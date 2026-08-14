@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { Mic, Square, X, Send, Play, Pause } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Mic, Square, X, Send, Play, Pause, ShieldCheck } from "lucide-react";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 const MAX_MS = 5 * 60 * 1000;
 
@@ -19,6 +20,7 @@ export function RecordAudioMessage({
   onCancel: () => void;
   onSend: (audio: RecordedAudio) => void;
 }) {
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [preview, setPreview] = useState<RecordedAudio | null>(null);
@@ -36,10 +38,12 @@ export function RecordAudioMessage({
     streamRef.current = null;
   };
 
-  const start = async () => {
+  const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      setHasPermission(true);
+
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm")
@@ -51,7 +55,12 @@ export function RecordAudioMessage({
       mediaRef.current = mr;
       chunksRef.current = [];
 
-      mr.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
+      };
+
       mr.onstop = () => {
         const type = mr.mimeType || "audio/webm";
         const blob = new Blob(chunksRef.current, { type });
@@ -62,7 +71,7 @@ export function RecordAudioMessage({
       };
 
       startedRef.current = Date.now();
-      mr.start();
+      mr.start(250);
       setRecording(true);
       setElapsed(0);
 
@@ -71,16 +80,16 @@ export function RecordAudioMessage({
         setElapsed(e);
         if (e >= MAX_MS) {
           toast.message("Maximum 5 minutes recording time reached");
-          stop();
+          stopRec();
         }
       }, 200);
     } catch (e: unknown) {
+      setHasPermission(false);
       toast.error((e as Error)?.message ?? "Microphone access denied");
-      onCancel();
     }
-  };
+  }, []);
 
-  const stop = () => {
+  const stopRec = () => {
     if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
@@ -88,6 +97,7 @@ export function RecordAudioMessage({
     setRecording(false);
     try {
       if (mediaRef.current && mediaRef.current.state !== "inactive") {
+        mediaRef.current.requestData();
         mediaRef.current.stop();
       }
     } catch (e) {
@@ -96,7 +106,21 @@ export function RecordAudioMessage({
   };
 
   useEffect(() => {
-    start();
+    // Check permission or prompt pre-interaction UI
+    navigator.permissions
+      ?.query({ name: "microphone" as PermissionName })
+      .then((result) => {
+        if (result.state === "granted") {
+          startRecording();
+        } else {
+          setHasPermission(false);
+        }
+      })
+      .catch(() => {
+        // Fallback: try starting directly or show pre-interaction banner
+        startRecording();
+      });
+
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
       try {
@@ -104,12 +128,11 @@ export function RecordAudioMessage({
           mediaRef.current?.stop();
         }
       } catch (e) {
-        console.error("Failed to stop media recorder on cleanup:", e);
+        console.error("Cleanup error:", e);
       }
       stopTracks();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startRecording]);
 
   const mmss = (ms: number) => {
     const s = Math.floor(ms / 1000);
@@ -127,15 +150,51 @@ export function RecordAudioMessage({
     }
   };
 
+  if (hasPermission === false && !recording && !preview) {
+    return (
+      <div className="flex flex-col gap-3 rounded-2xl bg-black/80 border border-frequency/30 p-4 backdrop-blur-xl shadow-2xl animate-fade-up max-w-sm mx-auto">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-xl bg-frequency/20 text-frequency border border-frequency/30">
+            <Mic className="size-5" />
+          </span>
+          <div>
+            <h4 className="font-semibold text-sm text-foreground">Microphone Access Required</h4>
+            <p className="text-xs text-muted-foreground">
+              To record high-fidelity voice messages and make secure audio calls, please allow
+              microphone access.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Button
+            size="sm"
+            onClick={startRecording}
+            className="flex-1 bg-frequency text-primary-foreground font-semibold"
+          >
+            <ShieldCheck className="size-4 mr-1.5" /> Allow & Record
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            className="bg-white/5 border-white/10"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-2 rounded-2xl bg-black/60 border border-primary/30 p-3 backdrop-blur-xl shadow-2xl animate-fade-up">
+    <div className="flex flex-col gap-2 rounded-2xl bg-black/70 border border-primary/30 p-3 backdrop-blur-xl shadow-2xl animate-fade-up">
       {/* State Header Badge */}
       <div className="flex items-center justify-between text-xs font-semibold px-1">
         <div className="flex items-center gap-2">
           {recording ? (
             <span className="flex items-center gap-1.5 text-destructive font-mono uppercase tracking-wider text-[11px] font-bold animate-pulse">
-              <span className="size-2.5 rounded-full bg-destructive animate-ping" /> Recording Audio
-              Message
+              <span className="size-2.5 rounded-full bg-destructive animate-ping" /> Recording Voice
+              Note
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-accent font-mono uppercase tracking-wider text-[11px] font-bold">
@@ -167,7 +226,7 @@ export function RecordAudioMessage({
         {recording ? (
           <button
             type="button"
-            onClick={stop}
+            onClick={stopRec}
             className="grid size-9 place-items-center rounded-xl bg-destructive text-destructive-foreground hover:brightness-110 active:scale-95 transition-all shadow-md"
             title="Stop Recording"
           >
@@ -201,7 +260,7 @@ export function RecordAudioMessage({
         <button
           type="button"
           onClick={() => {
-            stop();
+            stopRec();
             onCancel();
           }}
           className="grid size-9 place-items-center rounded-xl bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground transition-all"

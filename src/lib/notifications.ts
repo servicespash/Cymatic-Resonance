@@ -33,10 +33,11 @@ export function notify(title: string, opts: NotificationOptions & { onClick?: ()
   }
 }
 
-// Soft 2-tone ringtone via WebAudio — no asset required.
+// Soft 2-tone ringtone via WebAudio — loops for ~60 seconds.
 export function createRingtone() {
   let ctx: AudioContext | null = null;
   let stopFn: (() => void) | null = null;
+  let timeoutId: number | null = null;
 
   const start = () => {
     if (stopFn) return;
@@ -47,7 +48,7 @@ export function createRingtone() {
           .webkitAudioContext
       )();
       const gain = ctx.createGain();
-      gain.gain.value = 0.15;
+      gain.gain.value = 0.2;
       gain.connect(ctx.destination);
 
       let cancelled = false;
@@ -61,18 +62,25 @@ export function createRingtone() {
           osc.frequency.value = freq;
           osc.connect(g);
           g.connect(gain);
-          const t0 = ctx!.currentTime + i * 0.35;
+          const t0 = ctx!.currentTime + i * 0.4;
           g.gain.setValueAtTime(0, t0);
-          g.gain.linearRampToValueAtTime(1, t0 + 0.03);
-          g.gain.linearRampToValueAtTime(0, t0 + 0.3);
+          g.gain.linearRampToValueAtTime(1, t0 + 0.05);
+          g.gain.linearRampToValueAtTime(0, t0 + 0.35);
           osc.start(t0);
-          osc.stop(t0 + 0.32);
+          osc.stop(t0 + 0.38);
         });
-        setTimeout(playPair, 2200);
+        setTimeout(playPair, 2500);
       };
       playPair();
+
+      // Auto stop after 60 seconds (~1 minute loop limit)
+      timeoutId = window.setTimeout(() => {
+        stop();
+      }, 60000);
+
       stopFn = () => {
         cancelled = true;
+        if (timeoutId) clearTimeout(timeoutId);
         ctx?.close();
         ctx = null;
       };
@@ -85,6 +93,43 @@ export function createRingtone() {
     stopFn = null;
   };
   return { start, stop };
+}
+
+// Dial tone for outgoing calls
+export function playDialTone() {
+  try {
+    const ctx = new (
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    )();
+    const gain = ctx.createGain();
+    gain.gain.value = 0.1;
+    gain.connect(ctx.destination);
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    osc1.type = "sine";
+    osc2.type = "sine";
+    osc1.frequency.value = 350;
+    osc2.frequency.value = 440;
+    osc1.connect(gain);
+    osc2.connect(gain);
+
+    osc1.start();
+    osc2.start();
+
+    return () => {
+      try {
+        osc1.stop();
+        osc2.stop();
+        ctx.close();
+      } catch {
+        // ignore
+      }
+    };
+  } catch {
+    return () => {};
+  }
 }
 
 export function playCallConnected() {
