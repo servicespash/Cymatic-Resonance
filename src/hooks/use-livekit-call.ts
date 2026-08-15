@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Room, RoomEvent, ConnectionQuality, RemoteParticipant, Track } from "livekit-client";
+import { supabase } from "@/integrations/supabase/client";
 
 export type RemotePeer = {
   userId: string;
@@ -20,9 +21,7 @@ export function useLiveKitCall(opts: {
   const [remotes, setRemotes] = useState<Record<string, RemotePeer>>({});
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(video);
-  const [networkQuality, setNetworkQuality] = useState<ConnectionQuality>(
-    ConnectionQuality.Excellent,
-  );
+  const [networkQuality, setNetworkQuality] = useState<ConnectionQuality>(ConnectionQuality.Excellent);
   const [error, setError] = useState<string | null>(null);
   const [isCallAnswered, setIsCallAnswered] = useState(false);
 
@@ -30,7 +29,6 @@ export function useLiveKitCall(opts: {
   const micStateRef = useRef(micOn);
   const camStateRef = useRef(camOn);
 
-  // Keep state refs perfectly updated for async room callbacks without re-triggering main effect
   useEffect(() => {
     micStateRef.current = micOn;
   }, [micOn]);
@@ -39,7 +37,6 @@ export function useLiveKitCall(opts: {
     camStateRef.current = camOn;
   }, [camOn]);
 
-  // Synchronize local participant media state safely
   const syncLocalTracks = useCallback(async () => {
     const room = roomRef.current;
     if (!room || room.state !== "connected") return;
@@ -49,8 +46,6 @@ export function useLiveKitCall(opts: {
       await room.localParticipant.setCameraEnabled(camStateRef.current);
 
       const tracks: MediaStreamTrack[] = [];
-
-      // Target specific track sources rather than arbitrary indexes
       const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
 
@@ -63,21 +58,19 @@ export function useLiveKitCall(opts: {
 
       setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
     } catch (err) {
-      console.error("[Cymatic Resonance Engine] Track sync failure:", err);
+      console.error("[Cymatic Resonance] Local track sync error:", err);
     }
   }, []);
 
-  // Update Remote Peer representations cleanly
   const updateRemotes = useCallback(() => {
     const room = roomRef.current;
     if (!room) return;
 
     const newRemotes: Record<string, RemotePeer> = {};
-    let activeCallPeerDetected = false;
+    let peerConnected = false;
 
     room.remoteParticipants.forEach((p: RemoteParticipant) => {
       const tracks: MediaStreamTrack[] = [];
-
       const camPub = p.getTrackPublication(Track.Source.Camera);
       const micPub = p.getTrackPublication(Track.Source.Microphone);
 
@@ -88,12 +81,8 @@ export function useLiveKitCall(opts: {
         tracks.push(micPub.track.mediaStreamTrack);
       }
 
-      if (
-        tracks.length > 0 ||
-        p.connectionQuality === ConnectionQuality.Excellent ||
-        p.connectionQuality === ConnectionQuality.Good
-      ) {
-        activeCallPeerDetected = true;
+      if (p.connectionQuality !== ConnectionQuality.Unknown) {
+        peerConnected = true;
       }
 
       newRemotes[p.identity] = {
@@ -105,12 +94,9 @@ export function useLiveKitCall(opts: {
     });
 
     setRemotes(newRemotes);
-    if (activeCallPeerDetected) {
-      setIsCallAnswered(true);
-    }
+    if (peerConnected) setIsCallAnswered(true);
   }, []);
 
-  // Primary WebRTC Room Lifecycle Engine
   useEffect(() => {
     if (!enabled || !callId || !selfId) return;
 
@@ -124,35 +110,55 @@ export function useLiveKitCall(opts: {
         videoCodec: "vp8",
       },
       videoCaptureDefaults: {
-        resolution: { width: 640, height: 360 }, // Optimized for low-bandwidth 2Mbps lines
+        resolution: { width: 640, height: 360 },
       },
     });
+
     roomRef.current = room;
 
-    const setupLiveKit = async () => {
+    const setupCall = async () => {
       try {
-        const tokenResponse = await fetch(
-          `/api/livekit-token?room=${encodeURIComponent(callId)}&user=${encodeURIComponent(selfId)}`,
-        );
-        if (!tokenResponse.ok) throw new Error("Could not acquire media signaling token.");
+        let token = "";
 
-        const token = await tokenResponse.text();
-        const url = import.meta.env.VITE_LIVEKIT_URL ?? "wss://livekit.cymatichub.xyz";
+        // Attempt 1: Fetch token via Supabase Edge Function
+        const { data: sfData } = await supabase.functions.invoke("livekit-token", {
+          body: { room: callId, identity: selfId },
+        });
+
+        if (sfData?.token) {
+          token = sfData.token;
+        } else {
+          // Attempt 2: Fallback to local endpoint with JSON/text handling
+          const tokenResponse = await fetch(
+            `/api/livekit-token?room=${encodeURIComponent(callId)}&user=${encodeURIComponent(selfId)}`
+          );
+          if (!tokenResponse.ok) throw new Error("Could not acquire media signaling token.");
+
+          const contentType = tokenResponse.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const resJson = await tokenResponse.json();
+            token = resJson.token;
+          } else {
+            token = await tokenResponse.text();
+          }
+        }
+
+        const url = import.meta.env.VITE_LIVEKIT_URL || "wss://livekit.cymatichub.xyz";
+
+        if (cancelled) return;
 
         await room.connect(url, token);
+
         if (cancelled) {
           await room.disconnect();
           return;
         }
 
-        // Initial track state sync
         await syncLocalTracks();
         updateRemotes();
 
-        // Register WebRTC Event Listeners
         room.on(RoomEvent.ParticipantConnected, updateRemotes);
         room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
-
         room.on(RoomEvent.TrackSubscribed, () => {
           updateRemotes();
           syncLocalTracks();
@@ -161,24 +167,8 @@ export function useLiveKitCall(opts: {
           updateRemotes();
           syncLocalTracks();
         });
-        room.on(RoomEvent.TrackMuted, () => {
-          updateRemotes();
-          syncLocalTracks();
-        });
-        room.on(RoomEvent.TrackUnmuted, () => {
-          updateRemotes();
-          syncLocalTracks();
-        });
-
-        // Network Reconnection State Machine
-        room.on(RoomEvent.Reconnecting, () => {
-          console.warn("[Cymatic Resonance] WebRTC reconnecting...");
-        });
-        room.on(RoomEvent.Reconnected, async () => {
-          console.log("[Cymatic Resonance] WebRTC reconnected. Re-asserting track states.");
-          await syncLocalTracks();
-          updateRemotes();
-        });
+        room.on(RoomEvent.TrackMuted, updateRemotes);
+        room.on(RoomEvent.TrackUnmuted, updateRemotes);
 
         room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
           if (!participant || participant === room.localParticipant) {
@@ -188,18 +178,24 @@ export function useLiveKitCall(opts: {
           }
         });
       } catch (err: unknown) {
-        console.error("LiveKit Engine Error:", err);
+        console.error("[Cymatic Resonance Engine] LiveKit failure:", err);
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Media bridge failure");
         }
       }
     };
 
-    setupLiveKit();
+    setupCall();
 
     return () => {
       cancelled = true;
       if (roomRef.current) {
+        // Unpublish tracks explicitly to turn off Android camera/mic indicator LED
+        roomRef.current.localParticipant.tracks.forEach((pub) => {
+          if (pub.track) {
+            pub.track.stop();
+          }
+        });
         roomRef.current.disconnect();
         roomRef.current = null;
       }
@@ -209,7 +205,6 @@ export function useLiveKitCall(opts: {
     };
   }, [enabled, callId, selfId, syncLocalTracks, updateRemotes]);
 
-  // Robust Controls
   const toggleMic = useCallback(async () => {
     const next = !micOn;
     setMicOn(next);
