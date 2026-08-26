@@ -103,6 +103,20 @@ export const CommsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const ensureSender = async (senderId: string) => {
+    if (senders[senderId]) return senders[senderId];
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role, avatar_url")
+      .eq("id", senderId)
+      .single();
+    if (!error && data) {
+      setSenders((prev) => ({ ...prev, [senderId]: data as unknown as Sender }));
+      return data as unknown as Sender;
+    }
+    return null;
+  };
+
   const value = {
     channels,
     setChannels,
@@ -116,6 +130,7 @@ export const CommsProvider = ({ children }: { children: ReactNode }) => {
     setReactions,
     senders,
     setSenders,
+    ensureSender,
     reads,
     setReads,
     lastMessageByChannel,

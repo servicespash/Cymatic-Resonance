@@ -63,7 +63,9 @@ export class LiveKitTransport implements CallTransport {
       }
 
       // 2. Fallback to API route parsing both JSON and raw text
-      const res = await fetch(`/api/livekit-token?room=${encodeURIComponent(roomId)}&user=${encodeURIComponent(userId)}`);
+      const res = await fetch(
+        `/api/livekit-token?room=${encodeURIComponent(roomId)}&user=${encodeURIComponent(userId)}`,
+      );
       if (!res.ok) throw new Error("Signaling bridge rejected token request.");
 
       const contentType = res.headers.get("content-type");

@@ -8,6 +8,7 @@ export type Msg = {
   sender_id: string;
   body: string;
   created_at: string;
+  deleted_at?: string | null;
 };
 export type Sender = { id: string; full_name: string | null; role: string };
 export type Thread = {
@@ -25,27 +26,26 @@ export interface CommsContextType {
   threads: Thread[];
   setThreads: Dispatch<SetStateAction<Thread[]>>;
   activeChannel: Channel | null;
+  setActiveChannel: (channel: Channel | null) => void;
   messages: Msg[];
   setMessages: Dispatch<SetStateAction<Msg[]>>;
   reactions: Reaction[];
   setReactions: Dispatch<SetStateAction<Reaction[]>>;
   senders: Record<string, Sender>;
   setSenders: Dispatch<SetStateAction<Record<string, Sender>>>;
+  ensureSender: (senderId: string) => Promise<Sender | null>;
   reads: Record<string, string>;
   setReads: Dispatch<SetStateAction<Record<string, string>>>;
   lastMessageByChannel: Record<string, Msg>;
   setLastMessageByChannel: Dispatch<SetStateAction<Record<string, Msg>>>;
-  // ...
 
   // Actions
-  setActiveChannel: (channel: Channel | null) => void;
   sendMessage: (
     body: string,
     files: File[],
     audio?: { blob: Blob; mime: string; ext: string; durationMs?: number } | null,
   ) => Promise<void>;
   startDm: (otherId: string) => Promise<void>;
-  // ... future actions: addReaction, deleteMessage, etc.
 
   loading: boolean;
   sending: boolean;

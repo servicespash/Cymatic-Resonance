@@ -12,6 +12,7 @@ interface CallRow {
   initiator_id: string;
   kind: string;
   status: string;
+  profiles: { full_name: string | null; avatar_url: string | null } | null;
 }
 
 export const CallHistoryPanel = () => {
@@ -25,12 +26,12 @@ export const CallHistoryPanel = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("calls")
-      .select("id, channel_id, created_at, started_at, ended_at, initiator_id, kind, status")
+      .select("id, channel_id, created_at, started_at, ended_at, initiator_id, kind, status, profiles:initiator_id(full_name, avatar_url)")
       .order("created_at", { ascending: false })
       .limit(20);
 
     if (!error && data) {
-      setCalls(data);
+      setCalls(data as unknown as CallRow[]);
     }
     setLoading(false);
   }, [user]);
@@ -147,7 +148,9 @@ export const CallHistoryPanel = () => {
                             <Phone className="size-3 text-accent" />
                           )}
                           <span className="truncate">
-                            {call.initiator_id === user?.id ? "Outbound Call" : "Inbound Call"}
+                            {call.initiator_id === user?.id 
+                              ? "Outbound Call" 
+                              : (call.profiles?.full_name ?? "Inbound Call")}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">

@@ -42,7 +42,12 @@ export const ChatItem: React.FC<ChatItemProps> = ({
   // Strip ugly raw UUID strings automatically
   const formattedTitle =
     c.title.startsWith("dm:") || c.title.includes("-4a")
-      ? c.title.replace(/^dm:/, "").replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "Direct Message")
+      ? c.title
+          .replace(/^dm:/, "")
+          .replace(
+            /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+            "Direct Message",
+          )
       : c.title;
 
   const handleTouchStart = () => {
@@ -75,7 +80,9 @@ export const ChatItem: React.FC<ChatItemProps> = ({
         if (onLongPress) onLongPress();
       }}
       className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl p-3 text-left transition select-none ${
-        active?.id === c.channel.id ? "bg-white/10 shadow-inner" : "hover:bg-white/5 active:bg-white/10"
+        active?.id === c.channel.id
+          ? "bg-white/10 shadow-inner"
+          : "hover:bg-white/5 active:bg-white/10"
       } ${isSelected ? "ring-2 ring-frequency bg-white/15" : ""}`}
     >
       <div className="relative">

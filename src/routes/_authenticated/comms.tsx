@@ -37,6 +37,8 @@ import { MessageItem } from "@/components/message-item";
 import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
 
+import { useMessages, useDeleteMessage, useSoftDeleteMessage } from "@/lib/use-messages";
+
 const CommsComponent = () => (
   <RequireWorkspace>
     <CommsProvider>
@@ -85,6 +87,9 @@ function CommsPage() {
   const [pending] = useState<string[]>([]);
 
   const active = activeChannel;
+  const { data: activeMessages = [], isLoading: loadingMessages } = useMessages(active?.id || null);
+  const deleteMessageMutation = useDeleteMessage();
+  const softDeleteMessageMutation = useSoftDeleteMessage();
   const setActive = setActiveChannel;
 
   const [tab] = useState<"all" | "channels" | "direct" | "verified">("all");
@@ -215,13 +220,19 @@ function CommsPage() {
   useEffect(() => {
     if (!orgId) return;
     const ch = supabase
-      .channel("comms")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) => {
-        const m = p.new as Msg;
-        if (activeRef.current?.id === m.channel_id) {
-          setMsgs((prev) => [...prev, m]);
-          markChannelAsRead(m.channel_id);
-        } else {
+      .channel("comms-sidebar")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `org_id=eq.${orgId}`,
+        },
+        (p) => {
+          const m = p.new as Msg;
+        // Sidebar unread counts and last message logic
+        if (activeRef.current?.id !== m.channel_id) {
           if (user?.id !== m.sender_id) {
             setUnreadCounts((prev) => ({
               ...prev,
@@ -244,37 +255,27 @@ function CommsPage() {
     return () => {
       ch.unsubscribe();
     };
-  }, [orgId, senders, user, setMsgs, setLastMessageByChannel, markChannelAsRead]);
+  }, [orgId, senders, user, setLastMessageByChannel, markChannelAsRead]);
 
-  const fetchActiveMessagesAndAttachments = useCallback(() => {
-    if (!active) return;
-    supabase
-      .from("messages")
-      .select("*")
-      .eq("channel_id", active.id)
-      .order("created_at")
-      .then(({ data }) => {
-        if (!data) return;
-        setMsgs(data);
-        const ids = data.map((m) => m.id);
-        if (ids.length === 0) {
-          setReactions([]);
-          setAttachments([]);
-          return;
-        }
-        Promise.all([
-          supabase.from("message_reactions").select("*").in("message_id", ids),
-          supabase.from("message_attachments").select("*").in("message_id", ids),
-        ]).then(([{ data: rx }, { data: att }]) => {
-          if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
-          if (att) setAttachments(att as Attachment[]);
-        });
-      });
-  }, [active, setMsgs]);
+  const fetchActiveAttachmentsAndReactions = useCallback(() => {
+    if (!active || activeMessages.length === 0) {
+      setReactions([]);
+      setAttachments([]);
+      return;
+    }
+    const ids = activeMessages.map((m) => m.id);
+    Promise.all([
+      supabase.from("message_reactions").select("*").in("message_id", ids),
+      supabase.from("message_attachments").select("*").in("message_id", ids),
+    ]).then(([{ data: rx }, { data: att }]) => {
+      if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
+      if (att) setAttachments(att as Attachment[]);
+    });
+  }, [active, activeMessages]);
 
   useEffect(() => {
-    fetchActiveMessagesAndAttachments();
-  }, [fetchActiveMessagesAndAttachments]);
+    fetchActiveAttachmentsAndReactions();
+  }, [fetchActiveAttachmentsAndReactions]);
 
   const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
@@ -282,7 +283,6 @@ function CommsPage() {
     await sendMessage(body, []);
     setSending(false);
     setBody("");
-    fetchActiveMessagesAndAttachments();
   };
 
   const handleDeleteChat = async (channelId: string) => {
@@ -303,9 +303,9 @@ function CommsPage() {
   };
 
   const handleDeleteMessage = async (msgId: string) => {
-    await supabase.from("messages").delete().eq("id", msgId);
-    setMsgs((prev) => prev.filter((m) => m.id !== msgId));
-    toast.success("Message deleted");
+    if (!active) return;
+    // Admins or owners can delete. We'll use hard delete for now.
+    deleteMessageMutation.mutate({ messageId: msgId, channelId: active.id });
   };
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
@@ -458,7 +458,7 @@ function CommsPage() {
                       isAdmin={isAdmin}
                       members={Object.values(senders).map((s) => ({
                         id: s.id,
-                        full_name: s.full_name,
+                        full_name: s.full_name || "Member",
                       }))}
                     />
                   )}
@@ -575,55 +575,67 @@ function CommsPage() {
             </header>
 
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {msgs.map((m, i) => {
-                const prev = msgs[i - 1];
-                const showHeader =
-                  !prev ||
-                  prev.sender_id !== m.sender_id ||
-                  new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > 300000;
-                const msgAttachments = attachments.filter((a) => a.message_id === m.id);
-                const msgReactions = reactions.filter((r) => r.message_id === m.id);
-                const reactionGroups = msgReactions.reduce(
-                  (acc, r) => {
-                    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, users: [], hasReacted: false };
-                    acc[r.emoji].count++;
-                    acc[r.emoji].users.push(r.user_id);
-                    if (r.user_id === user?.id) acc[r.emoji].hasReacted = true;
-                    return acc;
-                  },
-                  {} as Record<string, { count: number; users: string[]; hasReacted: boolean }>,
-                );
+              {loadingMessages ? (
+                <div className="flex h-full items-center justify-center">
+                  <CymaticWave className="h-6" bars={4} />
+                </div>
+              ) : activeMessages.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+                  <p className="text-sm">No messages yet.</p>
+                  <p className="text-[10px] uppercase tracking-widest opacity-50">
+                    Start the resonance
+                  </p>
+                </div>
+              ) : (
+                activeMessages.map((m, i) => {
+                  const prev = activeMessages[i - 1];
+                  const showHeader =
+                    !prev ||
+                    prev.sender_id !== m.sender_id ||
+                    new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > 300000;
+                  const msgAttachments = attachments.filter((a) => a.message_id === m.id);
+                  const msgReactions = reactions.filter((r) => r.message_id === m.id);
+                  const reactionGroups = msgReactions.reduce(
+                    (acc, r) => {
+                      if (!acc[r.emoji]) acc[r.emoji] = { count: 0, users: [], hasReacted: false };
+                      acc[r.emoji].count++;
+                      acc[r.emoji].users.push(r.user_id);
+                      if (r.user_id === user?.id) acc[r.emoji].hasReacted = true;
+                      return acc;
+                    },
+                    {} as Record<string, { count: number; users: string[]; hasReacted: boolean }>,
+                  );
 
-                return (
-                  <MessageItem
-                    key={m.id}
-                    m={m}
-                    showHeader={showHeader}
-                    senders={senders}
-                    user={user}
-                    msgAttachments={msgAttachments}
-                    reactionGroups={reactionGroups}
-                    activeReactionPicker={activeReactionPicker}
-                    setActiveReactionPicker={setActiveReactionPicker}
-                    handleToggleReaction={handleToggleReaction}
-                    handleDeleteMessage={handleDeleteMessage}
-                    onLongPress={() => {
-                      setIsSelectionMode(true);
-                      setSelectedMessageIds((prev) => new Set(prev).add(m.id));
-                    }}
-                    isSelectionMode={isSelectionMode}
-                    isSelected={selectedMessageIds.has(m.id)}
-                    onToggleSelection={() => {
-                      setSelectedMessageIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(m.id)) next.delete(m.id);
-                        else next.add(m.id);
-                        return next;
-                      });
-                    }}
-                  />
-                );
-              })}
+                  return (
+                    <MessageItem
+                      key={m.id}
+                      m={m}
+                      showHeader={showHeader}
+                      user={user}
+                      msgAttachments={msgAttachments}
+                      reactionGroups={reactionGroups}
+                      activeReactionPicker={activeReactionPicker}
+                      setActiveReactionPicker={setActiveReactionPicker}
+                      handleToggleReaction={handleToggleReaction}
+                      handleDeleteMessage={handleDeleteMessage}
+                      onLongPress={() => {
+                        setIsSelectionMode(true);
+                        setSelectedMessageIds((prev) => new Set(prev).add(m.id));
+                      }}
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedMessageIds.has(m.id)}
+                      onToggleSelection={() => {
+                        setSelectedMessageIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(m.id)) next.delete(m.id);
+                          else next.add(m.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  );
+                })
+              )}
               <div ref={bottom} />
             </div>
 
@@ -674,7 +686,7 @@ function CommsPage() {
                       setSending(true);
                       await sendMessage("", [], audio);
                       toast.success("Voice message sent!");
-                      fetchActiveMessagesAndAttachments();
+                      fetchActiveAttachmentsAndReactions();
                     } catch {
                       toast.error("Failed to send audio message");
                     } finally {

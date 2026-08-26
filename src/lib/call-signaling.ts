@@ -9,7 +9,7 @@ export interface CallSignalPayload {
 
 export function subscribeToCallSignaling(
   callId: string,
-  onSignal: (signal: CallSignalPayload) => void
+  onSignal: (signal: CallSignalPayload) => void,
 ) {
   const channel = supabase.channel(`call-signal:${callId}`, {
     config: {
@@ -33,7 +33,7 @@ export function subscribeToCallSignaling(
     sendSignal: async (
       type: CallSignalPayload["type"],
       senderId: string,
-      payload?: Record<string, unknown>
+      payload?: Record<string, unknown>,
     ) => {
       await channel.send({
         type: "broadcast",

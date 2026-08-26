@@ -87,8 +87,9 @@ export function useMessageSender(
   );
 
   const deleteMessage = useCallback(async (msgId: string) => {
-    await supabase.from("messages").delete().eq("id", msgId);
-  }, []);
+    if (!orgId) return;
+    await supabase.from("messages").delete().eq("id", msgId).eq("org_id", orgId);
+  }, [orgId]);
 
   return { sendMessage, deleteMessage, sending };
 }

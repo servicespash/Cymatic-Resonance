@@ -21,7 +21,9 @@ export function useLiveKitCall(opts: {
   const [remotes, setRemotes] = useState<Record<string, RemotePeer>>({});
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(video);
-  const [networkQuality, setNetworkQuality] = useState<ConnectionQuality>(ConnectionQuality.Excellent);
+  const [networkQuality, setNetworkQuality] = useState<ConnectionQuality>(
+    ConnectionQuality.Excellent,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isCallAnswered, setIsCallAnswered] = useState(false);
 
@@ -130,7 +132,7 @@ export function useLiveKitCall(opts: {
         } else {
           // Attempt 2: Fallback to local endpoint with JSON/text handling
           const tokenResponse = await fetch(
-            `/api/livekit-token?room=${encodeURIComponent(callId)}&user=${encodeURIComponent(selfId)}`
+            `/api/livekit-token?room=${encodeURIComponent(callId)}&user=${encodeURIComponent(selfId)}`,
           );
           if (!tokenResponse.ok) throw new Error("Could not acquire media signaling token.");
 
@@ -191,7 +193,7 @@ export function useLiveKitCall(opts: {
       cancelled = true;
       if (roomRef.current) {
         // Unpublish tracks explicitly to turn off Android camera/mic indicator LED
-        roomRef.current.localParticipant.tracks.forEach((pub) => {
+        roomRef.current.localParticipant.trackPublications.forEach((pub) => {
           if (pub.track) {
             pub.track.stop();
           }

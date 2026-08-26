@@ -4,16 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, User as UserIcon, Tag, ArrowRight, ArrowLeft } from "lucide-react";
-
-type Task = {
-  id: string;
-  title: string;
-  task_kind: string | null;
-  status: "open" | "in_progress" | "completed";
-  assigned_to: string | null;
-  start_date: string | null;
-  due_date: string | null;
-};
+import { Task } from "@/types/schema.types";
 
 export function TasksPanel({
   orgId,
@@ -28,19 +19,24 @@ export function TasksPanel({
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
-  const [taskKind, setTaskKind] = useState("General");
+  const [taskKind, setTaskKind] = useState("general");
   const [assignedTo, setAssignedTo] = useState<string>(userId);
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // ... (inside TasksPanel component)
+
   const fetchTasks = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (supabase as any).from("tasks").select("*").eq("org_id", orgId);
     if (!isAdmin) {
       query = query.eq("assigned_to", userId);
     }
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      toast.error("Failed to fetch tasks: " + error.message);
+      return;
+    }
     if (data) setTasks(data as Task[]);
   }, [orgId, userId, isAdmin]);
 
@@ -70,12 +66,11 @@ export function TasksPanel({
 
   const addTask = async () => {
     if (!title.trim()) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any).from("tasks").insert({
       org_id: orgId,
       title: title.trim(),
-      task_kind: taskKind,
       assigned_to: assignedTo || null,
+      assigned_by: userId,
       start_date: startDate || null,
       due_date: dueDate || null,
       status: "open",
@@ -84,7 +79,7 @@ export function TasksPanel({
       toast.error("Failed to create task: " + error.message);
     } else {
       setTitle("");
-      setTaskKind("General");
+      setTaskKind("general");
       setStartDate("");
       setDueDate("");
       setCreating(false);
@@ -93,20 +88,30 @@ export function TasksPanel({
     }
   };
 
-  const updateStatus = async (id: string, newStatus: "open" | "in_progress" | "completed") => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("tasks").update({ status: newStatus }).eq("id", id);
+  const updateStatus = async (id: string, newStatus: Task["status"]) => {
+    const { error } = await (supabase as any).from("tasks").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      toast.error("Failed to update task: " + error.message);
+      return;
+    }
     fetchTasks();
   };
 
   const deleteTask = async (id: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("tasks").delete().eq("id", id);
+    const { error } = await (supabase as any).from("tasks").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete task: " + error.message);
+      return;
+    }
     fetchTasks();
     toast.success("Task deleted");
   };
 
-  const columns: { key: "open" | "in_progress" | "completed"; label: string; color: string }[] = [
+  const columns: {
+    key: "open" | "in_progress" | "completed" | "archived";
+    label: string;
+    color: string;
+  }[] = [
     { key: "open", label: "Open", color: "border-blue-500/30 text-blue-400 bg-blue-500/5" },
     {
       key: "in_progress",
@@ -117,6 +122,11 @@ export function TasksPanel({
       key: "completed",
       label: "Done",
       color: "border-emerald-500/30 text-emerald-400 bg-emerald-500/5",
+    },
+    {
+      key: "archived",
+      label: "Archived",
+      color: "border-zinc-500/30 text-zinc-400 bg-zinc-500/5",
     },
   ];
 
@@ -149,11 +159,11 @@ export function TasksPanel({
                   onChange={(e) => setTaskKind(e.target.value)}
                   className="rounded-md border border-white/10 bg-background px-3 py-2 text-xs"
                 >
-                  <option value="General">General</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Design">Design</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Review">Review</option>
+                  <option value="general">General</option>
+                  <option value="engineering">Engineering</option>
+                  <option value="design">Design</option>
+                  <option value="operations">Operations</option>
+                  <option value="review">Review</option>
                 </select>
                 <select
                   value={assignedTo}
@@ -240,11 +250,11 @@ export function TasksPanel({
                         )}
                       </div>
 
-                      {task.task_kind && (
+                      {/* {task.task_kind && (
                         <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
                           <Tag className="size-3" /> {task.task_kind}
                         </div>
-                      )}
+                      )} */}
 
                       <div className="flex flex-col gap-1 text-[11px] text-muted-foreground pt-1 border-t border-white/5">
                         {assignee && (
@@ -266,12 +276,14 @@ export function TasksPanel({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() =>
-                              updateStatus(
-                                task.id,
-                                col.key === "completed" ? "in_progress" : "open",
-                              )
-                            }
+                            onClick={() => {
+                              const prev = {
+                                in_progress: "open",
+                                completed: "in_progress",
+                                archived: "completed",
+                              };
+                              updateStatus(task.id, prev[col.key as keyof typeof prev] as any);
+                            }}
                             className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10"
                           >
                             <ArrowLeft className="size-3 mr-1" /> Back
@@ -280,19 +292,22 @@ export function TasksPanel({
                           <div />
                         )}
 
-                        {col.key !== "completed" ? (
+                        {col.key !== "archived" ? (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() =>
-                              updateStatus(
-                                task.id,
-                                col.key === "open" ? "in_progress" : "completed",
-                              )
-                            }
+                            onClick={() => {
+                              const next = {
+                                open: "in_progress",
+                                in_progress: "completed",
+                                completed: "archived",
+                              };
+                              updateStatus(task.id, next[col.key as keyof typeof next] as any);
+                            }}
                             className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10 ml-auto"
                           >
-                            Advance <ArrowRight className="size-3 ml-1" />
+                            {col.key === "completed" ? "Archive" : "Advance"}{" "}
+                            <ArrowRight className="size-3 ml-1" />
                           </Button>
                         ) : null}
                       </div>

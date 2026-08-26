@@ -8,18 +8,16 @@ export type Msg = {
   sender_id: string;
   body: string;
   created_at: string;
-};
-
-export type Sender = {
-  id: string;
-  full_name: string | null;
-  role: string;
+  profiles?: {
+    full_name: string;
+    avatar_url: string;
+    role: string;
+  };
 };
 
 interface MessageItemProps {
   m: Msg;
   showHeader: boolean;
-  senders: Record<string, Sender>;
   user: { id: string } | null;
   msgAttachments: Attachment[];
   reactionGroups: Record<string, { count: number; users: string[]; hasReacted: boolean }>;
@@ -38,7 +36,6 @@ const EMOJI_OPTIONS = ["👍", "❤️", "🔥", "🚀", "💡", "🎉"];
 export const MessageItem: React.FC<MessageItemProps> = ({
   m,
   showHeader,
-  senders,
   user,
   msgAttachments,
   reactionGroups,
@@ -52,9 +49,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onToggleSelection,
 }) => {
   const isMe = m.sender_id === user?.id;
-  const senderInfo = senders[m.sender_id];
-  const senderName =
-    senderInfo?.full_name || (m.sender_id ? `User ${m.sender_id.slice(0, 4)}` : "Unknown");
+
+  // Use hydrated profile info
+  const senderName = m.profiles?.full_name || "Cymatic Member";
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
