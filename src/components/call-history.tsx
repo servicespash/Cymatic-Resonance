@@ -26,7 +26,9 @@ export const CallHistoryPanel = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("calls")
-      .select("id, channel_id, created_at, started_at, ended_at, initiator_id, kind, status, profiles:initiator_id(full_name, avatar_url)")
+      .select(
+        "id, channel_id, created_at, started_at, ended_at, initiator_id, kind, status, profiles:initiator_id(full_name, avatar_url)",
+      )
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -148,8 +150,8 @@ export const CallHistoryPanel = () => {
                             <Phone className="size-3 text-accent" />
                           )}
                           <span className="truncate">
-                            {call.initiator_id === user?.id 
-                              ? "Outbound Call" 
+                            {call.initiator_id === user?.id
+                              ? "Outbound Call"
                               : (call.profiles?.full_name ?? "Inbound Call")}
                           </span>
                         </div>

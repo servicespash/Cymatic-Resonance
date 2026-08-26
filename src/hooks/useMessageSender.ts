@@ -86,10 +86,13 @@ export function useMessageSender(
     [orgId, userId, activeChannelId],
   );
 
-  const deleteMessage = useCallback(async (msgId: string) => {
-    if (!orgId) return;
-    await supabase.from("messages").delete().eq("id", msgId).eq("org_id", orgId);
-  }, [orgId]);
+  const deleteMessage = useCallback(
+    async (msgId: string) => {
+      if (!orgId) return;
+      await supabase.from("messages").delete().eq("id", msgId).eq("org_id", orgId);
+    },
+    [orgId],
+  );
 
   return { sendMessage, deleteMessage, sending };
 }

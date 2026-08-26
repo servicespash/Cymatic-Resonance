@@ -217,7 +217,9 @@ function CommsPage() {
   }, [active?.id, markChannelAsRead]);
 
   const sendersRef = useRef(senders);
-  useEffect(() => { sendersRef.current = senders; }, [senders]);
+  useEffect(() => {
+    sendersRef.current = senders;
+  }, [senders]);
 
   // Realtime subscription for incoming messages
   useEffect(() => {
