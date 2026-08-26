@@ -216,6 +216,9 @@ function CommsPage() {
     }
   }, [active?.id, markChannelAsRead]);
 
+  const sendersRef = useRef(senders);
+  useEffect(() => { sendersRef.current = senders; }, [senders]);
+
   // Realtime subscription for incoming messages
   useEffect(() => {
     if (!orgId) return;
@@ -231,19 +234,20 @@ function CommsPage() {
         },
         (p) => {
           const m = p.new as Msg;
-        // Sidebar unread counts and last message logic
-        if (activeRef.current?.id !== m.channel_id) {
-          if (user?.id !== m.sender_id) {
-            setUnreadCounts((prev) => ({
-              ...prev,
-              [m.channel_id]: (prev[m.channel_id] || 0) + 1,
-            }));
-            const sender = senders[m.sender_id]?.full_name ?? "Someone";
-            notify(sender, { body: m.body });
+          // Sidebar unread counts and last message logic
+          if (activeRef.current?.id !== m.channel_id) {
+            if (user?.id !== m.sender_id) {
+              setUnreadCounts((prev) => ({
+                ...prev,
+                [m.channel_id]: (prev[m.channel_id] || 0) + 1,
+              }));
+              const sender = sendersRef.current[m.sender_id]?.full_name ?? "Someone";
+              notify(sender, { body: m.body });
+            }
           }
-        }
-        setLastMessageByChannel((prev) => ({ ...prev, [m.channel_id]: m }));
-      })
+          setLastMessageByChannel((prev) => ({ ...prev, [m.channel_id]: m }));
+        },
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (p) => {
         if (p.eventType === "INSERT") {
           setReactions((prev) => [...prev, p.new as Reaction]);
@@ -255,7 +259,7 @@ function CommsPage() {
     return () => {
       ch.unsubscribe();
     };
-  }, [orgId, senders, user, setLastMessageByChannel, markChannelAsRead]);
+  }, [orgId, user, markChannelAsRead]);
 
   const fetchActiveAttachmentsAndReactions = useCallback(() => {
     if (!active || activeMessages.length === 0) {

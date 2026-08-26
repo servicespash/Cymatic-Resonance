@@ -31,6 +31,53 @@ export type Database = {
   };
   public: {
     Tables: {
+      tasks: {
+        Row: {
+          assigned_by: string;
+          assigned_to: string | null;
+          created_at: string;
+          due_date: string | null;
+          id: string;
+          org_id: string;
+          start_date: string | null;
+          status: string;
+          task_kind: string | null;
+          title: string;
+        };
+        Insert: {
+          assigned_by: string;
+          assigned_to?: string | null;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          org_id: string;
+          start_date?: string | null;
+          status?: string;
+          task_kind?: string | null;
+          title: string;
+        };
+        Update: {
+          assigned_by?: string;
+          assigned_to?: string | null;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          org_id?: string;
+          start_date?: string | null;
+          status?: string;
+          task_kind?: string | null;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tasks_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       attendance: {
         Row: {
           attendance_date: string;

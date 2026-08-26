@@ -28,7 +28,7 @@ export function TasksPanel({
   // ... (inside TasksPanel component)
 
   const fetchTasks = useCallback(async () => {
-    let query = (supabase as any).from("tasks").select("*").eq("org_id", orgId);
+    let query = supabase.from("tasks").select("*").eq("org_id", orgId);
     if (!isAdmin) {
       query = query.eq("assigned_to", userId);
     }
@@ -37,7 +37,7 @@ export function TasksPanel({
       toast.error("Failed to fetch tasks: " + error.message);
       return;
     }
-    if (data) setTasks(data as Task[]);
+    if (data) setTasks(data as unknown as Task[]);
   }, [orgId, userId, isAdmin]);
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export function TasksPanel({
 
   const addTask = async () => {
     if (!title.trim()) return;
-    const { error } = await (supabase as any).from("tasks").insert({
+    const { error } = await supabase.from("tasks").insert({
       org_id: orgId,
       title: title.trim(),
       assigned_to: assignedTo || null,
@@ -89,7 +89,7 @@ export function TasksPanel({
   };
 
   const updateStatus = async (id: string, newStatus: Task["status"]) => {
-    const { error } = await (supabase as any).from("tasks").update({ status: newStatus }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
     if (error) {
       toast.error("Failed to update task: " + error.message);
       return;
@@ -98,7 +98,7 @@ export function TasksPanel({
   };
 
   const deleteTask = async (id: string) => {
-    const { error } = await (supabase as any).from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete task: " + error.message);
       return;
