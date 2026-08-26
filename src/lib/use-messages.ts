@@ -1,3 +1,4 @@
+import { Database } from "@/types/schema.types";
 import { useContext, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -112,7 +113,11 @@ export const useDeleteMessage = () => {
   return useMutation({
     mutationFn: async ({ messageId, channelId }: { messageId: string; channelId: string }) => {
       if (!orgId) throw new Error("Could not determine organization");
-      const { error } = await supabase.from("messages").delete().eq("id", messageId).eq("org_id", orgId);
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("org_id", orgId);
       if (error) throw error;
       return { messageId, channelId };
     },
@@ -148,7 +153,7 @@ export const useSoftDeleteMessage = () => {
       if (!orgId) throw new Error("Could not determine organization");
       const { error } = await supabase
         .from("messages")
-        .update({ deleted_at: new Date().toISOString() } as any)
+        .update({ deleted_at: new Date().toISOString() } as { deleted_at: string })
         .eq("id", messageId)
         .eq("org_id", orgId);
       if (error) throw error;
@@ -184,7 +189,11 @@ export const useBatchDeleteMessages = () => {
   return useMutation({
     mutationFn: async ({ messageIds, channelId }: { messageIds: string[]; channelId: string }) => {
       if (!orgId) throw new Error("Could not determine organization");
-      const { error } = await supabase.from("messages").delete().in("id", messageIds).eq("org_id", orgId);
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .in("id", messageIds)
+        .eq("org_id", orgId);
       if (error) throw error;
       return { messageIds, channelId };
     },

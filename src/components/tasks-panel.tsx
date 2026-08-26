@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, User as UserIcon, Tag, ArrowRight, ArrowLeft } from "lucide-react";
-import { Task } from "@/types/schema.types";
+import { Database } from "@/types/schema.types";
+type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 export function TasksPanel({
   orgId,
@@ -282,7 +283,12 @@ export function TasksPanel({
                                 completed: "in_progress",
                                 archived: "completed",
                               };
-                              updateStatus(task.id, prev[col.key as keyof typeof prev] as any);
+                              updateStatus(
+                                task.id,
+                                prev[
+                                  col.key as keyof typeof prev
+                                ] as Database["public"]["Tables"]["tasks"]["Row"]["status"],
+                              );
                             }}
                             className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10"
                           >
@@ -302,7 +308,12 @@ export function TasksPanel({
                                 in_progress: "completed",
                                 completed: "archived",
                               };
-                              updateStatus(task.id, next[col.key as keyof typeof next] as any);
+                              updateStatus(
+                                task.id,
+                                next[
+                                  col.key as keyof typeof next
+                                ] as Database["public"]["Tables"]["tasks"]["Row"]["status"],
+                              );
                             }}
                             className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10 ml-auto"
                           >

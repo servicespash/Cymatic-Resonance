@@ -4,11 +4,13 @@
 -- 3. Maintain soft-delete capability via UPDATE
 
 -- MESSAGES
-DO $$ 
+DO $$
 BEGIN
     -- Drop old policies to replace with comprehensive ones
     DROP POLICY IF EXISTS "messages_soft_delete_sender" ON public.messages;
     DROP POLICY IF EXISTS "messages_delete_admin" ON public.messages;
+    DROP POLICY IF EXISTS "messages_delete_sender" ON public.messages;
+    DROP POLICY IF EXISTS "messages_admin_all" ON public.messages;
 END $$;
 
 -- Policy for users to hard delete their own messages
