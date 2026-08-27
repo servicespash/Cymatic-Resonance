@@ -147,7 +147,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function InnerApp() {
-  const { loading } = useAuth();
+  const { loading, debugMsg } = useAuth();
 
   if (loading) {
     return (
@@ -155,7 +155,7 @@ function InnerApp() {
         <div className="flex flex-col items-center space-y-3">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="tracking-widest uppercase text-muted-foreground">
-            Synchronizing Cymatic Frequency...
+            {debugMsg}
           </p>
         </div>
       </div>

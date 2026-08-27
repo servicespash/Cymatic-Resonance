@@ -9,21 +9,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [debugMsg, setDebugMsg] = useState("Initializing...");
 
   useEffect(() => {
     let isMounted = true;
 
-    // Hard safety timer to prevent Cloudflare SSR / Hydration deadlock
-
     async function initAuth() {
       try {
-        const { data } = await supabase.auth.getSession();
+        setDebugMsg("Fetching session...");
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+            setDebugMsg("Auth Error: " + error.message);
+            return;
+        }
         if (isMounted) {
           setSession(data.session);
           setUser(data.session?.user ?? null);
+          setDebugMsg(data.session ? "Session found" : "No session");
         }
       } catch (err) {
-        console.error("[Auth Context] Failed to fetch session:", err);
+        setDebugMsg("Catch Error: " + (err as Error).message);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -50,7 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const value = useMemo(() => ({ session, user, loading }), [session, user, loading]);
+  const value = useMemo(() => ({ session, user, loading, debugMsg }), [session, user, loading, debugMsg]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 };
