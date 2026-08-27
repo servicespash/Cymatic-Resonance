@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, User as UserIcon, Tag, ArrowRight, ArrowLeft } from "lucide-react";
+import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 import { Database } from "@/types/schema.types";
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
