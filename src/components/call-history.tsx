@@ -151,7 +151,7 @@ export const CallHistoryPanel = () => {
                           )}
                           <span className="truncate">
                             {call.initiator_id === user?.id
-                              ? "Outbound Call"
+                              ? "Outbound to " + (call.profiles?.full_name ?? "Unknown")
                               : (call.profiles?.full_name ?? "Inbound Call")}
                           </span>
                         </div>

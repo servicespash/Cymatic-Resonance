@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
+import { cloudflare } from "@cloudflare/vite-plugin";
 
 const plugins: PluginOption[] = [
   tanstackStart(),
@@ -26,13 +27,15 @@ const plugins: PluginOption[] = [
 ];
 
 if (process.env.ENABLE_CLOUDFLARE_PLUGIN === "true") {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { cloudflare } = require("@cloudflare/vite-plugin");
   plugins.unshift(cloudflare({ viteEnvironment: { name: "ssr" } }));
 }
 
 export default defineConfig({
   plugins,
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+  },
   build: {
     sourcemap: false,
     rollupOptions: {

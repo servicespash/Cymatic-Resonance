@@ -20,39 +20,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data, error } = await supabase.auth.getSession();
         if (error) {
             setDebugMsg("Auth Error: " + error.message);
+            setLoading(false); // Ensure loading is set to false even on error
             return;
         }
         if (isMounted) {
           setSession(data.session);
           setUser(data.session?.user ?? null);
           setDebugMsg(data.session ? "Session found" : "No session");
+          setLoading(false); // Only set loading to false here
         }
       } catch (err) {
         setDebugMsg("Catch Error: " + (err as Error).message);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
     initAuth();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
+    try {
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (isMounted) {
+            setSession(session);
+            setUser(session?.user ?? null);
+            // Don't set loading here again, it should have been handled by initAuth
+          }
+        });
 
-    return () => {
-      isMounted = false;
-
-      subscription.unsubscribe();
-    };
+        return () => {
+          isMounted = false;
+          subscription.unsubscribe();
+        };
+    } catch (err) {
+        setDebugMsg("Auth Subscription Error: " + (err as Error).message);
+        return () => {
+            isMounted = false;
+        };
+    }
   }, []);
 
   const value = useMemo(() => ({ session, user, loading, debugMsg }), [session, user, loading, debugMsg]);

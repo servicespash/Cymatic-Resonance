@@ -108,23 +108,33 @@ function CommsPage() {
   const activeRef = useRef<Channel | null>(null);
   activeRef.current = active;
 
+  const setChannelsStable = useCallback(setChannels, []);
+  const setSendersStable = useCallback(setSenders, []);
+  const setThreadsStable = useCallback(setThreads, []);
+  const setReadsStable = useCallback(setReads, []);
+  const setLastMessageByChannelStable = useCallback(setLastMessageByChannel, []);
+  const setOrgIdStable = useCallback(setOrgId, []);
+  const setIsAdminStable = useCallback(setIsAdmin, []);
+  const setUnreadCountsStable = useCallback(setUnreadCounts, []);
+  const setActiveChannelStable = useCallback(setActiveChannel, []);
+
   useEffect(() => {
     ensureNotificationPermission();
-  }, []);
+  }, [setLastMessageByChannelStable]);
 
   // Hydrate initial organization state & load channel message previews + unread logic.
   // Cached first (instant, works offline), then refreshed from the backend and
   // re-run whenever the tab/network comes back.
   const loadWorkspace = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) return;
     const { data: p } = await supabase
       .from("profiles")
       .select("org_id, role")
       .eq("id", user.id)
       .maybeSingle();
     if (!p?.org_id) return;
-    setOrgId(p.org_id);
-    setIsAdmin(p.role === "admin");
+    setOrgIdStable(p.org_id);
+    setIsAdminStable(p.role === "admin");
 
     const [{ data: chs }, { data: mem }, { data: th }, { data: rd }, { data: allMsgs }] =
       await Promise.all([
@@ -138,25 +148,25 @@ function CommsPage() {
         supabase.from("message_reads").select("channel_id, last_read_at").eq("user_id", user.id),
         supabase
           .from("messages")
-          .select("id, channel_id, sender_id, body, created_at")
+          .select("id, channel_id, sender_id, body, created_at, profiles(full_name)")
           .eq("org_id", p.org_id)
           .order("created_at", { ascending: false }),
       ]);
 
-    if (chs) setChannels(chs);
-    if (mem) setSenders(Object.fromEntries(mem.map((s) => [s.id, s])));
-    if (th) setThreads(th);
+    if (chs) setChannelsStable(chs);
+    if (mem) setSendersStable(Object.fromEntries(mem.map((s) => [s.id, s])));
+    if (th) setThreadsStable(th);
 
     const readsMap: Record<string, string> = {};
     if (rd) {
       rd.forEach((r) => {
         readsMap[r.channel_id] = r.last_read_at;
       });
-      setReads(readsMap);
+      setReadsStable(readsMap);
     }
 
     // Map last message per channel & build accurate unread message counts
-    let lastMap: Record<string, Msg> = {};
+    const lastMap: Record<string, Msg> = {};
     if (allMsgs && allMsgs.length > 0) {
       const unreadMap: Record<string, number> = {};
 
@@ -174,8 +184,8 @@ function CommsPage() {
         }
       });
 
-      setLastMessageByChannel(lastMap);
-      setUnreadCounts(unreadMap);
+      setLastMessageByChannelStable(lastMap);
+      setUnreadCountsStable(unreadMap);
     }
 
     writeCache(`workspace:${user.id}`, {
@@ -188,17 +198,20 @@ function CommsPage() {
       lastMessageByChannel: lastMap,
     });
   }, [
-    user,
-    setChannels,
-    setSenders,
-    setThreads,
-    setReads,
-    setLastMessageByChannel,
+    user?.id,
+    setChannelsStable,
+    setSendersStable,
+    setThreadsStable,
+    setReadsStable,
+    setLastMessageByChannelStable,
+    setOrgIdStable,
+    setIsAdminStable,
+    setUnreadCountsStable,
   ]);
 
   // Instant paint from the last known state so nothing looks "gone" offline.
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     const cached = readCache<{
       orgId: string;
       isAdmin: boolean;
@@ -209,29 +222,29 @@ function CommsPage() {
       lastMessageByChannel: Record<string, Msg>;
     }>(`workspace:${user.id}`);
     if (!cached) return;
-    setOrgId((prev) => prev ?? cached.orgId);
-    setIsAdmin(cached.isAdmin);
-    setChannels((prev) => (prev.length ? prev : (cached.channels as Channel[])));
-    setSenders((prev) =>
+    setOrgIdStable((prev) => prev ?? cached.orgId);
+    setIsAdminStable(cached.isAdmin);
+    setChannelsStable((prev) => (prev.length ? prev : (cached.channels as Channel[])));
+    setSendersStable((prev) =>
       Object.keys(prev).length ? prev : Object.fromEntries(cached.senders.map((s) => [s.id, s])),
     );
-    setThreads((prev) => (prev.length ? prev : (cached.threads as typeof prev)));
-    setReads((prev) => (Object.keys(prev).length ? prev : cached.reads));
-    setLastMessageByChannel((prev) =>
+    setThreadsStable((prev) => (prev.length ? prev : (cached.threads as typeof prev)));
+    setReadsStable((prev) => (Object.keys(prev).length ? prev : cached.reads));
+    setLastMessageByChannelStable((prev) =>
       Object.keys(prev).length ? prev : cached.lastMessageByChannel,
     );
 
     const lastId = window.localStorage.getItem("cym.lastChannel");
     const restored = lastId ? cached.channels.find((c) => c.id === lastId) : null;
-    if (restored) setActiveChannel(restored as Channel);
+    if (restored) setActiveChannelStable(restored as Channel);
   }, [
-    user,
-    setChannels,
-    setSenders,
-    setThreads,
-    setReads,
-    setLastMessageByChannel,
-    setActiveChannel,
+    user?.id,
+    setChannelsStable,
+    setSendersStable,
+    setThreadsStable,
+    setReadsStable,
+    setLastMessageByChannelStable,
+    setActiveChannelStable,
   ]);
 
   useEffect(() => {
@@ -245,10 +258,10 @@ function CommsPage() {
   // Update read receipts when opening a channel
   const markChannelAsRead = useCallback(
     async (channelId: string) => {
-      if (!user) return;
+      if (!user?.id) return;
       const now = new Date().toISOString();
-      setReads((prev) => ({ ...prev, [channelId]: now }));
-      setUnreadCounts((prev) => ({ ...prev, [channelId]: 0 }));
+      setReadsStable((prev) => ({ ...prev, [channelId]: now }));
+      setUnreadCountsStable((prev) => ({ ...prev, [channelId]: 0 }));
 
       await supabase.from("message_reads").upsert({
         channel_id: channelId,
@@ -256,7 +269,7 @@ function CommsPage() {
         last_read_at: now,
       });
     },
-    [user, setReads],
+    [user?.id, setReadsStable, setUnreadCountsStable],
   );
 
   useEffect(() => {
@@ -402,7 +415,9 @@ function CommsPage() {
         isDm && thread
           ? senders[thread.user_a === user?.id ? thread.user_b : thread.user_a]
           : undefined;
-      const title = isDm ? (other?.full_name ?? "Direct Message") : c.name;
+      const title = isDm
+        ? (other?.full_name ?? other?.id ?? "Direct Message")
+        : c.name;
       const sortKey = last?.created_at ?? "0";
       const unreadCount = unreadCounts[c.id] || 0;
       return {

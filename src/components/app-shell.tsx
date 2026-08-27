@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setOrg(o as Org | null);
       }
     })();
-  }, [user]);
+  }, [user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

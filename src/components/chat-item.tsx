@@ -39,16 +39,8 @@ export const ChatItem: React.FC<ChatItemProps> = ({
   const isDm = c.channel.kind === "dm";
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Strip ugly raw UUID strings automatically
-  const formattedTitle =
-    c.title.startsWith("dm:") || c.title.includes("-4a")
-      ? c.title
-          .replace(/^dm:/, "")
-          .replace(
-            /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-            "Direct Message",
-          )
-      : c.title;
+  // Use the pre-resolved title
+  const formattedTitle = c.title;
 
   const handleTouchStart = () => {
     timerRef.current = setTimeout(() => {
