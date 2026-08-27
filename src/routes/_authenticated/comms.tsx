@@ -36,6 +36,7 @@ import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-mes
 import { MessageItem } from "@/components/message-item";
 import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
+import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 
 import { useMessages, useDeleteMessage, useSoftDeleteMessage } from "@/lib/use-messages";
 
