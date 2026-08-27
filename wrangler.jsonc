@@ -3,7 +3,7 @@
   "name": "cymatic-resonance",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  "main": "./dist/server/server.js",
   "observability": {
     "enabled": true,
   },
