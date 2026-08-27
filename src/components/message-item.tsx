@@ -25,6 +25,7 @@ interface MessageItemProps {
   setActiveReactionPicker: (id: string | null) => void;
   handleToggleReaction: (messageId: string, emoji: string) => void;
   handleDeleteMessage: (msgId: string) => void;
+  isRead?: boolean;
   onLongPress?: () => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -127,6 +128,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
         <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
           {m.body}
+          {isRead && (
+            <span className="ml-2 text-[10px] text-frequency font-bold">✓ Read</span>
+          )}
         </div>
 
         {msgAttachments.length > 0 && (

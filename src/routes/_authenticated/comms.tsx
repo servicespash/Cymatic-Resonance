@@ -117,6 +117,8 @@ function CommsPage() {
   const setIsAdminStable = useCallback(setIsAdmin, []);
   const setUnreadCountsStable = useCallback(setUnreadCounts, []);
   const setActiveChannelStable = useCallback(setActiveChannel, []);
+  const setReactionsStable = useCallback(setReactions, []);
+  const setAttachmentsStable = useCallback(setAttachments, []);
 
   useEffect(() => {
     ensureNotificationPermission();
@@ -247,12 +249,17 @@ function CommsPage() {
     setActiveChannelStable,
   ]);
 
+  const loadWorkspaceRef = useRef(loadWorkspace);
   useEffect(() => {
-    loadWorkspace();
-    return onReconnect(() => {
-      loadWorkspace();
-    });
+    loadWorkspaceRef.current = loadWorkspace;
   }, [loadWorkspace]);
+
+  useEffect(() => {
+    loadWorkspaceRef.current();
+    return onReconnect(() => {
+      loadWorkspaceRef.current();
+    });
+  }, []);
 
 
   // Update read receipts when opening a channel
@@ -302,7 +309,7 @@ function CommsPage() {
           // Sidebar unread counts and last message logic
           if (activeRef.current?.id !== m.channel_id) {
             if (user?.id !== m.sender_id) {
-              setUnreadCounts((prev) => ({
+              setUnreadCountsStable((prev) => ({
                 ...prev,
                 [m.channel_id]: (prev[m.channel_id] || 0) + 1,
               }));
@@ -310,14 +317,14 @@ function CommsPage() {
               notify(sender, { body: m.body });
             }
           }
-          setLastMessageByChannel((prev) => ({ ...prev, [m.channel_id]: m }));
+          setLastMessageByChannelStable((prev) => ({ ...prev, [m.channel_id]: m }));
         },
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (p) => {
         if (p.eventType === "INSERT") {
-          setReactions((prev) => [...prev, p.new as Reaction]);
+          setReactionsStable((prev) => [...prev, p.new as Reaction]);
         } else if (p.eventType === "DELETE") {
-          setReactions((prev) => prev.filter((r) => r.id !== p.old.id));
+          setReactionsStable((prev) => prev.filter((r) => r.id !== p.old.id));
         }
       })
       .subscribe();
@@ -328,8 +335,8 @@ function CommsPage() {
 
   const fetchActiveAttachmentsAndReactions = useCallback(() => {
     if (!active || activeMessages.length === 0) {
-      setReactions([]);
-      setAttachments([]);
+      setReactionsStable([]);
+      setAttachmentsStable([]);
       return;
     }
     const ids = activeMessages.map((m) => m.id);
@@ -337,10 +344,10 @@ function CommsPage() {
       supabase.from("message_reactions").select("*").in("message_id", ids),
       supabase.from("message_attachments").select("*").in("message_id", ids),
     ]).then(([{ data: rx }, { data: att }]) => {
-      if (rx) setReactions(rx.map((r) => ({ ...r, message_id: r.message_id })));
-      if (att) setAttachments(att as Attachment[]);
+      if (rx) setReactionsStable(rx.map((r) => ({ ...r, message_id: r.message_id })));
+      if (att) setAttachmentsStable(att as Attachment[]);
     });
-  }, [active, activeMessages]);
+  }, [active, activeMessages, setReactionsStable, setAttachmentsStable]);
 
   useEffect(() => {
     fetchActiveAttachmentsAndReactions();

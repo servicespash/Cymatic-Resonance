@@ -1,6 +1,7 @@
 import { hydrateRoot } from "react-dom/client";
 import { StartClient } from "@tanstack/react-start/client";
 import { supabase } from "@/integrations/supabase/client";
+import { ErrorBoundary } from "./components/error-boundary";
 
 // Pre-warm Supabase connection during idle periods to speed up initial auth check
 interface WindowWithIdle {
@@ -11,8 +12,8 @@ if (typeof window !== "undefined") {
   const prewarm = () => {
     // Just accessing a property on the proxy triggers the client initialization
     // and calling getSession starts the network request early.
-    supabase.auth.getSession().catch(() => {
-      /* ignore errors during pre-warm */
+    supabase.auth.getSession().catch((e) => {
+      console.error("Auth pre-warm error:", e);
     });
   };
 
@@ -23,4 +24,9 @@ if (typeof window !== "undefined") {
   }
 }
 
-hydrateRoot(document, <StartClient />);
+hydrateRoot(
+  document,
+  <ErrorBoundary>
+    <StartClient />
+  </ErrorBoundary>
+);

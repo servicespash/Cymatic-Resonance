@@ -64,6 +64,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, user }) => {
             setActiveReactionPicker={() => {}}
             handleToggleReaction={() => {}}
             handleDeleteMessage={() => {}}
+            isRead={false}
           />
         ))}
       </div>

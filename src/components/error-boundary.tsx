@@ -1,51 +1,44 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode } from "react";
 
-type Props = { children: ReactNode };
-type State = { error: Error | null };
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
 
 export class AppErrorBoundary extends Component<Props, State> {
-  state: State = { error: null };
+  public state: State = {
+    hasError: false,
+    error: null,
+  };
 
-  static getDerivedStateFromError(error: Error): State {
-    return { error };
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[AppErrorBoundary]", error, info.componentStack);
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
-    const { error } = this.state;
-    if (!error) return this.props.children;
-
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="glass max-w-md rounded-2xl p-8 text-center">
-          <h1 className="font-display text-xl font-semibold">Resonance interrupted</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Something went out of phase while rendering this view.
-          </p>
-          <p className="mt-2 font-mono text-xs text-muted-foreground break-words">
-            {error.message}
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <button
-              onClick={() => this.setState({ error: null })}
-              className="inline-flex items-center justify-center rounded-md bg-frequency px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Try again
-            </button>
-            <button
-              onClick={() => {
-                if (typeof window !== "undefined") window.location.href = "/";
-              }}
-              className="inline-flex items-center justify-center rounded-md border border-white/10 px-4 py-2 text-sm font-medium"
-            >
-              Go home
-            </button>
-          </div>
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-[#030712] p-6 text-red-400 font-mono text-xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-red-500">
+            Application Crash
+          </h2>
+          <pre className="mt-3 max-w-lg overflow-x-auto rounded border border-red-900/40 bg-red-950/20 p-4">
+            {this.state.error?.message}
+          </pre>
         </div>
-      </div>
-    );
+      );
+    }
+
+    return this.props.children;
   }
 }
+
+export const ErrorBoundary = AppErrorBoundary;
