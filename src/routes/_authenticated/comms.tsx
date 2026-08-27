@@ -36,6 +36,7 @@ import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-mes
 import { MessageItem } from "@/components/message-item";
 import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
+import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 
 import { useMessages, useDeleteMessage, useSoftDeleteMessage } from "@/lib/use-messages";
 
@@ -111,77 +112,118 @@ function CommsPage() {
     ensureNotificationPermission();
   }, []);
 
-  // Hydrate initial organization state & load channel message previews + unread logic
+  // Hydrate initial organization state & load channel message previews + unread logic.
+  // Cached first (instant, works offline), then refreshed from the backend and
+  // re-run whenever the tab/network comes back.
+  const loadWorkspace = useCallback(async () => {
+    if (!user) return;
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("org_id, role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!p?.org_id) return;
+    setOrgId(p.org_id);
+    setIsAdmin(p.role === "admin");
+
+    const [{ data: chs }, { data: mem }, { data: th }, { data: rd }, { data: allMsgs }] =
+      await Promise.all([
+        supabase.from("channels").select("*").eq("org_id", p.org_id).order("created_at"),
+        supabase.from("profiles").select("id, full_name, role").eq("org_id", p.org_id),
+        supabase
+          .from("direct_threads")
+          .select("*")
+          .eq("org_id", p.org_id)
+          .order("last_message_at", { ascending: false }),
+        supabase.from("message_reads").select("channel_id, last_read_at").eq("user_id", user.id),
+        supabase
+          .from("messages")
+          .select("id, channel_id, sender_id, body, created_at")
+          .eq("org_id", p.org_id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+    if (chs) setChannels(chs);
+    if (mem) setSenders(Object.fromEntries(mem.map((s) => [s.id, s])));
+    if (th) setThreads(th);
+
+    const readsMap: Record<string, string> = {};
+    if (rd) {
+      rd.forEach((r) => {
+        readsMap[r.channel_id] = r.last_read_at;
+      });
+      setReads(readsMap);
+    }
+
+    // Map last message per channel & build accurate unread message counts
+    let lastMap: Record<string, Msg> = {};
+    if (allMsgs && allMsgs.length > 0) {
+      const unreadMap: Record<string, number> = {};
+
+      (allMsgs as Msg[]).forEach((m) => {
+        if (!lastMap[m.channel_id]) {
+          lastMap[m.channel_id] = m;
+        }
+
+        const lastReadAt = readsMap[m.channel_id];
+        const isUnread =
+          m.sender_id !== user.id && (!lastReadAt || new Date(m.created_at) > new Date(lastReadAt));
+
+        if (isUnread) {
+          unreadMap[m.channel_id] = (unreadMap[m.channel_id] || 0) + 1;
+        }
+      });
+
+      setLastMessageByChannel(lastMap);
+      setUnreadCounts(unreadMap);
+    }
+
+    writeCache(`workspace:${user.id}`, {
+      orgId: p.org_id,
+      isAdmin: p.role === "admin",
+      channels: chs ?? [],
+      senders: mem ?? [],
+      threads: th ?? [],
+      reads: readsMap,
+      lastMessageByChannel: lastMap,
+    });
+  }, [
+    user,
+    setChannels,
+    setSenders,
+    setThreads,
+    setReads,
+    setLastMessageByChannel,
+  ]);
+
+  // Instant paint from the last known state so nothing looks "gone" offline.
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("org_id, role")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (!p?.org_id) return;
-      setOrgId(p.org_id);
-      setIsAdmin(p.role === "admin");
+    const cached = readCache<{
+      orgId: string;
+      isAdmin: boolean;
+      channels: Channel[];
+      senders: { id: string; full_name: string | null; role: string }[];
+      threads: { id: string; channel_id: string; user_a: string; user_b: string; last_message_at: string }[];
+      reads: Record<string, string>;
+      lastMessageByChannel: Record<string, Msg>;
+    }>(`workspace:${user.id}`);
+    if (!cached) return;
+    setOrgId((prev) => prev ?? cached.orgId);
+    setIsAdmin(cached.isAdmin);
+    setChannels((prev) => (prev.length ? prev : (cached.channels as Channel[])));
+    setSenders((prev) =>
+      Object.keys(prev).length ? prev : Object.fromEntries(cached.senders.map((s) => [s.id, s])),
+    );
+    setThreads((prev) => (prev.length ? prev : (cached.threads as typeof prev)));
+    setReads((prev) => (Object.keys(prev).length ? prev : cached.reads));
+    setLastMessageByChannel((prev) =>
+      Object.keys(prev).length ? prev : cached.lastMessageByChannel,
+    );
 
-      const [{ data: chs }, { data: mem }, { data: th }, { data: rd }, { data: allMsgs }] =
-        await Promise.all([
-          supabase.from("channels").select("*").eq("org_id", p.org_id).order("created_at"),
-          supabase.from("profiles").select("id, full_name, role").eq("org_id", p.org_id),
-          supabase
-            .from("direct_threads")
-            .select("*")
-            .eq("org_id", p.org_id)
-            .order("last_message_at", { ascending: false }),
-          supabase.from("message_reads").select("channel_id, last_read_at").eq("user_id", user.id),
-          supabase
-            .from("messages")
-            .select("id, channel_id, sender_id, body, created_at")
-            .eq("org_id", p.org_id)
-            .order("created_at", { ascending: false }),
-        ]);
-
-      if (chs) setChannels(chs);
-      if (mem) setSenders(Object.fromEntries(mem.map((s) => [s.id, s])));
-      if (th) setThreads(th);
-
-      const readsMap: Record<string, string> = {};
-      if (rd) {
-        rd.forEach((r) => {
-          readsMap[r.channel_id] = r.last_read_at;
-        });
-        setReads(readsMap);
-      }
-
-      // Map last message per channel & build accurate unread message counts
-      if (allMsgs && allMsgs.length > 0) {
-        const lastMap: Record<string, Msg> = {};
-        const unreadMap: Record<string, number> = {};
-
-        (allMsgs as Msg[]).forEach((m) => {
-          if (!lastMap[m.channel_id]) {
-            lastMap[m.channel_id] = m;
-          }
-
-          const lastReadAt = readsMap[m.channel_id];
-          const isUnread =
-            m.sender_id !== user.id &&
-            (!lastReadAt || new Date(m.created_at) > new Date(lastReadAt));
-
-          if (isUnread) {
-            unreadMap[m.channel_id] = (unreadMap[m.channel_id] || 0) + 1;
-          }
-        });
-
-        setLastMessageByChannel(lastMap);
-        setUnreadCounts(unreadMap);
-      }
-
-      const lastId =
-        typeof window !== "undefined" ? window.localStorage.getItem("cym.lastChannel") : null;
-      const restored = lastId ? (chs ?? []).find((c) => c.id === lastId) : null;
-      if (restored) setActiveChannel(restored as Channel);
-    })();
+    const lastId = window.localStorage.getItem("cym.lastChannel");
+    const restored = lastId ? cached.channels.find((c) => c.id === lastId) : null;
+    if (restored) setActiveChannel(restored as Channel);
   }, [
     user,
     setChannels,
@@ -191,6 +233,14 @@ function CommsPage() {
     setLastMessageByChannel,
     setActiveChannel,
   ]);
+
+  useEffect(() => {
+    loadWorkspace();
+    return onReconnect(() => {
+      loadWorkspace();
+    });
+  }, [loadWorkspace]);
+
 
   // Update read receipts when opening a channel
   const markChannelAsRead = useCallback(
