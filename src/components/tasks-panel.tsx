@@ -18,7 +18,8 @@ export function TasksPanel({
   isAdmin: boolean;
   members: { id: string; full_name: string | null }[];
 }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const cacheKey = `tasks:${orgId}:${isAdmin ? "all" : userId}`;
+  const [tasks, setTasks] = useState<Task[]>(() => readCache<Task[]>(cacheKey) ?? []);
   const [title, setTitle] = useState("");
   const [taskKind, setTaskKind] = useState("general");
   const [assignedTo, setAssignedTo] = useState<string>(userId);
@@ -35,13 +36,19 @@ export function TasksPanel({
     }
     const { data, error } = await query;
     if (error) {
-      toast.error("Failed to fetch tasks: " + error.message);
+      // Offline or backend hiccup: keep showing the last known tasks.
+      console.warn("Tasks fetch failed, using cached list:", error.message);
       return;
     }
-    if (data) setTasks(data as unknown as Task[]);
-  }, [orgId, userId, isAdmin]);
+    if (data) {
+      setTasks(data as unknown as Task[]);
+      writeCache(cacheKey, data as unknown as Task[]);
+    }
+  }, [orgId, userId, isAdmin, cacheKey]);
 
   useEffect(() => {
+    const cached = readCache<Task[]>(cacheKey);
+    if (cached) setTasks(cached);
     fetchTasks();
     const ch = supabase
       .channel("tasks")
@@ -60,10 +67,15 @@ export function TasksPanel({
         fetchTasks();
       })
       .subscribe();
+    const offReconnect = onReconnect(() => {
+      fetchTasks();
+    });
     return () => {
       ch.unsubscribe();
+      offReconnect();
     };
-  }, [orgId, fetchTasks, userId]);
+  }, [orgId, fetchTasks, userId, cacheKey]);
+
 
   const addTask = async () => {
     if (!title.trim()) return;
