@@ -30,6 +30,7 @@ import { format, differenceInMinutes, addDays, startOfMonth, startOfDay } from "
 import type { DateRange } from "react-day-picker";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";
+import { RegistryExport } from "@/components/registry-export";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: () => (
@@ -76,6 +77,7 @@ function toISO(d: Date) {
 function DashboardPage() {
   const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [att, setAtt] = useState<Att[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
@@ -88,45 +90,61 @@ function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "present" | "absent" | "late">("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const from = range?.from?.toISOString();
+  const to = range?.to?.toISOString();
 
   useEffect(() => {
+    console.log("DashboardPage: useEffect running, user:", !!user, "range:", range);
     if (!user || !range?.from || !range?.to) return;
     (async () => {
+      console.log("DashboardPage: Fetching dashboard data...");
       setLoading(true);
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("role, org_id")
-        .eq("id", user.id)
-        .maybeSingle();
-      setRole(p?.role ?? null);
-      if (!p?.org_id) {
-        setLoading(false);
-        return;
-      }
-
-      const from = toISO(range.from!);
-      const to = toISO(range.to!);
-      const [{ data: mem }, { data: a }, { data: lv }] = await Promise.all([
-        supabase
+      try {
+        const { data: p } = await supabase
           .from("profiles")
-          .select("id, full_name, position, category, role")
-          .eq("org_id", p.org_id),
-        supabase
-          .from("attendance")
-          .select(
-            "id, user_id, attendance_date, checked_in_at, checked_out_at, total_break_minutes, is_late, status",
-          )
-          .eq("org_id", p.org_id)
-          .gte("attendance_date", from)
-          .lte("attendance_date", to),
-        supabase.from("leave_requests").select("*").eq("org_id", p.org_id).eq("status", "pending"),
-      ]);
-      setMembers((mem ?? []) as Member[]);
-      setAtt((a ?? []) as Att[]);
-      setLeaves((lv ?? []) as Leave[]);
-      setLoading(false);
+          .select("role, org_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        console.log("DashboardPage: Profile:", p);
+        setRole(p?.role ?? null);
+        setOrgId(p?.org_id ?? null);
+        if (!p?.org_id) {
+          setLoading(false);
+          return;
+        }
+
+        const fromIso = toISO(range.from);
+        const toIso = toISO(range.to);
+        console.log("DashboardPage: Fetching attendance for", p.org_id, fromIso, toIso);
+        const [{ data: mem }, { data: a }, { data: lv }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, full_name, position, category, role")
+            .eq("org_id", p.org_id),
+          supabase
+            .from("attendance")
+            .select(
+              "id, user_id, attendance_date, checked_in_at, checked_out_at, total_break_minutes, is_late, status",
+            )
+            .eq("org_id", p.org_id)
+            .gte("attendance_date", fromIso)
+            .lte("attendance_date", toIso),
+          supabase.from("leave_requests").select("*").eq("org_id", p.org_id).eq("status", "pending"),
+        ]);
+        console.log("DashboardPage: Fetch complete, members:", mem?.length, "attendance:", a?.length);
+        setMembers((mem ?? []) as Member[]);
+        setAtt((a ?? []) as Att[]);
+        setLeaves((lv ?? []) as Leave[]);
+      } catch (e) {
+        console.error("Dashboard data fetch error:", e);
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [user, range?.from, range?.to]);
+  }, [user?.id, from, to]);
 
   const lastDay = useMemo(() => (range?.to ? toISO(range.to) : toISO(new Date())), [range]);
 
@@ -230,12 +248,56 @@ function DashboardPage() {
     }
   };
 
-  const exportCSV = () => {
+  const logDownload = async (
+    format: "csv" | "pdf" | "excel",
+    from: Date | undefined,
+    to: Date | undefined,
+    rowCount: number,
+    scope: "all" | "selected"
+  ) => {
+    if (!user || !orgId) return;
+    try {
+      const { error } = await supabase.from("download_history").insert({
+        org_id: orgId,
+        user_id: user.id,
+        format,
+        data_range_start: from ? toISO(from) : null,
+        data_range_end: to ? toISO(to) : null,
+        row_count: rowCount,
+        scope,
+      });
+      if (error) {
+        // If table doesn't exist, ignore the error gracefully
+        if (error.code === '42P01') {
+          console.warn("Download history tracking table not initialized; skipping log.");
+        } else {
+          console.error("Failed to log download history:", error.message);
+        }
+      } else {
+        console.log("Download history logged successfully.");
+      }
+    } catch (e) {
+      console.error("Exception during download history log:", e);
+    }
+  };
+
+  const exportCSV = async () => {
     if (!range?.from || !range?.to) return;
+
+    const isSelectedMode = selectedIds.size > 0;
+    const exportData = isSelectedMode 
+      ? filteredSorted.filter((r) => selectedIds.has(r.id))
+      : filteredSorted;
+
+    if (exportData.length === 0) {
+      toast.error("No data available to export.");
+      return;
+    }
+
     const header = ["Name", "Category", "Check-in", "Check-out", "Hours", "Status", "Late"];
     const lines = [
       header,
-      ...filteredSorted.map((r) => [
+      ...exportData.map((r) => [
         r.name,
         r.category,
         r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "",
@@ -255,6 +317,10 @@ function DashboardPage() {
     a.download = `pulse_${toISO(range.from)}_${toISO(range.to)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Record the export action in download_history
+    await logDownload("csv", range.from, range.to, exportData.length, isSelectedMode ? "selected" : "all");
+    toast.success(`Exported ${exportData.length} row(s) to CSV successfully.`);
   };
 
   const decideLeave = async (id: string, approve: boolean) => {
@@ -323,6 +389,17 @@ function DashboardPage() {
           Month
         </button>
         <div className="ml-auto" />
+        <RegistryExport
+          selectedCount={selectedIds.size}
+          availableRows={selectedIds.size > 0 
+            ? filteredSorted.filter((r) => selectedIds.has(r.id))
+            : filteredSorted}
+          rangeFrom={range?.from}
+          rangeTo={range?.to}
+          onExportLogged={async (format, rowCount, scope) => {
+            await logDownload(format, range?.from, range?.to, rowCount, scope);
+          }}
+        />
         <Button onClick={exportCSV} variant="outline" className="gap-2 bg-white/5 border-white/10">
           <Download className="size-4" /> Export CSV
         </Button>
@@ -448,7 +525,21 @@ function DashboardPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <tr className="text-left font-mono text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                <th className="pb-2 pr-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredSorted.length > 0 && filteredSorted.every((r) => selectedIds.has(r.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(new Set(filteredSorted.map((r) => r.id)));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                    className="rounded border-white/15 bg-white/5 text-accent focus:ring-accent size-3.5 cursor-pointer"
+                  />
+                </th>
                 {(
                   [
                     ["name", "Name"],
@@ -472,46 +563,65 @@ function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredSorted.map((r) => (
-                <tr key={r.id} className="hover:bg-white/[0.02]">
-                  <td className="py-2.5 pr-3 font-medium">{r.name}</td>
-                  <td className="pr-3 text-muted-foreground">{r.category}</td>
-                  <td className="pr-3 font-mono text-xs">
-                    {r.checkIn
-                      ? new Date(r.checkIn).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "—"}
-                  </td>
-                  <td className="pr-3 font-mono text-xs">
-                    {r.checkOut
-                      ? new Date(r.checkOut).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "—"}
-                  </td>
-                  <td className="pr-3 font-mono text-xs">
-                    {r.hours != null ? `${r.hours.toFixed(1)}h` : "—"}
-                  </td>
-                  <td className="pr-3">
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td className="pr-3">
-                    {r.late ? (
-                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
-                        yes
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filteredSorted.map((r) => {
+                const isSelected = selectedIds.has(r.id);
+                return (
+                  <tr key={r.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? "bg-accent/10" : ""}`}>
+                    <td className="py-2.5 pr-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          const next = new Set(selectedIds);
+                          if (next.has(r.id)) {
+                            next.delete(r.id);
+                          } else {
+                            next.add(r.id);
+                          }
+                          setSelectedIds(next);
+                        }}
+                        className="rounded border-white/15 bg-white/5 text-accent focus:ring-accent size-3.5 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-2.5 pr-3 font-medium">{r.name}</td>
+                    <td className="pr-3 text-muted-foreground">{r.category}</td>
+                    <td className="pr-3 font-mono text-xs">
+                      {r.checkIn
+                        ? new Date(r.checkIn).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="pr-3 font-mono text-xs">
+                      {r.checkOut
+                        ? new Date(r.checkOut).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="pr-3 font-mono text-xs">
+                      {r.hours != null ? `${r.hours.toFixed(1)}h` : "—"}
+                    </td>
+                    <td className="pr-3">
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td className="pr-3">
+                      {r.late ? (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
+                          yes
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredSorted.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                     No rows.
                   </td>
                 </tr>

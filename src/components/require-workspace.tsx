@@ -11,11 +11,18 @@ type Status = "loading" | "linked" | "unlinked";
 export function RequireWorkspace({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [status, setStatus] = useState<Status>("loading");
+  const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log("RequireWorkspace: No user yet");
+      return;
+    }
+    
+    console.log("RequireWorkspace: Fetching profile for user", user.id);
     (async () => {
+      setError(null);
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -25,17 +32,36 @@ export function RequireWorkspace({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error("RequireWorkspace: error fetching profile", error);
-          toast.error("Failed to load workspace info");
+          setError("Failed to load workspace info.");
           setStatus("unlinked"); // Fallback to unlinked on error
         } else {
+          console.log("RequireWorkspace: Profile fetch result", data);
           setStatus(data?.org_id ? "linked" : "unlinked");
         }
       } catch (err) {
         console.error("RequireWorkspace: unexpected error", err);
+        setError("Failed to connect to the server.");
         setStatus("unlinked");
       }
     })();
-  }, [user, tick]);
+  }, [user?.id, tick]);
+
+  if (error) {
+    return (
+      <div className="grid h-screen place-items-center p-6 text-center text-red-500">
+        <div>
+          <h2 className="text-xl font-bold">Error</h2>
+          <p className="mt-2">{error}</p>
+          <button 
+            className="mt-4 rounded bg-red-100 px-4 py-2 text-red-800"
+            onClick={() => setTick(t => t + 1)}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (status === "loading") {
     return (

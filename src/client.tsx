@@ -2,6 +2,7 @@ import { hydrateRoot } from "react-dom/client";
 import { StartClient } from "@tanstack/react-start/client";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/error-boundary";
+import { pingSupabase } from "./lib/supabase-check";
 
 // Pre-warm Supabase connection during idle periods to speed up initial auth check
 interface WindowWithIdle {
@@ -9,7 +10,11 @@ interface WindowWithIdle {
 }
 
 if (typeof window !== "undefined") {
-  const prewarm = () => {
+  const prewarm = async () => {
+    // Ping for diagnostic
+    const status = await pingSupabase();
+    console.log("Supabase connection status:", status);
+    
     // Just accessing a property on the proxy triggers the client initialization
     // and calling getSession starts the network request early.
     supabase.auth.getSession().catch((e) => {
