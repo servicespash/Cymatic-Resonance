@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async function initAuth() {
       try {
         setDebugMsg("Fetching session...");
+        console.log("AuthProvider: initAuth - starting getSession");
         
         // Race the getSession call against a 5-second timeout
         const sessionPromise = supabase.auth.getSession();
@@ -30,19 +31,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
 
         if (error) {
+            console.error("AuthProvider: initAuth - Auth Error", error);
             setDebugMsg("Auth Error: " + error.message);
             setLoading(false); // Ensure loading is set to false even on error
             return;
         }
+        console.log("AuthProvider: initAuth - Session result:", data.session ? "Found" : "None");
+        
         if (isMounted) {
           setSession(data.session);
           setUser(data.session?.user ?? null);
           setDebugMsg(data.session ? "Session found" : "No session");
-          setLoading(false); // Only set loading to false here
         }
       } catch (err) {
+        console.error("AuthProvider: initAuth - Catch Error", err);
         setDebugMsg("Catch Error: " + (err as Error).message);
-        setLoading(false);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 

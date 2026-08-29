@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { LeavePanel } from "@/components/leave-panel";
 
+import { ClientOnly } from "@/components/client-only";
+
 export const Route = createFileRoute("/_authenticated/pulse")({
   component: () => (
     <RequireWorkspace>
@@ -130,167 +132,169 @@ function PulsePage() {
   }, [history]);
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-6">
-      <h1 className="sr-only">Your Resonance Pulse</h1>
-      {/* Pulse card */}
-      <section className="glass-strong relative overflow-hidden rounded-3xl p-8 resonance-glow animate-fade-up">
-        <div className="absolute inset-0 -z-10 bg-frequency/30 blur-3xl" />
+    <ClientOnly fallback={<div className="p-4">Loading...</div>}>
+      <div className="mx-auto grid w-full max-w-3xl gap-6">
+        <h1 className="sr-only">Your Resonance Pulse</h1>
+        {/* Pulse card */}
+        <section className="glass-strong relative overflow-hidden rounded-3xl p-8 resonance-glow animate-fade-up">
+          <div className="absolute inset-0 -z-10 bg-frequency/30 blur-3xl" />
 
-        <div className="flex items-center justify-between">
-          <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-          </div>
-          {streak > 0 && (
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-accent">
-              <Flame className="size-3" /> {streak}-day streak
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+              {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
             </div>
-          )}
-        </div>
-
-        <div className="mt-3 text-center">
-          <div className="font-display text-6xl font-bold tracking-tight tabular-nums md:text-7xl">
-            {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </div>
-
-          {/* big pulse button */}
-          <div className="mt-8 flex flex-col items-center">
-            <PulseButton state={state} busy={busy} onClick={checkIn} />
-
-            {state === "out" && (
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Add a note (optional)"
-                className="mt-6 w-full max-w-sm rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-center text-sm outline-none focus:border-primary/40"
-              />
-            )}
-
-            {today && state !== "sealed" && (
-              <div className="mt-6 flex items-center gap-2">
-                <button
-                  onClick={toggleBreak}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs transition hover:bg-white/10 disabled:opacity-50"
-                >
-                  <Coffee className="size-3.5" />
-                  {state === "break" ? "Resume" : "Take break"}
-                </button>
-                <button
-                  onClick={checkOut}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs transition hover:bg-white/10 disabled:opacity-50"
-                >
-                  <LogOut className="size-3.5" />
-                  Check out
-                </button>
+            {streak > 0 && (
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-accent">
+                <Flame className="size-3" /> {streak}-day streak
               </div>
             )}
+          </div>
 
-            {today && (
-              <div className="mt-6 grid w-full max-w-md grid-cols-3 gap-3">
-                <Stat label="Logged" value={fmtH(liveMinutes)} />
-                <Stat label="Break" value={`${today.total_break_minutes}m`} />
-                <Stat
-                  label="Status"
-                  value={state === "sealed" ? "Sealed" : state === "break" ? "On break" : "Active"}
-                  tone={today.is_late ? "warn" : state === "sealed" ? "muted" : "ok"}
+          <div className="mt-3 text-center">
+            <div className="font-display text-6xl font-bold tracking-tight tabular-nums md:text-7xl">
+              {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </div>
+
+            {/* big pulse button */}
+            <div className="mt-8 flex flex-col items-center">
+              <PulseButton state={state} busy={busy} onClick={checkIn} />
+
+              {state === "out" && (
+                <input
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Add a note (optional)"
+                  className="mt-6 w-full max-w-sm rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-center text-sm outline-none focus:border-primary/40"
                 />
-              </div>
-            )}
+              )}
 
-            {today?.is_late && (
-              <div className="mt-3 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-400">
-                <AlertTriangle className="size-3" /> Late check-in
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+              {today && state !== "sealed" && (
+                <div className="mt-6 flex items-center gap-2">
+                  <button
+                    onClick={toggleBreak}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs transition hover:bg-white/10 disabled:opacity-50"
+                  >
+                    <Coffee className="size-3.5" />
+                    {state === "break" ? "Resume" : "Take break"}
+                  </button>
+                  <button
+                    onClick={checkOut}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs transition hover:bg-white/10 disabled:opacity-50"
+                  >
+                    <LogOut className="size-3.5" />
+                    Check out
+                  </button>
+                </div>
+              )}
 
-      {/* History */}
-      <section
-        className="glass rounded-2xl p-5 animate-fade-up"
-        style={{ animationDelay: "100ms" }}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Resonance ledger</h2>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            last {history.length} days
-          </span>
-        </div>
-        <div className="divide-y divide-white/5">
-          {history.length === 0 && (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              No check-ins yet — tap the pulse above.
+              {today && (
+                <div className="mt-6 grid w-full max-w-md grid-cols-3 gap-3">
+                  <Stat label="Logged" value={fmtH(liveMinutes)} />
+                  <Stat label="Break" value={`${today.total_break_minutes}m`} />
+                  <Stat
+                    label="Status"
+                    value={state === "sealed" ? "Sealed" : state === "break" ? "On break" : "Active"}
+                    tone={today.is_late ? "warn" : state === "sealed" ? "muted" : "ok"}
+                  />
+                </div>
+              )}
+
+              {today?.is_late && (
+                <div className="mt-3 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-400">
+                  <AlertTriangle className="size-3" /> Late check-in
+                </div>
+              )}
             </div>
-          )}
-          {history.map((r) => {
-            const dur = r.checked_out_at
-              ? Math.max(
-                  0,
-                  Math.floor(
-                    (new Date(r.checked_out_at).getTime() - new Date(r.checked_in_at).getTime()) /
-                      60000,
-                  ) - r.total_break_minutes,
-                )
-              : null;
-            return (
-              <div key={r.id} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 place-items-center rounded-lg bg-accent/15">
-                    <Check className="size-4 text-accent" />
-                  </span>
-                  <div>
-                    <div className="text-sm font-medium">
-                      {new Date(r.attendance_date).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                      {r.is_late && (
-                        <span className="ml-2 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
-                          late
-                        </span>
+          </div>
+        </section>
+
+        {/* History */}
+        <section
+          className="glass rounded-2xl p-5 animate-fade-up"
+          style={{ animationDelay: "100ms" }}
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold">Resonance ledger</h2>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              last {history.length} days
+            </span>
+          </div>
+          <div className="divide-y divide-white/5">
+            {history.length === 0 && (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No check-ins yet — tap the pulse above.
+              </div>
+            )}
+            {history.map((r) => {
+              const dur = r.checked_out_at
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      (new Date(r.checked_out_at).getTime() - new Date(r.checked_in_at).getTime()) /
+                        60000,
+                    ) - r.total_break_minutes,
+                  )
+                : null;
+              return (
+                <div key={r.id} className="flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-9 place-items-center rounded-lg bg-accent/15">
+                      <Check className="size-4 text-accent" />
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium">
+                        {new Date(r.attendance_date).toLocaleDateString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        {r.is_late && (
+                          <span className="ml-2 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
+                            late
+                          </span>
+                        )}
+                      </div>
+                      {r.note && (
+                        <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+                          {r.note}
+                        </div>
                       )}
                     </div>
-                    {r.note && (
-                      <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-                        {r.note}
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center justify-end gap-1.5 font-mono text-xs text-muted-foreground">
+                      <Clock className="size-3" />
+                      {new Date(r.checked_in_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {r.checked_out_at && (
+                        <>
+                          <span className="opacity-50">→</span>
+                          {new Date(r.checked_out_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </>
+                      )}
+                    </div>
+                    {dur !== null && (
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-accent">
+                        {fmtH(dur)}
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="flex items-center justify-end gap-1.5 font-mono text-xs text-muted-foreground">
-                    <Clock className="size-3" />
-                    {new Date(r.checked_in_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {r.checked_out_at && (
-                      <>
-                        <span className="opacity-50">→</span>
-                        {new Date(r.checked_out_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </>
-                    )}
-                  </div>
-                  {dur !== null && (
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-accent">
-                      {fmtH(dur)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
 
-      <LeavePanel />
-    </div>
+        <LeavePanel />
+      </div>
+    </ClientOnly>
   );
 }
 

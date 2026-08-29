@@ -22,6 +22,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { CymaticWave } from "@/components/cymatic-wave";
+import { ClientOnly } from "@/components/client-only";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,14 @@ function toISO(d: Date) {
 }
 
 function DashboardPage() {
+  return (
+    <ClientOnly fallback={<div className="p-4">Loading dashboard...</div>}>
+      <DashboardContent />
+    </ClientOnly>
+  );
+}
+
+function DashboardContent() {
   const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
