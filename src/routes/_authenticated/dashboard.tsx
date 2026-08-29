@@ -82,10 +82,11 @@ function DashboardPage() {
   const [att, setAtt] = useState<Att[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<DateRange | undefined>({
+  const initialRange = useMemo(() => ({
     from: addDays(new Date(), -6),
     to: new Date(),
-  });
+  }), []);
+  const [range, setRange] = useState<DateRange | undefined>(initialRange);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "present" | "absent" | "late">("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
