@@ -4,6 +4,7 @@ import { Copy, Mail, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ClientOnly } from "./client-only";
 
 type Invite = {
   id: string;
@@ -124,7 +125,12 @@ export function InvitePanel() {
                   ) : expired ? (
                     <span className="text-amber-400">expired</span>
                   ) : (
-                    <span>expires {new Date(i.expires_at).toLocaleDateString()}</span>
+                    <span>
+                      expires{" "}
+                      <ClientOnly fallback="...">
+                        {new Date(i.expires_at).toLocaleDateString()}
+                      </ClientOnly>
+                    </span>
                   )}
                 </div>
               </div>

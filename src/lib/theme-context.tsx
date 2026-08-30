@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from "react";
 import { Theme, ThemeContext } from "./theme-context-core";
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== "undefined") {

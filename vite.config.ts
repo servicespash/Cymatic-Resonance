@@ -22,13 +22,15 @@ const plugins: PluginOption[] = [
     workbox: {
       globPatterns: ["**/*.{js,css,html,png,svg}"],
       navigateFallback: null,
+      navigateFallbackDenylist: [/^\/auth/],
     },
   }),
 ];
 
-if (process.env.ENABLE_CLOUDFLARE_PLUGIN === "true") {
-  plugins.unshift(cloudflare({ viteEnvironment: { name: "ssr" } }));
-}
+// Cloudflare plugin disabled as per user request to test cookie persistence
+// if (process.env.ENABLE_CLOUDFLARE_PLUGIN === "true") {
+//   plugins.unshift(cloudflare({ viteEnvironment: { name: "ssr" } }));
+// }
 
 export default defineConfig({
   plugins,

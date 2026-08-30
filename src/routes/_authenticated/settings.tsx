@@ -70,8 +70,8 @@ function SettingsPage() {
         phone: p.phone ?? "",
         position: p.position ?? "",
         category: p.category ?? "",
-        role: p.role,
-        org_id: p.org_id,
+        role: p.role || "",
+        org_id: p.org_id || null,
       });
     if (p?.org_id) {
       const [{ data: o }, { data: mem }] = await Promise.all([

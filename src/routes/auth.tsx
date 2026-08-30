@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
+import { useTheme } from '@/lib/use-theme';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -18,8 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
+import { ClientOnly } from "@/components/client-only";
+import { Moon, Sun } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   component: () => (
     <ErrorBoundary>
       <AuthPage />
@@ -58,8 +62,10 @@ function getQuery() {
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { theme, toggleTheme } = useTheme(); // Added theme hook
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"normal" | "reset" | "invite">("normal");
+  const [tab, setTab] = useState<"signin" | "admin" | "member" | "signup">("signin");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [invitePreview, setInvitePreview] = useState<{
     org_name: string;
@@ -123,19 +129,35 @@ function AuthPage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: String(fd.get("email")),
-      password: String(fd.get("password")),
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Resonance established");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: String(fd.get("email")),
+        password: String(fd.get("password")),
+      });
+      if (error) throw error;
+      toast.success("Resonance established");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleGoogle = async () => {
     setBusy(true);
-    toast.warning("Google Auth is temporarily unavailable");
-    setBusy(false);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/pulse`,
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleResetSend = async (email: string) => {
@@ -282,10 +304,17 @@ function AuthPage() {
   };
 
   return (
-    <main className="relative min-h-screen px-4 py-10">
+    <ClientOnly>
+      <main className="relative min-h-screen px-4 py-10">
       <Link to="/" className="absolute left-6 top-6">
         <CymaticLogo />
       </Link>
+      <button 
+        onClick={toggleTheme}
+        className="absolute right-6 top-6 rounded-lg p-2 hover:bg-white/5"
+      >
+        {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
 
       <div className="mx-auto mt-12 w-full max-w-md animate-fade-up">
         <div className="text-center">
@@ -331,43 +360,46 @@ function AuthPage() {
                   This invite has already been used.
                 </p>
               ) : (
-                <Tabs defaultValue="signup">
-                  <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/5">
-                    <TabsTrigger value="signup">Create account</TabsTrigger>
-                    <TabsTrigger value="signin">Sign in</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="signup">
-                    <GoogleBtn busy={busy} onClick={handleGoogle} />
-                    <Divider />
-                    <form onSubmit={handleInviteSignUp} className="space-y-3">
-                      <Field
-                        id="iv-name"
-                        label="Full name"
-                        name="full_name"
-                        required
-                        maxLength={80}
-                      />
-                      <Field
-                        id="iv-email"
-                        label="Email"
-                        name="email"
-                        type="email"
-                        required
-                        defaultValue={invitePreview?.email ?? ""}
-                      />
-                      <Field
-                        id="iv-pw"
-                        label="Password"
-                        name="password"
-                        type="password"
-                        required
-                        minLength={6}
-                      />
-                      <SubmitBtn busy={busy}>Create account & join</SubmitBtn>
-                    </form>
-                  </TabsContent>
-                  <TabsContent value="signin">
-                    <GoogleBtn busy={busy} onClick={handleGoogle} />
+                <div>
+                  <div className="flex w-full p-1 rounded-lg mb-6 bg-white/5 space-x-1">
+                    <button type="button" onClick={() => setTab("signup")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab !== "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Create account</button>
+                    <button type="button" onClick={() => setTab("signin")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Sign in</button>
+                  </div>
+                  {tab !== "signin" && (
+                    <div>
+                      <GoogleBtn busy={busy} onClick={handleGoogle} />
+                      <Divider />
+                      <form onSubmit={handleInviteSignUp} className="space-y-3">
+                        <Field
+                          id="iv-name"
+                          label="Full name"
+                          name="full_name"
+                          required
+                          maxLength={80}
+                        />
+                        <Field
+                          id="iv-email"
+                          label="Email"
+                          name="email"
+                          type="email"
+                          required
+                          defaultValue={invitePreview?.email ?? ""}
+                        />
+                        <Field
+                          id="iv-pw"
+                          label="Password"
+                          name="password"
+                          type="password"
+                          required
+                          minLength={6}
+                        />
+                        <SubmitBtn busy={busy}>Create account & join</SubmitBtn>
+                      </form>
+                    </div>
+                  )}
+                  {tab === "signin" && (
+                    <div>
+                      <GoogleBtn busy={busy} onClick={handleGoogle} />
                     <Divider />
                     <form onSubmit={handleSignIn} className="space-y-4">
                       <Field id="ivs-email" label="Email" name="email" type="email" required />
@@ -380,40 +412,44 @@ function AuthPage() {
                       />
                       <SubmitBtn busy={busy}>Sign in & join</SubmitBtn>
                     </form>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                  )}
+                </div>
               )}
             </>
           ) : (
-            <Tabs defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-3 mb-6 bg-white/5">
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
-                <TabsTrigger value="admin">Admin</TabsTrigger>
-                <TabsTrigger value="member">Join</TabsTrigger>
-              </TabsList>
+            <div>
+              <div className="grid w-full grid-cols-3 mb-6 bg-white/5 rounded-lg p-1 space-x-1">
+                <button type="button" onClick={() => setTab("signin")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Sign in</button>
+                <button type="button" onClick={() => setTab("admin")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "admin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Admin</button>
+                <button type="button" onClick={() => setTab("member")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "member" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Join</button>
+              </div>
 
-              <TabsContent value="signin">
-                <GoogleBtn busy={busy} onClick={handleGoogle} />
-                <Divider />
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <Field id="si-email" label="Email" name="email" type="email" required />
-                  <Field id="si-pw" label="Password" name="password" type="password" required />
-                  <SubmitBtn busy={busy}>Sign in</SubmitBtn>
-                </form>
-                <ForgotPasswordLink onSend={handleResetSend} />
-              </TabsContent>
+              {tab === "signin" && (
+                <div>
+                  <GoogleBtn busy={busy} onClick={handleGoogle} />
+                  <Divider />
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <Field id="si-email" label="Email" name="email" type="email" required />
+                    <Field id="si-pw" label="Password" name="password" type="password" required />
+                    <SubmitBtn busy={busy}>Sign in</SubmitBtn>
+                  </form>
+                  <ForgotPasswordLink onSend={handleResetSend} />
+                </div>
+              )}
 
-              <TabsContent value="admin">
-                <GoogleBtn busy={busy} onClick={handleGoogle} label="Continue with Google" />
-                <Divider />
-                <form onSubmit={handleAdminSignUp} className="space-y-3">
-                  <Field
-                    id="ad-org"
-                    label="Organization name"
-                    name="org_name"
-                    required
-                    maxLength={80}
-                    placeholder="Acme HQ"
+              {tab === "admin" && (
+                <div>
+                  <GoogleBtn busy={busy} onClick={handleGoogle} label="Continue with Google" />
+                  <Divider />
+                  <form onSubmit={handleAdminSignUp} className="space-y-3">
+                    <Field
+                      id="ad-org"
+                      label="Organization name"
+                      name="org_name"
+                      required
+                      maxLength={80}
+                      placeholder="Acme HQ"
                   />
                   <Field
                     id="ad-type"
@@ -445,53 +481,57 @@ function AuthPage() {
                   />
                   <SubmitBtn busy={busy}>Create workspace</SubmitBtn>
                 </form>
-              </TabsContent>
+              </div>
+              )}
 
-              <TabsContent value="member">
-                <form onSubmit={handleMemberSignUp} className="space-y-3">
-                  <Field
-                    id="mb-code"
-                    label="CYM access code"
-                    name="access_code"
-                    required
-                    placeholder="CYM-XXXX"
-                    className="font-mono uppercase tracking-widest"
-                  />
-                  <Field
-                    id="mb-cat"
-                    label="Category / team"
-                    name="category"
-                    placeholder="Engineering, Grade 4, Night shift…"
-                  />
-                  <div className="h-px bg-white/5 my-2" />
-                  <Field id="mb-name" label="Full name" name="full_name" required maxLength={80} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field id="mb-phone" label="Phone" name="phone" type="tel" maxLength={30} />
+              {tab === "member" && (
+                <div>
+                  <form onSubmit={handleMemberSignUp} className="space-y-3">
                     <Field
-                      id="mb-pos"
-                      label="Position"
-                      name="position"
-                      maxLength={60}
-                      placeholder="Teacher"
+                      id="mb-code"
+                      label="CYM access code"
+                      name="access_code"
+                      required
+                      placeholder="CYM-XXXX"
+                      className="font-mono uppercase tracking-widest"
                     />
-                  </div>
-                  <Field id="mb-email" label="Email" name="email" type="email" required />
-                  <Field
-                    id="mb-pw"
-                    label="Password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={6}
-                  />
-                  <SubmitBtn busy={busy}>Join workspace</SubmitBtn>
-                </form>
-              </TabsContent>
-            </Tabs>
+                    <Field
+                      id="mb-cat"
+                      label="Category / team"
+                      name="category"
+                      placeholder="Engineering, Grade 4, Night shift…"
+                    />
+                    <div className="h-px bg-white/5 my-2" />
+                    <Field id="mb-name" label="Full name" name="full_name" required maxLength={80} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field id="mb-phone" label="Phone" name="phone" type="tel" maxLength={30} />
+                      <Field
+                        id="mb-pos"
+                        label="Position"
+                        name="position"
+                        maxLength={60}
+                        placeholder="Teacher"
+                      />
+                    </div>
+                    <Field id="mb-email" label="Email" name="email" type="email" required />
+                    <Field
+                      id="mb-pw"
+                      label="Password"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={6}
+                    />
+                    <SubmitBtn busy={busy}>Join workspace</SubmitBtn>
+                  </form>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
-    </main>
+      </main>
+    </ClientOnly>
   );
 }
 

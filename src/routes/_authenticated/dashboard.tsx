@@ -125,8 +125,8 @@ function DashboardContent() {
           return;
         }
 
-        const fromIso = toISO(range.from);
-        const toIso = toISO(range.to);
+        const fromIso = toISO(range.from!);
+        const toIso = toISO(range.to!);
         console.log("DashboardPage: Fetching attendance for", p.org_id, fromIso, toIso);
         const [{ data: mem }, { data: a }, { data: lv }] = await Promise.all([
           supabase

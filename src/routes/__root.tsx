@@ -12,9 +12,12 @@ import {
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider } from "@/lib/theme-context";
 import { useAuth } from "@/lib/use-auth";
 import { Toaster } from "@/components/ui/sonner";
-import { AppErrorBoundary } from "@/components/error-boundary";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { ConnectivityBanner } from "@/components/connectivity-banner";
+import { useComponentMountDebug, logDataFetchHook } from "@/lib/app-debug";
 
 function NotFoundComponent() {
   return (
@@ -148,7 +151,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function InnerApp() {
+  useComponentMountDebug("InnerApp");
   const { loading, debugMsg } = useAuth();
+  
+  React.useEffect(() => {
+    logDataFetchHook("useAuth", loading ? "loading" : "complete");
+  }, [loading]);
 
   if (loading) {
     return (
@@ -164,22 +172,29 @@ function InnerApp() {
   }
 
   return (
-    <>
+    <React.Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-[#030712]">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    }>
       <Outlet />
       <Toaster theme="dark" />
-    </>
+    </React.Suspense>
   );
 }
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
-    <AppErrorBoundary>
+    <ErrorBoundary>
+      <ConnectivityBanner />
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <InnerApp />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <InnerApp />
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
-    </AppErrorBoundary>
+    </ErrorBoundary>
   );
 }

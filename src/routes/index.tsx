@@ -2,6 +2,7 @@ import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/use-auth";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
+import { ClientOnly } from "@/components/client-only";
 import {
   ArrowRight,
   Radio,
@@ -438,7 +439,7 @@ function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 md:flex-row">
           <CymaticLogo size={28} />
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            © {new Date().getFullYear()} Cymatic Resonance. All frequencies reserved.
+            © <ClientOnly>{new Date().getFullYear()}</ClientOnly> Cymatic Resonance. All frequencies reserved.
           </p>
         </div>
       </footer>

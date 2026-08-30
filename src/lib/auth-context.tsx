@@ -13,69 +13,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
 
     async function initAuth() {
       try {
         setDebugMsg("Fetching session...");
-        console.log("AuthProvider: initAuth - starting getSession");
         
-        // Race the getSession call against a 5-second timeout
+        // Add a timeout to prevent hanging initialization
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Supabase auth check timed out")), 5000)
+            setTimeout(() => reject(new Error("Auth initialization timed out")), 5000)
         );
-        
-        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as { 
-          data: { session: Session | null }; 
-          error: any; 
-        };
+
+        const { data, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
 
         if (error) {
             console.error("AuthProvider: initAuth - Auth Error", error);
             setDebugMsg("Auth Error: " + error.message);
-            setLoading(false); // Ensure loading is set to false even on error
-            return;
-        }
-        console.log("AuthProvider: initAuth - Session result:", data.session ? "Found" : "None");
-        
-        if (isMounted) {
-          setSession(data.session);
-          setUser(data.session?.user ?? null);
-          setDebugMsg(data.session ? "Session found" : "No session");
+        } else {
+            console.log("AuthProvider: initAuth - Session result:", data.session ? "Found" : "None");
+            if (isMounted) {
+              setSession(data.session);
+              setUser(data.session?.user ?? null);
+              setDebugMsg(data.session ? "Session found" : "No session");
+            }
         }
       } catch (err) {
         console.error("AuthProvider: initAuth - Catch Error", err);
-        setDebugMsg("Catch Error: " + (err as Error).message);
+        if (isMounted) setDebugMsg("Error: " + (err as Error).message);
       } finally {
         if (isMounted) {
           setLoading(false);
+          // Subscribe only after initial check is done
+          const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (isMounted) {
+              setSession(session);
+              setUser(session?.user ?? null);
+            }
+          });
+          subscription = data.subscription;
         }
       }
     }
 
     initAuth();
 
-    try {
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (isMounted) {
-            setSession(session);
-            setUser(session?.user ?? null);
-            // Don't set loading here again, it should have been handled by initAuth
-          }
-        });
-
-        return () => {
-          isMounted = false;
-          subscription.unsubscribe();
-        };
-    } catch (err) {
-        setDebugMsg("Auth Subscription Error: " + (err as Error).message);
-        return () => {
-            isMounted = false;
-        };
-    }
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const value = useMemo(() => ({ session, user, loading, debugMsg }), [session, user, loading, debugMsg]);

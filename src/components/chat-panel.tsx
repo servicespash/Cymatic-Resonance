@@ -6,10 +6,11 @@ import { toast } from "sonner";
 
 interface ChatPanelProps {
   channelId: string;
+  orgId: string;
   user: { id: string } | null;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, user }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(false);
   const [body, setBody] = useState("");
@@ -37,6 +38,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, user }) => {
   const sendMessage = async () => {
     if (!body.trim() || !user) return;
     const { error } = await supabase.from("messages").insert({
+      org_id: orgId,
       channel_id: channelId,
       sender_id: user.id,
       body: body.trim(),

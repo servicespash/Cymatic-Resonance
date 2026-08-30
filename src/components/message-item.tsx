@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { User, Trash2, SmilePlus, CheckCircle2 } from "lucide-react";
 import { CommAttachment, Attachment } from "./comm-attachment";
+import { ClientOnly } from "./client-only";
 
 export type Msg = {
   id: string;
@@ -44,6 +45,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   setActiveReactionPicker,
   handleToggleReaction,
   handleDeleteMessage,
+  isRead,
   onLongPress,
   isSelectionMode,
   isSelected,
@@ -122,7 +124,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         {showHeader && (
           <div className="mb-1 flex items-center gap-2">
             <span className="font-semibold text-xs text-foreground">{senderName}</span>
-            <span className="text-[10px] text-muted-foreground font-mono">{formattedTime}</span>
+            <ClientOnly fallback={<span className="text-[10px] text-muted-foreground font-mono">...</span>}>
+              <span className="text-[10px] text-muted-foreground font-mono">{formattedTime}</span>
+            </ClientOnly>
           </div>
         )}
 

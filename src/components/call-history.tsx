@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { ChevronDown, Phone, PhoneOff, PhoneIncoming, RefreshCw, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
+import { ClientOnly } from "./client-only";
 
 interface CallRow {
   id: string;
@@ -117,7 +118,7 @@ export const CallHistoryPanel = () => {
             Object.entries(groupedHistory).map(([date, dateCalls]) => (
               <div key={date} className="space-y-1">
                 <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-1">
-                  {date}
+                  <ClientOnly fallback="...">{date}</ClientOnly>
                 </h4>
                 {dateCalls.map((call) => {
                   const durationSec =
