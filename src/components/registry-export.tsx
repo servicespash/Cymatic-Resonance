@@ -2,9 +2,19 @@ import React, { useState } from "react";
 import { Download, FileSpreadsheet, FileText, CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 
+export interface ExportRow {
+  name?: string | null;
+  category?: string | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  hours?: number | null;
+  status?: string | null;
+  late?: boolean | null;
+}
+
 interface RegistryExportProps {
   selectedCount?: number;
-  availableRows?: Record<string, unknown>[];
+  availableRows?: ExportRow[];
   rangeFrom?: Date;
   rangeTo?: Date;
   onExportLogged?: (
