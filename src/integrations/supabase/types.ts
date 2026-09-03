@@ -229,6 +229,50 @@ export type Database = {
           },
         ]
       }
+      download_history: {
+        Row: {
+          created_at: string
+          data_range_end: string | null
+          data_range_start: string | null
+          format: string
+          id: string
+          org_id: string
+          row_count: number
+          scope: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_range_end?: string | null
+          data_range_start?: string | null
+          format: string
+          id?: string
+          org_id: string
+          row_count?: number
+          scope?: string | null
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          data_range_end?: string | null
+          data_range_start?: string | null
+          format?: string
+          id?: string
+          org_id?: string
+          row_count?: number
+          scope?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "download_history_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
           created_at: string
@@ -581,6 +625,56 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assigned_by: string | null
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          org_id: string
+          start_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          org_id: string
+          start_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          org_id?: string
+          start_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -668,6 +762,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_admin: { Args: never; Returns: boolean }
+      join_call: { Args: { _call_id: string }; Returns: undefined }
       join_org_with_code: {
         Args: { _category: string; _code: string }
         Returns: {
