@@ -17,7 +17,7 @@ if (typeof window !== "undefined") {
     // Ping for diagnostic
     const status = await pingSupabase();
     console.log("Supabase connection status:", status);
-    
+
     // Just accessing a property on the proxy triggers the client initialization
     // and calling getSession starts the network request early.
     supabase.auth.getSession().catch((e) => {
@@ -36,5 +36,5 @@ hydrateRoot(
   document,
   <ErrorBoundary>
     <StartClient />
-  </ErrorBoundary>
+  </ErrorBoundary>,
 );

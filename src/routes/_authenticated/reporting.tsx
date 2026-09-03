@@ -12,7 +12,9 @@ function ReportingPage() {
       <RegistryExport />
       <div className="bg-black/5 rounded-xl border border-white/5 p-4">
         <h3 className="font-semibold mb-3">Activity Logs</h3>
-        <div className="text-muted-foreground text-sm">Tabulated activity log interface would go here.</div>
+        <div className="text-muted-foreground text-sm">
+          Tabulated activity log interface would go here.
+        </div>
       </div>
     </div>
   );

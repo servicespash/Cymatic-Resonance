@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 export function AudioVisualizer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,12 +18,12 @@ export function AudioVisualizer() {
 
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        
+        const ctx = canvas.getContext("2d");
+
         function draw() {
           requestAnimationFrame(draw);
           analyser.getByteFrequencyData(dataArray);
-          if (!ctx) return;
+          if (!ctx || !canvas) return;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           const barWidth = (canvas.width / bufferLength) * 2.5;
           let x = 0;

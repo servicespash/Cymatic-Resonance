@@ -124,7 +124,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         {showHeader && (
           <div className="mb-1 flex items-center gap-2">
             <span className="font-semibold text-xs text-foreground">{senderName}</span>
-            <ClientOnly fallback={<span className="text-[10px] text-muted-foreground font-mono">...</span>}>
+            <ClientOnly
+              fallback={<span className="text-[10px] text-muted-foreground font-mono">...</span>}
+            >
               <span className="text-[10px] text-muted-foreground font-mono">{formattedTime}</span>
             </ClientOnly>
           </div>
@@ -132,9 +134,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
         <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
           {m.body}
-          {isRead && (
-            <span className="ml-2 text-[10px] text-frequency font-bold">✓ Read</span>
-          )}
+          {isRead && <span className="ml-2 text-[10px] text-frequency font-bold">✓ Read</span>}
         </div>
 
         {msgAttachments.length > 0 && (

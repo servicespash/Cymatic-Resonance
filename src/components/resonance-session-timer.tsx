@@ -297,7 +297,11 @@ function ResonanceSessionTimerInner({
         <button
           type="button"
           onClick={reset}
-          disabled={status === "idle" && elapsedSeconds === 0 && timeLeft === selectedPreset.durationMinutes * 60}
+          disabled={
+            status === "idle" &&
+            elapsedSeconds === 0 &&
+            timeLeft === selectedPreset.durationMinutes * 60
+          }
           className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground disabled:opacity-40 disabled:pointer-events-none"
         >
           <RotateCcw className="size-3.5" />

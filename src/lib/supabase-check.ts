@@ -2,13 +2,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 export async function pingSupabase() {
   try {
-    const { data, error } = await supabase.from("profiles").select("count", { count: "exact", head: true });
-    
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("count", { count: "exact", head: true });
+
     if (error) {
       console.error("Supabase Ping Error:", error);
       return { status: "error", error: error.message };
     }
-    
+
     console.log("Supabase Ping Success:", data);
     return { status: "ok", data };
   } catch (e) {

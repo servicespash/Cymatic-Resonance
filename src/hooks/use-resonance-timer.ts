@@ -11,10 +11,30 @@ export interface ResonanceTimerPreset {
 }
 
 export const RESONANCE_PRESETS: ResonanceTimerPreset[] = [
-  { label: "Quick Shift", durationMinutes: 15, frequency: 432, description: "15m • 432Hz Alpha Clarity" },
-  { label: "Deep Focus", durationMinutes: 25, frequency: 528, description: "25m • 528Hz Harmonic Flow" },
-  { label: "Gamma Flow", durationMinutes: 45, frequency: 639, description: "45m • 639Hz Connection" },
-  { label: "Master Session", durationMinutes: 60, frequency: 741, description: "60m • 741Hz Awakening" },
+  {
+    label: "Quick Shift",
+    durationMinutes: 15,
+    frequency: 432,
+    description: "15m • 432Hz Alpha Clarity",
+  },
+  {
+    label: "Deep Focus",
+    durationMinutes: 25,
+    frequency: 528,
+    description: "25m • 528Hz Harmonic Flow",
+  },
+  {
+    label: "Gamma Flow",
+    durationMinutes: 45,
+    frequency: 639,
+    description: "45m • 639Hz Connection",
+  },
+  {
+    label: "Master Session",
+    durationMinutes: 60,
+    frequency: 741,
+    description: "60m • 741Hz Awakening",
+  },
 ];
 
 export interface UseResonanceTimerOptions {
@@ -25,11 +45,7 @@ export interface UseResonanceTimerOptions {
 }
 
 export function useResonanceTimer(options: UseResonanceTimerOptions = {}) {
-  const {
-    initialDurationSeconds = 25 * 60,
-    onComplete,
-    onTick,
-  } = options;
+  const { initialDurationSeconds = 25 * 60, onComplete, onTick } = options;
 
   // Hydration safety flag: initial render is always deterministic
   const [isMounted, setIsMounted] = useState(false);

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
-import { useTheme } from '@/lib/use-theme';
+import { useTheme } from "@/lib/use-theme";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -306,230 +306,272 @@ function AuthPage() {
   return (
     <ClientOnly>
       <main className="relative min-h-screen px-4 py-10">
-      <Link to="/" className="absolute left-6 top-6">
-        <CymaticLogo />
-      </Link>
-      <button 
-        onClick={toggleTheme}
-        className="absolute right-6 top-6 rounded-lg p-2 hover:bg-white/5"
-      >
-        {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-      </button>
+        <Link to="/" className="absolute left-6 top-6">
+          <CymaticLogo />
+        </Link>
+        <button
+          onClick={toggleTheme}
+          className="absolute right-6 top-6 rounded-lg p-2 hover:bg-white/5"
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
 
-      <div className="mx-auto mt-12 w-full max-w-md animate-fade-up">
-        <div className="text-center">
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+        <div className="mx-auto mt-12 w-full max-w-md animate-fade-up">
+          <div className="text-center">
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              {mode === "reset" ? (
+                <>
+                  Set <span className="text-gradient">new password</span>
+                </>
+              ) : mode === "invite" ? (
+                <>
+                  Join the <span className="text-gradient">resonance</span>
+                </>
+              ) : (
+                <>
+                  Enter the <span className="text-gradient">resonance</span>
+                </>
+              )}
+            </h1>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
+              {mode === "invite" && invitePreview
+                ? `invited to ${invitePreview.org_name}`
+                : "workspace · secured · signal-locked"}
+            </p>
+          </div>
+
+          <div className="glass-strong mt-8 rounded-2xl p-6 resonance-glow">
             {mode === "reset" ? (
-              <>
-                Set <span className="text-gradient">new password</span>
-              </>
+              <form onSubmit={handleResetSubmit} className="space-y-4">
+                <Field
+                  id="rs-pw"
+                  label="New password"
+                  name="password"
+                  type="password"
+                  required
+                  minLength={6}
+                />
+                <SubmitBtn busy={busy}>Update password</SubmitBtn>
+              </form>
             ) : mode === "invite" ? (
               <>
-                Join the <span className="text-gradient">resonance</span>
+                {invitePreview?.accepted ? (
+                  <p className="text-center text-sm text-muted-foreground">
+                    This invite has already been used.
+                  </p>
+                ) : (
+                  <div>
+                    <div className="flex w-full p-1 rounded-lg mb-6 bg-white/5 space-x-1">
+                      <button
+                        type="button"
+                        onClick={() => setTab("signup")}
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab !== "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        Create account
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTab("signin")}
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        Sign in
+                      </button>
+                    </div>
+                    {tab !== "signin" && (
+                      <div>
+                        <GoogleBtn busy={busy} onClick={handleGoogle} />
+                        <Divider />
+                        <form onSubmit={handleInviteSignUp} className="space-y-3">
+                          <Field
+                            id="iv-name"
+                            label="Full name"
+                            name="full_name"
+                            required
+                            maxLength={80}
+                          />
+                          <Field
+                            id="iv-email"
+                            label="Email"
+                            name="email"
+                            type="email"
+                            required
+                            defaultValue={invitePreview?.email ?? ""}
+                          />
+                          <Field
+                            id="iv-pw"
+                            label="Password"
+                            name="password"
+                            type="password"
+                            required
+                            minLength={6}
+                          />
+                          <SubmitBtn busy={busy}>Create account & join</SubmitBtn>
+                        </form>
+                      </div>
+                    )}
+                    {tab === "signin" && (
+                      <div>
+                        <GoogleBtn busy={busy} onClick={handleGoogle} />
+                        <Divider />
+                        <form onSubmit={handleSignIn} className="space-y-4">
+                          <Field id="ivs-email" label="Email" name="email" type="email" required />
+                          <Field
+                            id="ivs-pw"
+                            label="Password"
+                            name="password"
+                            type="password"
+                            required
+                          />
+                          <SubmitBtn busy={busy}>Sign in & join</SubmitBtn>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
-              <>
-                Enter the <span className="text-gradient">resonance</span>
-              </>
-            )}
-          </h1>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
-            {mode === "invite" && invitePreview
-              ? `invited to ${invitePreview.org_name}`
-              : "workspace · secured · signal-locked"}
-          </p>
-        </div>
+              <div>
+                <div className="grid w-full grid-cols-3 mb-6 bg-white/5 rounded-lg p-1 space-x-1">
+                  <button
+                    type="button"
+                    onClick={() => setTab("signin")}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("admin")}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "admin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("member")}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "member" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Join
+                  </button>
+                </div>
 
-        <div className="glass-strong mt-8 rounded-2xl p-6 resonance-glow">
-          {mode === "reset" ? (
-            <form onSubmit={handleResetSubmit} className="space-y-4">
-              <Field
-                id="rs-pw"
-                label="New password"
-                name="password"
-                type="password"
-                required
-                minLength={6}
-              />
-              <SubmitBtn busy={busy}>Update password</SubmitBtn>
-            </form>
-          ) : mode === "invite" ? (
-            <>
-              {invitePreview?.accepted ? (
-                <p className="text-center text-sm text-muted-foreground">
-                  This invite has already been used.
-                </p>
-              ) : (
-                <div>
-                  <div className="flex w-full p-1 rounded-lg mb-6 bg-white/5 space-x-1">
-                    <button type="button" onClick={() => setTab("signup")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab !== "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Create account</button>
-                    <button type="button" onClick={() => setTab("signin")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Sign in</button>
-                  </div>
-                  {tab !== "signin" && (
-                    <div>
-                      <GoogleBtn busy={busy} onClick={handleGoogle} />
-                      <Divider />
-                      <form onSubmit={handleInviteSignUp} className="space-y-3">
-                        <Field
-                          id="iv-name"
-                          label="Full name"
-                          name="full_name"
-                          required
-                          maxLength={80}
-                        />
-                        <Field
-                          id="iv-email"
-                          label="Email"
-                          name="email"
-                          type="email"
-                          required
-                          defaultValue={invitePreview?.email ?? ""}
-                        />
-                        <Field
-                          id="iv-pw"
-                          label="Password"
-                          name="password"
-                          type="password"
-                          required
-                          minLength={6}
-                        />
-                        <SubmitBtn busy={busy}>Create account & join</SubmitBtn>
-                      </form>
-                    </div>
-                  )}
-                  {tab === "signin" && (
-                    <div>
-                      <GoogleBtn busy={busy} onClick={handleGoogle} />
+                {tab === "signin" && (
+                  <div>
+                    <GoogleBtn busy={busy} onClick={handleGoogle} />
                     <Divider />
                     <form onSubmit={handleSignIn} className="space-y-4">
-                      <Field id="ivs-email" label="Email" name="email" type="email" required />
+                      <Field id="si-email" label="Email" name="email" type="email" required />
+                      <Field id="si-pw" label="Password" name="password" type="password" required />
+                      <SubmitBtn busy={busy}>Sign in</SubmitBtn>
+                    </form>
+                    <ForgotPasswordLink onSend={handleResetSend} />
+                  </div>
+                )}
+
+                {tab === "admin" && (
+                  <div>
+                    <GoogleBtn busy={busy} onClick={handleGoogle} label="Continue with Google" />
+                    <Divider />
+                    <form onSubmit={handleAdminSignUp} className="space-y-3">
                       <Field
-                        id="ivs-pw"
+                        id="ad-org"
+                        label="Organization name"
+                        name="org_name"
+                        required
+                        maxLength={80}
+                        placeholder="Acme HQ"
+                      />
+                      <Field
+                        id="ad-type"
+                        label="Workspace type"
+                        name="org_type"
+                        defaultValue="generic"
+                        placeholder="school, factory, agency…"
+                      />
+                      <div className="h-px bg-white/5 my-2" />
+                      <Field
+                        id="ad-name"
+                        label="Your name"
+                        name="full_name"
+                        required
+                        maxLength={80}
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field id="ad-phone" label="Phone" name="phone" type="tel" maxLength={30} />
+                        <Field
+                          id="ad-pos"
+                          label="Position"
+                          name="position"
+                          maxLength={60}
+                          placeholder="Director"
+                        />
+                      </div>
+                      <Field id="ad-email" label="Email" name="email" type="email" required />
+                      <Field
+                        id="ad-pw"
                         label="Password"
                         name="password"
                         type="password"
                         required
+                        minLength={6}
                       />
-                      <SubmitBtn busy={busy}>Sign in & join</SubmitBtn>
+                      <SubmitBtn busy={busy}>Create workspace</SubmitBtn>
                     </form>
                   </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <div>
-              <div className="grid w-full grid-cols-3 mb-6 bg-white/5 rounded-lg p-1 space-x-1">
-                <button type="button" onClick={() => setTab("signin")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "signin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Sign in</button>
-                <button type="button" onClick={() => setTab("admin")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "admin" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Admin</button>
-                <button type="button" onClick={() => setTab("member")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${tab === "member" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>Join</button>
-              </div>
+                )}
 
-              {tab === "signin" && (
-                <div>
-                  <GoogleBtn busy={busy} onClick={handleGoogle} />
-                  <Divider />
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <Field id="si-email" label="Email" name="email" type="email" required />
-                    <Field id="si-pw" label="Password" name="password" type="password" required />
-                    <SubmitBtn busy={busy}>Sign in</SubmitBtn>
-                  </form>
-                  <ForgotPasswordLink onSend={handleResetSend} />
-                </div>
-              )}
-
-              {tab === "admin" && (
-                <div>
-                  <GoogleBtn busy={busy} onClick={handleGoogle} label="Continue with Google" />
-                  <Divider />
-                  <form onSubmit={handleAdminSignUp} className="space-y-3">
-                    <Field
-                      id="ad-org"
-                      label="Organization name"
-                      name="org_name"
-                      required
-                      maxLength={80}
-                      placeholder="Acme HQ"
-                  />
-                  <Field
-                    id="ad-type"
-                    label="Workspace type"
-                    name="org_type"
-                    defaultValue="generic"
-                    placeholder="school, factory, agency…"
-                  />
-                  <div className="h-px bg-white/5 my-2" />
-                  <Field id="ad-name" label="Your name" name="full_name" required maxLength={80} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field id="ad-phone" label="Phone" name="phone" type="tel" maxLength={30} />
-                    <Field
-                      id="ad-pos"
-                      label="Position"
-                      name="position"
-                      maxLength={60}
-                      placeholder="Director"
-                    />
-                  </div>
-                  <Field id="ad-email" label="Email" name="email" type="email" required />
-                  <Field
-                    id="ad-pw"
-                    label="Password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={6}
-                  />
-                  <SubmitBtn busy={busy}>Create workspace</SubmitBtn>
-                </form>
-              </div>
-              )}
-
-              {tab === "member" && (
-                <div>
-                  <form onSubmit={handleMemberSignUp} className="space-y-3">
-                    <Field
-                      id="mb-code"
-                      label="CYM access code"
-                      name="access_code"
-                      required
-                      placeholder="CYM-XXXX"
-                      className="font-mono uppercase tracking-widest"
-                    />
-                    <Field
-                      id="mb-cat"
-                      label="Category / team"
-                      name="category"
-                      placeholder="Engineering, Grade 4, Night shift…"
-                    />
-                    <div className="h-px bg-white/5 my-2" />
-                    <Field id="mb-name" label="Full name" name="full_name" required maxLength={80} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field id="mb-phone" label="Phone" name="phone" type="tel" maxLength={30} />
+                {tab === "member" && (
+                  <div>
+                    <form onSubmit={handleMemberSignUp} className="space-y-3">
                       <Field
-                        id="mb-pos"
-                        label="Position"
-                        name="position"
-                        maxLength={60}
-                        placeholder="Teacher"
+                        id="mb-code"
+                        label="CYM access code"
+                        name="access_code"
+                        required
+                        placeholder="CYM-XXXX"
+                        className="font-mono uppercase tracking-widest"
                       />
-                    </div>
-                    <Field id="mb-email" label="Email" name="email" type="email" required />
-                    <Field
-                      id="mb-pw"
-                      label="Password"
-                      name="password"
-                      type="password"
-                      required
-                      minLength={6}
-                    />
-                    <SubmitBtn busy={busy}>Join workspace</SubmitBtn>
-                  </form>
-                </div>
-              )}
-            </div>
-          )}
+                      <Field
+                        id="mb-cat"
+                        label="Category / team"
+                        name="category"
+                        placeholder="Engineering, Grade 4, Night shift…"
+                      />
+                      <div className="h-px bg-white/5 my-2" />
+                      <Field
+                        id="mb-name"
+                        label="Full name"
+                        name="full_name"
+                        required
+                        maxLength={80}
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field id="mb-phone" label="Phone" name="phone" type="tel" maxLength={30} />
+                        <Field
+                          id="mb-pos"
+                          label="Position"
+                          name="position"
+                          maxLength={60}
+                          placeholder="Teacher"
+                        />
+                      </div>
+                      <Field id="mb-email" label="Email" name="email" type="email" required />
+                      <Field
+                        id="mb-pw"
+                        label="Password"
+                        name="password"
+                        type="password"
+                        required
+                        minLength={6}
+                      />
+                      <SubmitBtn busy={busy}>Join workspace</SubmitBtn>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </main>
     </ClientOnly>
   );

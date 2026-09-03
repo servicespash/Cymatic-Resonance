@@ -1,6 +1,6 @@
 /**
  * Hyperdrive Cloudflare Worker integration helper
- * 
+ *
  * Hyperdrive accelerates queries to existing databases from Cloudflare Workers
  * by pooling and maintaining connections and caching query responses.
  */

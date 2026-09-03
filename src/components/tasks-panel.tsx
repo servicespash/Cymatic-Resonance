@@ -77,7 +77,6 @@ export function TasksPanel({
     };
   }, [orgId, fetchTasks, userId, cacheKey]);
 
-
   const addTask = async () => {
     if (!title.trim()) return;
     const { error } = await supabase.from("tasks").insert({

@@ -19,7 +19,7 @@ export function RequireWorkspace({ children }: { children: ReactNode }) {
       console.log("RequireWorkspace: No user yet");
       return;
     }
-    
+
     console.log("RequireWorkspace: Fetching profile for user", user.id);
     (async () => {
       setError(null);
@@ -52,9 +52,9 @@ export function RequireWorkspace({ children }: { children: ReactNode }) {
         <div>
           <h2 className="text-xl font-bold">Error</h2>
           <p className="mt-2">{error}</p>
-          <button 
+          <button
             className="mt-4 rounded bg-red-100 px-4 py-2 text-red-800"
-            onClick={() => setTick(t => t + 1)}
+            onClick={() => setTick((t) => t + 1)}
           >
             Retry
           </button>
