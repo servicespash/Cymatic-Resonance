@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FileDown } from "lucide-react";
@@ -9,12 +9,15 @@ export const ExportRegistry = () => {
   const exportData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('profiles').select('full_name, role, org_id'); // Example registry query
+      const { data, error } = await supabase.from("profiles").select("full_name, role, org_id"); // Example registry query
       if (error) throw error;
-      
-      const csvContent = "data:text/csv;charset=utf-8," 
-        + ["Name,Role,OrgID"].concat(data.map(e => `${e.full_name},${e.role},${e.org_id}`)).join("\n");
-      
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        ["Name,Role,OrgID"]
+          .concat(data.map((e) => `${e.full_name},${e.role},${e.org_id}`))
+          .join("\n");
+
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);

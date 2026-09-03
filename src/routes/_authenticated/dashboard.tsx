@@ -91,10 +91,13 @@ function DashboardContent() {
   const [att, setAtt] = useState<Att[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
-  const initialRange = useMemo(() => ({
-    from: addDays(new Date(), -6),
-    to: new Date(),
-  }), []);
+  const initialRange = useMemo(
+    () => ({
+      from: addDays(new Date(), -6),
+      to: new Date(),
+    }),
+    [],
+  );
   const [range, setRange] = useState<DateRange | undefined>(initialRange);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "present" | "absent" | "late">("all");
@@ -141,9 +144,18 @@ function DashboardContent() {
             .eq("org_id", p.org_id)
             .gte("attendance_date", fromIso)
             .lte("attendance_date", toIso),
-          supabase.from("leave_requests").select("*").eq("org_id", p.org_id).eq("status", "pending"),
+          supabase
+            .from("leave_requests")
+            .select("*")
+            .eq("org_id", p.org_id)
+            .eq("status", "pending"),
         ]);
-        console.log("DashboardPage: Fetch complete, members:", mem?.length, "attendance:", a?.length);
+        console.log(
+          "DashboardPage: Fetch complete, members:",
+          mem?.length,
+          "attendance:",
+          a?.length,
+        );
         setMembers((mem ?? []) as Member[]);
         setAtt((a ?? []) as Att[]);
         setLeaves((lv ?? []) as Leave[]);
@@ -263,7 +275,7 @@ function DashboardContent() {
     from: Date | undefined,
     to: Date | undefined,
     rowCount: number,
-    scope: "all" | "selected"
+    scope: "all" | "selected",
   ) => {
     if (!user || !orgId) return;
     try {
@@ -278,7 +290,7 @@ function DashboardContent() {
       });
       if (error) {
         // If table doesn't exist, ignore the error gracefully
-        if (error.code === '42P01') {
+        if (error.code === "42P01") {
           console.warn("Download history tracking table not initialized; skipping log.");
         } else {
           console.error("Failed to log download history:", error.message);
@@ -295,7 +307,7 @@ function DashboardContent() {
     if (!range?.from || !range?.to) return;
 
     const isSelectedMode = selectedIds.size > 0;
-    const exportData = isSelectedMode 
+    const exportData = isSelectedMode
       ? filteredSorted.filter((r) => selectedIds.has(r.id))
       : filteredSorted;
 
@@ -329,7 +341,13 @@ function DashboardContent() {
     URL.revokeObjectURL(url);
 
     // Record the export action in download_history
-    await logDownload("csv", range.from, range.to, exportData.length, isSelectedMode ? "selected" : "all");
+    await logDownload(
+      "csv",
+      range.from,
+      range.to,
+      exportData.length,
+      isSelectedMode ? "selected" : "all",
+    );
     toast.success(`Exported ${exportData.length} row(s) to CSV successfully.`);
   };
 
@@ -401,9 +419,11 @@ function DashboardContent() {
         <div className="ml-auto" />
         <RegistryExport
           selectedCount={selectedIds.size}
-          availableRows={selectedIds.size > 0 
-            ? filteredSorted.filter((r) => selectedIds.has(r.id))
-            : filteredSorted}
+          availableRows={
+            selectedIds.size > 0
+              ? filteredSorted.filter((r) => selectedIds.has(r.id))
+              : filteredSorted
+          }
           rangeFrom={range?.from}
           rangeTo={range?.to}
           onExportLogged={async (format, rowCount, scope) => {
@@ -539,7 +559,10 @@ function DashboardContent() {
                 <th className="pb-2 pr-3 w-10 text-center">
                   <input
                     type="checkbox"
-                    checked={filteredSorted.length > 0 && filteredSorted.every((r) => selectedIds.has(r.id))}
+                    checked={
+                      filteredSorted.length > 0 &&
+                      filteredSorted.every((r) => selectedIds.has(r.id))
+                    }
                     onChange={(e) => {
                       if (e.target.checked) {
                         setSelectedIds(new Set(filteredSorted.map((r) => r.id)));
@@ -576,7 +599,10 @@ function DashboardContent() {
               {filteredSorted.map((r) => {
                 const isSelected = selectedIds.has(r.id);
                 return (
-                  <tr key={r.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? "bg-accent/10" : ""}`}>
+                  <tr
+                    key={r.id}
+                    className={`hover:bg-white/[0.02] transition-colors ${isSelected ? "bg-accent/10" : ""}`}
+                  >
                     <td className="py-2.5 pr-3 w-10 text-center">
                       <input
                         type="checkbox"

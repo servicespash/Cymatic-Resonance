@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 export function AudioVisualizer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,8 +18,8 @@ export function AudioVisualizer() {
 
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        
+        const ctx = canvas.getContext("2d");
+
         function draw() {
           requestAnimationFrame(draw);
           analyser.getByteFrequencyData(dataArray);

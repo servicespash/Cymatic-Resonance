@@ -12,23 +12,25 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     if (window.location.hash.includes("access_token=")) {
-      console.log("[_authenticated/route] OAuth callback detected in URL hash. Bypassing route guard.");
+      console.log(
+        "[_authenticated/route] OAuth callback detected in URL hash. Bypassing route guard.",
+      );
       return { user: null as any };
     }
 
-    // Use getSession for client-side routing checks to prevent network failures 
+    // Use getSession for client-side routing checks to prevent network failures
     // from triggering infinite signout loops. The token is stored locally.
     // Real validation happens via RLS on subsequent data requests.
     const { data, error } = await supabase.auth.getSession();
     console.log("[_authenticated/route] getSession result:", !!data.session);
-    
+
     if (error || !data.session) {
       console.warn("[_authenticated/route] Redirecting to /auth", error);
       // If the session is truly invalid/missing, clear it to break infinite loops
       await supabase.auth.signOut().catch(() => {});
       throw redirect({ to: "/auth" });
     }
-    
+
     return { user: data.session.user };
   },
   component: () => (

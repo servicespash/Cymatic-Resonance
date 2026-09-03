@@ -220,7 +220,13 @@ function CommsPage() {
       isAdmin: boolean;
       channels: Channel[];
       senders: { id: string; full_name: string | null; role: string }[];
-      threads: { id: string; channel_id: string; user_a: string; user_b: string; last_message_at: string }[];
+      threads: {
+        id: string;
+        channel_id: string;
+        user_a: string;
+        user_b: string;
+        last_message_at: string;
+      }[];
       reads: Record<string, string>;
       lastMessageByChannel: Record<string, Msg>;
     }>(`workspace:${user.id}`);
@@ -261,7 +267,6 @@ function CommsPage() {
       loadWorkspaceRef.current();
     });
   }, []);
-
 
   // Update read receipts when opening a channel
   const markChannelAsRead = useCallback(
@@ -423,9 +428,7 @@ function CommsPage() {
         isDm && thread
           ? senders[thread.user_a === user?.id ? thread.user_b : thread.user_a]
           : undefined;
-      const title = isDm
-        ? (other?.full_name ?? other?.id ?? "Direct Message")
-        : c.name;
+      const title = isDm ? (other?.full_name ?? other?.id ?? "Direct Message") : c.name;
       const sortKey = last?.created_at ?? "0";
       const unreadCount = unreadCounts[c.id] || 0;
       return {
@@ -477,7 +480,9 @@ function CommsPage() {
     : "";
 
   return (
-    <ClientOnly fallback={<div className="flex min-h-screen items-center justify-center">Loading…</div>}>
+    <ClientOnly
+      fallback={<div className="flex min-h-screen items-center justify-center">Loading…</div>}
+    >
       <div className="-m-4 flex h-[calc(100vh-4.5rem)] flex-col md:-m-6 lg:grid lg:grid-cols-[380px_1fr]">
         {/* Sidebar - Conversation list */}
         <aside
@@ -520,7 +525,7 @@ function CommsPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
-  
+
                 <Dialog open={tasksOpen} onOpenChange={setTasksOpen}>
                   <DialogTrigger asChild>
                     <button className="rounded-lg p-2 hover:bg-white/5" aria-label="Tasks">
@@ -544,7 +549,7 @@ function CommsPage() {
                     )}
                   </DialogContent>
                 </Dialog>
-  
+
                 {isAdmin && (
                   <Dialog open={newChannelOpen} onOpenChange={setNewChannelOpen}>
                     <DialogTrigger asChild>
@@ -573,7 +578,7 @@ function CommsPage() {
                               org_id: orgId,
                               created_by: user.id,
                             });
-  
+
                             if (!error) {
                               setNewChannelOpen(false);
                               setNewChannelName("");
@@ -598,7 +603,7 @@ function CommsPage() {
               />
             </div>
           </div>
-  
+
           {/* Dynamic Chat Items with Unread Badges */}
           <nav className="flex-1 overflow-y-auto p-2 space-y-1">
             {filtered.map((c) => (
@@ -627,10 +632,10 @@ function CommsPage() {
               </div>
             ))}
           </nav>
-  
+
           <CallHistoryPanel />
         </aside>
-  
+
         {/* Main Active Chat View */}
         <main className={`flex min-h-0 flex-col ${active ? "flex" : "hidden lg:flex"}`}>
           {active ? (
@@ -653,7 +658,7 @@ function CommsPage() {
                   }}
                 />
               </header>
-  
+
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 {loadingMessages ? (
                   <div className="flex h-full items-center justify-center">
@@ -672,12 +677,14 @@ function CommsPage() {
                     const showHeader =
                       !prev ||
                       prev.sender_id !== m.sender_id ||
-                      new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > 300000;
+                      new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() >
+                        300000;
                     const msgAttachments = attachments.filter((a) => a.message_id === m.id);
                     const msgReactions = reactions.filter((r) => r.message_id === m.id);
                     const reactionGroups = msgReactions.reduce(
                       (acc, r) => {
-                        if (!acc[r.emoji]) acc[r.emoji] = { count: 0, users: [], hasReacted: false };
+                        if (!acc[r.emoji])
+                          acc[r.emoji] = { count: 0, users: [], hasReacted: false };
                         acc[r.emoji].count++;
                         acc[r.emoji].users.push(r.user_id);
                         if (r.user_id === user?.id) acc[r.emoji].hasReacted = true;
@@ -685,7 +692,7 @@ function CommsPage() {
                       },
                       {} as Record<string, { count: number; users: string[]; hasReacted: boolean }>,
                     );
-  
+
                     return (
                       <MessageItem
                         key={m.id}
@@ -718,7 +725,7 @@ function CommsPage() {
                 )}
                 <div ref={bottom} />
               </div>
-  
+
               {isSelectionMode && (
                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card/95 border border-white/10 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl animate-fade-up">
                   <span className="text-xs font-mono font-bold text-muted-foreground">
@@ -755,7 +762,7 @@ function CommsPage() {
                   </button>
                 </div>
               )}
-  
+
               {isRecording && (
                 <div className="absolute bottom-20 left-4 right-4 z-50">
                   <RecordAudioMessage
@@ -776,7 +783,7 @@ function CommsPage() {
                   />
                 </div>
               )}
-  
+
               <footer className="border-t border-white/5 p-4">
                 <div className="flex items-center gap-2 rounded-xl bg-white/5 p-2">
                   <button

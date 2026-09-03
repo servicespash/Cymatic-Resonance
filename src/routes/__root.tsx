@@ -153,7 +153,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function InnerApp() {
   useComponentMountDebug("InnerApp");
   const { loading, debugMsg } = useAuth();
-  
+
   React.useEffect(() => {
     logDataFetchHook("useAuth", loading ? "loading" : "complete");
   }, [loading]);
@@ -163,20 +163,20 @@ function InnerApp() {
       <div className="flex min-h-screen items-center justify-center bg-[#030712] text-white font-mono text-xs">
         <div className="flex flex-col items-center space-y-3">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="tracking-widest uppercase text-muted-foreground">
-            {debugMsg}
-          </p>
+          <p className="tracking-widest uppercase text-muted-foreground">{debugMsg}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <React.Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-[#030712]">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    }>
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#030712]">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      }
+    >
       <Outlet />
       <Toaster theme="dark" />
     </React.Suspense>

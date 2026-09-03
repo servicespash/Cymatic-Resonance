@@ -142,7 +142,11 @@ function PulsePage() {
 
           <div className="flex items-center justify-between">
             <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-              {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+              {now.toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
             </div>
             {streak > 0 && (
               <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-accent">
@@ -153,7 +157,11 @@ function PulsePage() {
 
           <div className="mt-3 text-center">
             <div className="font-display text-6xl font-bold tracking-tight tabular-nums md:text-7xl">
-              {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              {now.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
             </div>
 
             {/* big pulse button */}
@@ -196,7 +204,9 @@ function PulsePage() {
                   <Stat label="Break" value={`${today.total_break_minutes}m`} />
                   <Stat
                     label="Status"
-                    value={state === "sealed" ? "Sealed" : state === "break" ? "On break" : "Active"}
+                    value={
+                      state === "sealed" ? "Sealed" : state === "break" ? "On break" : "Active"
+                    }
                     tone={today.is_late ? "warn" : state === "sealed" ? "muted" : "ok"}
                   />
                 </div>
