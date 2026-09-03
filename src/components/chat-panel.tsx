@@ -33,6 +33,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) 
 
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId]);
 
   const sendMessage = async () => {

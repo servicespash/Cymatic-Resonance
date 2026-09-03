@@ -109,17 +109,17 @@ function CommsPage() {
   const activeRef = useRef<Channel | null>(null);
   activeRef.current = active;
 
-  const setChannelsStable = useCallback(setChannels, []);
-  const setSendersStable = useCallback(setSenders, []);
-  const setThreadsStable = useCallback(setThreads, []);
-  const setReadsStable = useCallback(setReads, []);
-  const setLastMessageByChannelStable = useCallback(setLastMessageByChannel, []);
-  const setOrgIdStable = useCallback(setOrgId, []);
-  const setIsAdminStable = useCallback(setIsAdmin, []);
-  const setUnreadCountsStable = useCallback(setUnreadCounts, []);
-  const setActiveChannelStable = useCallback(setActiveChannel, []);
-  const setReactionsStable = useCallback(setReactions, []);
-  const setAttachmentsStable = useCallback(setAttachments, []);
+  const setChannelsStable = setChannels;
+  const setSendersStable = setSenders;
+  const setThreadsStable = setThreads;
+  const setReadsStable = setReads;
+  const setLastMessageByChannelStable = setLastMessageByChannel;
+  const setOrgIdStable = setOrgId;
+  const setIsAdminStable = setIsAdmin;
+  const setUnreadCountsStable = setUnreadCounts;
+  const setActiveChannelStable = setActiveChannel;
+  const setReactionsStable = setReactions;
+  const setAttachmentsStable = setAttachments;
 
   useEffect(() => {
     ensureNotificationPermission();

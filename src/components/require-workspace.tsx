@@ -44,6 +44,7 @@ export function RequireWorkspace({ children }: { children: ReactNode }) {
         setStatus("unlinked");
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, tick]);
 
   if (error) {
