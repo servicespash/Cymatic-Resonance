@@ -1,3 +1,4 @@
+import { GreetingBanner } from "@/components/greeting-banner";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,28 @@ type AttRow = {
   note: string | null;
 };
 
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3;
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function parseOrgType(raw: string) {
+  try {
+    if (raw.startsWith("{")) return JSON.parse(raw);
+  } catch (e) {
+    // ignore
+  }
+  return { type: raw, location: null };
+}
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -43,6 +66,9 @@ function PulsePage() {
   const [history, setHistory] = useState<AttRow[]>([]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [greetingData, setGreetingData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -70,13 +96,96 @@ function PulsePage() {
 
   const checkIn = async () => {
     setBusy(true);
-    const { data, error } = await supabase.rpc("pulse_checkin", { _note: note || undefined });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Resonance recorded");
-    setNote("");
-    setToday(data as AttRow);
-    setHistory((h) => [data as AttRow, ...h]);
+    let status = "unverified";
+    let variance = 0;
+    let externalLat = 0;
+    let externalLng = 0;
+
+    try {
+      // 1. Get org boundaries
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("org_id, full_name")
+        .eq("id", user?.id)
+        .single();
+      const { data: o } = await supabase
+        .from("organizations")
+        .select("name, org_type")
+        .eq("id", p?.org_id)
+        .single();
+
+      const parsedType = parseOrgType(o?.org_type || "");
+      const boundary = parsedType.location;
+
+      let locConfirmed = false;
+
+      // Spoofing detection caveat: Browser environment cannot natively detect Developer Options/Mock locations.
+      // We rely on standard HTML5 geolocation accuracy and timeouts.
+      if ("geolocation" in navigator) {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 10000,
+            enableHighAccuracy: true,
+          });
+        }).catch(() => null);
+
+        if (pos && boundary) {
+          externalLat = pos.coords.latitude;
+          externalLng = pos.coords.longitude;
+          variance = getDistance(boundary.lat, boundary.lng, externalLat, externalLng);
+
+          if (variance <= boundary.radius) {
+            status = "verified";
+            locConfirmed = true;
+          } else {
+            const confirmExternal = window.confirm(
+              "You are outside the station boundary (" +
+                Math.round(variance) +
+                "m away). Log current location for this pulse? (Yes/No)",
+            );
+            if (confirmExternal) {
+              status = "external";
+              locConfirmed = true;
+            }
+          }
+        } else if (!pos) {
+          status = "denied"; // or unverified
+        }
+      }
+
+      // Fetch Tasks
+      const { count } = await supabase
+        .from("tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("assignee_id", user?.id)
+        .eq("status", "pending");
+
+      const telemetryNote = JSON.stringify({
+        text: note,
+        telemetry: { status, variance, lat: externalLat, lng: externalLng },
+      });
+
+      const { data, error } = await supabase.rpc("pulse_checkin", { _note: telemetryNote });
+      if (error) throw error;
+
+      toast.success("Resonance recorded");
+      setNote("");
+      setToday(data as AttRow);
+      setHistory((h) => [data as AttRow, ...h]);
+
+      setGreetingData({
+        name: p?.full_name || "Agent",
+        institution: o?.name || "Institution",
+        status,
+        tasksCount: count || 0,
+      });
+      setShowGreeting(true);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      toast.error(err.message || "Check-in failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const checkOut = async () => {
@@ -310,6 +419,9 @@ function PulsePage() {
 
         <LeavePanel />
       </div>
+      {showGreeting && greetingData && (
+        <GreetingBanner {...greetingData} onDismiss={() => setShowGreeting(false)} />
+      )}
     </ClientOnly>
   );
 }

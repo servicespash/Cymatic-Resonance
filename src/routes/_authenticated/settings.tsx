@@ -19,6 +19,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { InvitePanel } from "@/components/invite-panel";
 import { BrandPanel } from "@/components/brand-panel";
+import { AdminMapMatrix } from "@/components/admin-map-matrix";
+
+type OrgLocation = { lat: number; lng: number; radius: number };
+
+function parseOrgType(raw: string): { type: string; location: OrgLocation | null } {
+  try {
+    if (raw.startsWith("{")) {
+      const parsed = JSON.parse(raw);
+      return { type: parsed.type || "generic", location: parsed.location || null };
+    }
+  } catch (e) {
+    // ignore parse error
+  }
+  return { type: raw || "generic", location: null };
+}
+
+function stringifyOrgType(type: string, location: OrgLocation | null): string {
+  if (!location) return type;
+  return JSON.stringify({ type, location });
+}
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: () => (
@@ -129,6 +149,16 @@ function SettingsPage() {
     toast.success("Access code rotated");
   };
 
+  const handleMapChange = useCallback((loc: OrgLocation) => {
+    setOrg((prevOrg) => {
+      if (!prevOrg) return prevOrg;
+      const parsedType = parseOrgType(prevOrg.org_type).type;
+      const newType = stringifyOrgType(parsedType, loc);
+      if (prevOrg.org_type === newType) return prevOrg;
+      return { ...prevOrg, org_type: newType };
+    });
+  }, []);
+
   const setRole = async (uid: string, role: "admin" | "member") => {
     const { error } = await supabase.rpc("set_member_role", { _user: uid, _role: role });
     if (error) return toast.error(error.message);
@@ -211,8 +241,13 @@ function SettingsPage() {
               />
               <Field
                 label="Type"
-                value={org.org_type}
-                onChange={(v) => setOrg({ ...org, org_type: v })}
+                value={parseOrgType(org.org_type).type}
+                onChange={(v) =>
+                  setOrg({
+                    ...org,
+                    org_type: stringifyOrgType(v, parseOrgType(org.org_type).location),
+                  })
+                }
               />
               <Field
                 label="Day-start cutoff"
@@ -224,6 +259,17 @@ function SettingsPage() {
                 value={org.timezone}
                 onChange={(v) => setOrg({ ...org, timezone: v })}
               />
+
+              <div className="sm:col-span-2 mt-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
+                  Station Boundary (Location Verification)
+                </div>
+                <AdminMapMatrix
+                  location={parseOrgType(org.org_type).location}
+                  onChange={handleMapChange}
+                />
+              </div>
+
               <div className="sm:col-span-2">
                 <button
                   disabled={busy}
@@ -333,6 +379,36 @@ function SettingsPage() {
             </button>
           </div>
         </form>
+      </section>
+
+      {/* Self-Rush Portal */}
+      <section className="glass rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Self-Rush Portal</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Generate a unique URL to safely check-in on public or shared terminals.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
+          <input
+            readOnly
+            value={`${window.location.origin}/self-rush?code=${org?.access_code || ""}`}
+            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none font-mono text-muted-foreground"
+          />
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(
+                `${window.location.origin}/self-rush?code=${org?.access_code || ""}`,
+              );
+              toast.success("Self-Rush link copied");
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent/20 border border-accent/40 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/30 transition-colors"
+          >
+            <Copy className="size-4" /> Copy Link
+          </button>
+        </div>
       </section>
 
       {/* Danger zone */}

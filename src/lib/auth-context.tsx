@@ -9,20 +9,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [debugMsg, setDebugMsg] = useState("Initializing...");
 
   useEffect(() => {
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
+    console.log("[Auth] State transition: -> initializing");
+
     async function initAuth() {
       try {
-        setDebugMsg("Fetching session...");
-
-        // Add a timeout to prevent hanging initialization
+        // Fallback timeout
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Auth initialization timed out")), 10000),
+          setTimeout(() => reject(new Error("Auth initialization timed out")), 30000),
         );
 
         const { data, error } = (await Promise.race([sessionPromise, timeoutPromise])) as Awaited<
@@ -30,32 +29,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         >;
 
         if (error) {
-          console.error("AuthProvider: initAuth - Auth Error", error);
-          setDebugMsg("Auth Error: " + error.message);
+          console.error("[Auth] getSession error:", error);
         } else {
-          console.log("AuthProvider: initAuth - Session result:", data.session ? "Found" : "None");
           if (isMounted) {
+            const hasSession = !!data.session;
+            console.log(
+              `[Auth] State transition: initializing -> ${hasSession ? "authenticated" : "unauthenticated"} (Initial)`,
+            );
             setSession(data.session);
             setUser(data.session?.user ?? null);
-            setDebugMsg(data.session ? "Session found" : "No session");
           }
         }
       } catch (err) {
-        console.error("AuthProvider: initAuth - Catch Error", err);
-        if (isMounted) setDebugMsg("Error: " + (err as Error).message);
+        console.error("[Auth] initialization catch error:", err);
       } finally {
         if (isMounted) {
           setLoading(false);
           // Subscribe only after initial check is done
-          const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+            console.log(`[Auth] onAuthStateChange event: ${event}`);
             if (isMounted) {
               setSession((prevSession) => {
-                if (prevSession?.access_token === session?.access_token) return prevSession;
-                return session;
+                // Prevent unneeded re-renders on same access token
+                if (prevSession?.access_token === newSession?.access_token) return prevSession;
+                return newSession;
               });
               setUser((prevUser) => {
-                if (prevUser?.id === session?.user?.id) return prevUser;
-                return session?.user ?? null;
+                // Prevent unneeded re-renders on same user ID
+                if (prevUser?.id === newSession?.user?.id) return prevUser;
+                const hasSession = !!newSession?.user;
+                console.log(
+                  `[Auth] State transition: -> ${hasSession ? "authenticated" : "unauthenticated"} (Event: ${event})`,
+                );
+                return newSession?.user ?? null;
               });
             }
           });
@@ -72,10 +78,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const value = useMemo(
-    () => ({ session, user, loading, debugMsg }),
-    [session, user, loading, debugMsg],
-  );
+  const value = useMemo(() => ({ session, user, loading }), [session, user, loading]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 };

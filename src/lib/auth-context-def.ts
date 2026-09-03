@@ -4,5 +4,4 @@ export type AuthCtx = {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  debugMsg?: string;
 };

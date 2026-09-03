@@ -3,6 +3,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, Radio, Users, MessageSquare, Settings, LogOut, Menu } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import { toast } from "sonner";
 
@@ -120,6 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {profile?.role === "admin" ? "Admin" : (profile?.category ?? "Member")}
             </div>
             <button
+              type="button"
               onClick={signOut}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-white/10 px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
             >
@@ -137,7 +139,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/5 glass px-4 py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+            <button
+              type="button"
+              className="md:hidden"
+              onClick={() => setOpen(true)}
+              aria-label="Open menu"
+            >
               <Menu className="size-5" />
             </button>
             <div className="min-w-0">
@@ -149,11 +156,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </div>
-          <div className="hidden items-center gap-2 sm:flex">
-            <CymaticWave className="h-4" bars={5} />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-accent">
-              live
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 mr-2">
+              <CymaticWave className="h-4" bars={5} />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-accent">
+                live
+              </span>
+            </div>
+            <ThemeToggle />
           </div>
         </header>
 

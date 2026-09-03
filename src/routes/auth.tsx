@@ -143,7 +143,7 @@ function AuthPage() {
       }
       console.log("[auth.tsx] handleSignIn success");
       toast.success("Resonance established");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("[auth.tsx] handleSignIn error", error);
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -166,7 +166,7 @@ function AuthPage() {
         throw error;
       }
       console.log("[auth.tsx] handleGoogle success (redirecting)");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("[auth.tsx] handleGoogle catch", error);
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -316,6 +316,7 @@ function AuthPage() {
           <CymaticLogo />
         </Link>
         <button
+          type="button"
           onClick={toggleTheme}
           className="absolute right-6 top-6 rounded-lg p-2 hover:bg-white/5"
         >

@@ -57,7 +57,57 @@
   --animate-pulse-glow: pulseGlow 2s infinite alternate;
 }
 
-:root,
+:root {
+  --radius: 0.875rem;
+  /* Light theme */
+  --background: oklch(0.98 0.01 265);
+  --foreground: oklch(0.13 0.02 265);
+  --card: oklch(1 0 0 / 0.8);
+  --card-foreground: oklch(0.13 0.02 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.02 265);
+  --primary: oklch(0.62 0.22 275);
+  --primary-foreground: oklch(0.98 0.01 250);
+  --secondary: oklch(0.95 0.02 265);
+  --secondary-foreground: oklch(0.22 0.03 265);
+  --muted: oklch(0.95 0.02 265);
+  --muted-foreground: oklch(0.4 0.03 255);
+  --accent: oklch(0.65 0.16 200);
+  --accent-foreground: oklch(0.98 0.01 265);
+  --destructive: oklch(0.65 0.24 25);
+  --destructive-foreground: oklch(0.98 0.01 250);
+  --border: oklch(0 0 0 / 0.08);
+  --input: oklch(0 0 0 / 0.06);
+  --ring: oklch(0.62 0.22 275);
+
+  --indigo: oklch(0.62 0.22 275);
+  --teal: oklch(0.65 0.16 200);
+
+  --chart-1: oklch(0.62 0.22 275);
+  --chart-2: oklch(0.78 0.16 200);
+  --chart-3: oklch(0.75 0.18 150);
+  --chart-4: oklch(0.7 0.2 320);
+  --chart-5: oklch(0.8 0.18 90);
+
+  --sidebar: oklch(0.97 0.01 265 / 0.8);
+  --sidebar-foreground: oklch(0.22 0.03 265);
+  --sidebar-primary: oklch(0.62 0.22 275);
+  --sidebar-primary-foreground: oklch(0.98 0.01 250);
+  --sidebar-accent: oklch(0.92 0.02 265);
+  --sidebar-accent-foreground: oklch(0.13 0.02 265);
+  --sidebar-border: oklch(0 0 0 / 0.08);
+  --sidebar-ring: oklch(0.62 0.22 275);
+
+  --gradient-frequency: linear-gradient(135deg, oklch(0.62 0.22 275), oklch(0.65 0.16 200));
+  --gradient-bg:
+    radial-gradient(ellipse 80% 60% at 20% 0%, oklch(0.62 0.22 275 / 0.08), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, oklch(0.65 0.16 200 / 0.05), transparent 60%),
+    oklch(0.98 0.01 265);
+  --shadow-resonance: 0 0 0 1px oklch(0 0 0 / 0.06), 0 20px 60px -20px oklch(0.62 0.22 275 / 0.15);
+  --glow-resonance:
+    0 0 24px -4px oklch(0.62 0.22 275 / 0.3), 0 0 48px -12px oklch(0.65 0.16 200 / 0.2);
+}
+
 .dark {
   --radius: 0.875rem;
   /* Deep space */

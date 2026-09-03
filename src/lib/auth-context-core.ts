@@ -5,5 +5,4 @@ export const Ctx = createContext<AuthCtx>({
   session: null,
   user: null,
   loading: true,
-  debugMsg: "Initializing...",
 });

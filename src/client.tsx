@@ -3,9 +3,6 @@ import { StartClient } from "@tanstack/react-start/client";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/error-boundary";
 import { pingSupabase } from "./lib/supabase-check";
-import { initDebugOverlay } from "./lib/debug-init";
-
-initDebugOverlay();
 
 // Pre-warm Supabase connection during idle periods to speed up initial auth check
 interface WindowWithIdle {
