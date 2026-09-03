@@ -37,6 +37,7 @@ import { MessageItem } from "@/components/message-item";
 import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
 import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
+import { ClientOnly } from "@/components/client-only";
 
 import { useMessages, useDeleteMessage, useSoftDeleteMessage } from "@/lib/use-messages";
 
