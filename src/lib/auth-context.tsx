@@ -25,7 +25,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setTimeout(() => reject(new Error("Auth initialization timed out")), 5000),
         );
 
-        const { data, error } = (await Promise.race([sessionPromise, timeoutPromise])) as any;
+        const { data, error } = (await Promise.race([sessionPromise, timeoutPromise])) as Awaited<
+          ReturnType<typeof supabase.auth.getSession>
+        >;
 
         if (error) {
           console.error("AuthProvider: initAuth - Auth Error", error);

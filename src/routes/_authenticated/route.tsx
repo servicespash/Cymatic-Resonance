@@ -1,21 +1,22 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { CallProvider } from "@/components/call-provider";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async (): Promise<{ user: User | null }> => {
     // Skip auth check on the server since we are using localStorage which the server can't access.
     if (typeof window === "undefined") {
-      return { user: null as any };
+      return { user: null };
     }
 
     if (window.location.hash.includes("access_token=")) {
       console.log(
         "[_authenticated/route] OAuth callback detected in URL hash. Bypassing route guard.",
       );
-      return { user: null as any };
+      return { user: null };
     }
 
     // Use getSession for client-side routing checks to prevent network failures
