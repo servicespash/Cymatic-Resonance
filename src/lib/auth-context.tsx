@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Add a timeout to prevent hanging initialization
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Auth initialization timed out")), 5000),
+          setTimeout(() => reject(new Error("Auth initialization timed out")), 10000),
         );
 
         const { data, error } = (await Promise.race([sessionPromise, timeoutPromise])) as Awaited<
@@ -49,8 +49,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Subscribe only after initial check is done
           const { data } = supabase.auth.onAuthStateChange((_event, session) => {
             if (isMounted) {
-              setSession(session);
-              setUser(session?.user ?? null);
+              setSession((prevSession) => {
+                if (prevSession?.access_token === session?.access_token) return prevSession;
+                return session;
+              });
+              setUser((prevUser) => {
+                if (prevUser?.id === session?.user?.id) return prevUser;
+                return session?.user ?? null;
+              });
             }
           });
           subscription = data.subscription;

@@ -254,6 +254,8 @@ function CommsPage() {
     setReadsStable,
     setLastMessageByChannelStable,
     setActiveChannelStable,
+    setIsAdminStable,
+    setOrgIdStable,
   ]);
 
   const loadWorkspaceRef = useRef(loadWorkspace);
@@ -337,7 +339,14 @@ function CommsPage() {
     return () => {
       ch.unsubscribe();
     };
-  }, [orgId, user, markChannelAsRead]);
+  }, [
+    orgId,
+    user,
+    markChannelAsRead,
+    setLastMessageByChannelStable,
+    setReactionsStable,
+    setUnreadCountsStable,
+  ]);
 
   const fetchActiveAttachmentsAndReactions = useCallback(() => {
     if (!active || activeMessages.length === 0) {

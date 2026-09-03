@@ -1,5 +1,5 @@
-const fs = require('fs');
-let content = fs.readFileSync('src/types/schema.types.ts', 'utf8');
+const fs = require("fs");
+let content = fs.readFileSync("src/types/schema.types.ts", "utf8");
 
 const functionsCode = `
     Views: {
@@ -59,4 +59,4 @@ const lastTablesClose = content.lastIndexOf("};", content.lastIndexOf("};") - 10
 // Let's just do a regex replace to insert after `Tables: { ... }` closing.
 // Actually, I can just replace the very last `  };\n}` with `  };\n` + functionsCode + `\n}\n`;
 content = content.replace(/  };\n}/g, "  };\n" + functionsCode + "}");
-fs.writeFileSync('src/types/schema.types.ts', content);
+fs.writeFileSync("src/types/schema.types.ts", content);

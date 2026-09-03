@@ -23,7 +23,10 @@ export const Route = createFileRoute("/_authenticated")({
     // from triggering infinite signout loops. The token is stored locally.
     // Real validation happens via RLS on subsequent data requests.
     const { data, error } = await supabase.auth.getSession();
-    console.log("[_authenticated/route] getSession result:", !!data.session);
+    console.log("[_authenticated/route] getSession result:", {
+      hasSession: !!data.session,
+      error: error?.message,
+    });
 
     if (error || !data.session) {
       console.warn("[_authenticated/route] Redirecting to /auth", error);

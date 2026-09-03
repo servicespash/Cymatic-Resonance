@@ -1,5 +1,5 @@
-const fs = require('fs');
-let content = fs.readFileSync('src/types/schema.types.ts', 'utf8');
+const fs = require("fs");
+let content = fs.readFileSync("src/types/schema.types.ts", "utf8");
 
 const functionsCode = `
     Functions: {

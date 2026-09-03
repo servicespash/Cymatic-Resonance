@@ -1,9 +1,9 @@
-import fs from 'fs';
+import fs from "fs";
 
-const openapi = fs.readFileSync('./src/integrations/supabase/openapi-types.ts', 'utf-8');
+const openapi = fs.readFileSync("./src/integrations/supabase/openapi-types.ts", "utf-8");
 
-const defsStart = openapi.indexOf('export interface definitions {');
-if (defsStart === -1) throw new Error('Definitions not found');
+const defsStart = openapi.indexOf("export interface definitions {");
+if (defsStart === -1) throw new Error("Definitions not found");
 
 const defsBlock = openapi.slice(defsStart);
 
@@ -15,14 +15,14 @@ let tablesMap = {};
 let currentTable = null;
 let currentBlock = [];
 
-const lines = defsBlock.split('\n');
+const lines = defsBlock.split("\n");
 for (const line of lines) {
   const match = line.match(/^  ([a-zA-Z_0-9]+): \{$/);
   if (match) {
     currentTable = match[1];
     currentBlock = [];
   } else if (currentTable && line.match(/^  \};$/)) {
-    tablesMap[currentTable] = currentBlock.join('\n');
+    tablesMap[currentTable] = currentBlock.join("\n");
     currentTable = null;
   } else if (currentTable) {
     currentBlock.push(line.substring(2)); // unindent 2 spaces
@@ -83,4 +83,4 @@ out += `    };
 }
 `;
 
-fs.writeFileSync('./src/integrations/supabase/types.ts', out);
+fs.writeFileSync("./src/integrations/supabase/types.ts", out);
