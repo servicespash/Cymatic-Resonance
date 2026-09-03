@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 interface RegistryExportProps {
   selectedCount?: number;
-  availableRows?: any[];
+  availableRows?: Record<string, unknown>[];
   rangeFrom?: Date;
   rangeTo?: Date;
   onExportLogged?: (

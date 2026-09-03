@@ -166,6 +166,7 @@ function DashboardContent() {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, from, to]);
 
   const lastDay = useMemo(() => (range?.to ? toISO(range.to) : toISO(new Date())), [range]);
