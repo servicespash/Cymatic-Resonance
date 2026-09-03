@@ -1,1084 +1,2180 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
+export interface Database {
   public: {
     Tables: {
-      attendance: {
+      self_rush_sessions: {
         Row: {
-          attendance_date: string;
-          break_started_at: string | null;
-          checked_in_at: string;
-          checked_out_at: string | null;
-          created_at: string;
           id: string;
-          is_late: boolean;
-          note: string | null;
+          profile_id: string;
           org_id: string;
-          status: string;
-          total_break_minutes: number;
-          user_id: string;
+          session_nonce: string;
+          expires_at: string;
+          is_used: boolean;
+          created_at: string;
         };
         Insert: {
-          attendance_date?: string;
-          break_started_at?: string | null;
-          checked_in_at?: string;
-          checked_out_at?: string | null;
-          created_at?: string;
           id?: string;
-          is_late?: boolean;
-          note?: string | null;
+          profile_id: string;
           org_id: string;
-          status?: string;
-          total_break_minutes?: number;
-          user_id: string;
+          session_nonce: string;
+          expires_at: string;
+          is_used?: boolean;
+          created_at?: string;
         };
         Update: {
-          attendance_date?: string;
-          break_started_at?: string | null;
-          checked_in_at?: string;
-          checked_out_at?: string | null;
-          created_at?: string;
           id?: string;
-          is_late?: boolean;
-          note?: string | null;
+          profile_id?: string;
           org_id?: string;
-          status?: string;
-          total_break_minutes?: number;
-          user_id?: string;
+          session_nonce?: string;
+          expires_at?: string;
+          is_used?: boolean;
+          created_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "attendance_org_id_fkey";
+            foreignKeyName: "self_rush_sessions_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
-        ];
-      };
-      call_participants: {
-        Row: {
-          call_id: string;
-          created_at: string;
-          id: string;
-          joined_at: string | null;
-          left_at: string | null;
-          state: Database["public"]["Enums"]["participant_state"];
-          user_id: string;
-        };
-        Insert: {
-          call_id: string;
-          created_at?: string;
-          id?: string;
-          joined_at?: string | null;
-          left_at?: string | null;
-          state?: Database["public"]["Enums"]["participant_state"];
-          user_id: string;
-        };
-        Update: {
-          call_id?: string;
-          created_at?: string;
-          id?: string;
-          joined_at?: string | null;
-          left_at?: string | null;
-          state?: Database["public"]["Enums"]["participant_state"];
-          user_id?: string;
-        };
-        Relationships: [
           {
-            foreignKeyName: "call_participants_call_id_fkey";
-            columns: ["call_id"];
+            foreignKeyName: "self_rush_sessions_profile_id_fkey";
+            columns: ["profile_id"];
             isOneToOne: false;
-            referencedRelation: "calls";
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
       };
-      calls: {
+      groups: {
         Row: {
-          channel_id: string;
-          created_at: string;
-          ended_at: string | null;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
           id: string;
-          initiator_id: string;
-          kind: Database["public"]["Enums"]["call_kind"];
-          org_id: string;
-          started_at: string;
-          status: Database["public"]["Enums"]["call_status"];
-        };
-        Insert: {
-          channel_id: string;
-          created_at?: string;
-          ended_at?: string | null;
-          id?: string;
-          initiator_id: string;
-          kind?: Database["public"]["Enums"]["call_kind"];
-          org_id: string;
-          started_at?: string;
-          status?: Database["public"]["Enums"]["call_status"];
-        };
-        Update: {
-          channel_id?: string;
-          created_at?: string;
-          ended_at?: string | null;
-          id?: string;
-          initiator_id?: string;
-          kind?: Database["public"]["Enums"]["call_kind"];
-          org_id?: string;
-          started_at?: string;
-          status?: Database["public"]["Enums"]["call_status"];
-        };
-        Relationships: [
-          {
-            foreignKeyName: "calls_channel_id_fkey";
-            columns: ["channel_id"];
-            isOneToOne: false;
-            referencedRelation: "channels";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "calls_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      channels: {
-        Row: {
-          created_at: string;
-          created_by: string;
-          id: string;
-          kind: Database["public"]["Enums"]["channel_kind"];
+          /** Format: text */
           name: string;
-          org_id: string;
-        };
-        Insert: {
-          created_at?: string;
+          /** Format: text */
+          code: string;
+          /** Format: uuid */
           created_by: string;
-          id?: string;
-          kind?: Database["public"]["Enums"]["channel_kind"];
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: text */
           name: string;
-          org_id: string;
-        };
-        Update: {
-          created_at?: string;
-          created_by?: string;
-          id?: string;
-          kind?: Database["public"]["Enums"]["channel_kind"];
-          name?: string;
-          org_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "channels_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
+          /** Format: text */
+          code: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: text */
+          name: string;
+          /** Format: text */
+          code: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Relationships: [];
       };
       direct_threads: {
         Row: {
-          channel_id: string;
-          created_at: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
           id: string;
-          last_message_at: string;
+          /** Format: uuid */
           org_id: string;
-          user_a: string;
-          user_b: string;
-        };
-        Insert: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
           channel_id: string;
-          created_at?: string;
-          id?: string;
-          last_message_at?: string;
-          org_id: string;
+          /** Format: uuid */
           user_a: string;
+          /** Format: uuid */
           user_b: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          last_message_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          archived_at?: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
         };
-        Update: {
-          channel_id?: string;
-          created_at?: string;
-          id?: string;
-          last_message_at?: string;
-          org_id?: string;
-          user_a?: string;
-          user_b?: string;
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: uuid */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          user_a: string;
+          /** Format: uuid */
+          user_b: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          last_message_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          archived_at?: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: uuid */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          user_a: string;
+          /** Format: uuid */
+          user_b: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          last_message_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          archived_at?: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+        }>;
+        Relationships: [];
+      };
+      call_participants: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `calls.id`.<fk table='calls' column='id'/>
+           */
+          call_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: public.participant_state
+           * @default invited
+           * @enum {string}
+           */
+          state: "invited" | "joined" | "declined" | "left";
+          /** Format: timestamp with time zone */
+          joined_at?: string;
+          /** Format: timestamp with time zone */
+          left_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "direct_threads_channel_id_fkey";
-            columns: ["channel_id"];
-            isOneToOne: false;
-            referencedRelation: "channels";
-            referencedColumns: ["id"];
-          },
-        ];
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `calls.id`.<fk table='calls' column='id'/>
+           */
+          call_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: public.participant_state
+           * @default invited
+           * @enum {string}
+           */
+          state: "invited" | "joined" | "declined" | "left";
+          /** Format: timestamp with time zone */
+          joined_at?: string;
+          /** Format: timestamp with time zone */
+          left_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `calls.id`.<fk table='calls' column='id'/>
+           */
+          call_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: public.participant_state
+           * @default invited
+           * @enum {string}
+           */
+          state: "invited" | "joined" | "declined" | "left";
+          /** Format: timestamp with time zone */
+          joined_at?: string;
+          /** Format: timestamp with time zone */
+          left_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
+      calls: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          initiator_id: string;
+          /**
+           * Format: public.call_kind
+           * @default audio
+           * @enum {string}
+           */
+          kind: "audio" | "video";
+          /**
+           * Format: public.call_status
+           * @default ringing
+           * @enum {string}
+           */
+          status: "ringing" | "active" | "ended" | "missed" | "declined";
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          started_at: string;
+          /** Format: timestamp with time zone */
+          ended_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: jsonb */
+          metadata?: unknown;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          initiator_id: string;
+          /**
+           * Format: public.call_kind
+           * @default audio
+           * @enum {string}
+           */
+          kind: "audio" | "video";
+          /**
+           * Format: public.call_status
+           * @default ringing
+           * @enum {string}
+           */
+          status: "ringing" | "active" | "ended" | "missed" | "declined";
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          started_at: string;
+          /** Format: timestamp with time zone */
+          ended_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: jsonb */
+          metadata?: unknown;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          initiator_id: string;
+          /**
+           * Format: public.call_kind
+           * @default audio
+           * @enum {string}
+           */
+          kind: "audio" | "video";
+          /**
+           * Format: public.call_status
+           * @default ringing
+           * @enum {string}
+           */
+          status: "ringing" | "active" | "ended" | "missed" | "declined";
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          started_at: string;
+          /** Format: timestamp with time zone */
+          ended_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: jsonb */
+          metadata?: unknown;
+        }>;
+        Relationships: [];
       };
       download_history: {
         Row: {
-          created_at: string;
-          data_range_end: string | null;
-          data_range_start: string | null;
-          format: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
           id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
           org_id: string;
-          row_count: number;
-          scope: string | null;
+          /** Format: uuid */
           user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          data_range_end?: string | null;
-          data_range_start?: string | null;
+          /** Format: text */
           format: string;
-          id?: string;
+          /** Format: date */
+          data_range_start?: string;
+          /** Format: date */
+          data_range_end?: string;
+          /** Format: integer */
+          row_count?: number;
+          /** Format: text */
+          scope?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
           org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /** Format: text */
+          format: string;
+          /** Format: date */
+          data_range_start?: string;
+          /** Format: date */
+          data_range_end?: string;
+          /** Format: integer */
           row_count?: number;
-          scope?: string | null;
-          user_id?: string;
-        };
-        Update: {
-          created_at?: string;
-          data_range_end?: string | null;
-          data_range_start?: string | null;
-          format?: string;
-          id?: string;
-          org_id?: string;
+          /** Format: text */
+          scope?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /** Format: text */
+          format: string;
+          /** Format: date */
+          data_range_start?: string;
+          /** Format: date */
+          data_range_end?: string;
+          /** Format: integer */
           row_count?: number;
-          scope?: string | null;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "download_history_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
+          /** Format: text */
+          scope?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Relationships: [];
       };
-      leave_requests: {
+      tasks: {
         Row: {
-          created_at: string;
-          decided_at: string | null;
-          decided_by: string | null;
-          end_date: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
           id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
           org_id: string;
-          reason: string | null;
-          start_date: string;
-          status: Database["public"]["Enums"]["leave_status"];
-          type: Database["public"]["Enums"]["leave_type"];
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          decided_at?: string | null;
-          decided_by?: string | null;
-          end_date: string;
-          id?: string;
-          org_id: string;
-          reason?: string | null;
-          start_date: string;
-          status?: Database["public"]["Enums"]["leave_status"];
-          type?: Database["public"]["Enums"]["leave_type"];
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          decided_at?: string | null;
-          decided_by?: string | null;
-          end_date?: string;
-          id?: string;
-          org_id?: string;
-          reason?: string | null;
+          /** Format: text */
+          title: string;
+          /** Format: text */
+          details?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `profiles.id`.<fk table='profiles' column='id'/>
+           */
+          assignee_id?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `profiles.id`.<fk table='profiles' column='id'/>
+           */
+          assigned_by: string;
+          /**
+           * Format: text
+           * @default open
+           */
+          status: string;
+          /**
+           * Format: text
+           * @default normal
+           */
+          priority: string;
+          /** Format: timestamp with time zone */
+          due_date?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: uuid */
+          assigned_to?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
           start_date?: string;
-          status?: Database["public"]["Enums"]["leave_status"];
-          type?: Database["public"]["Enums"]["leave_type"];
-          updated_at?: string;
-          user_id?: string;
+          /**
+           * Format: text
+           * @default General
+           */
+          category?: string;
+          /** Format: text */
+          description?: string;
+          /**
+           * Format: text
+           * @default general
+           */
+          task_kind?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "leave_requests_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      message_attachments: {
-        Row: {
-          created_at: string;
-          duration_ms: number | null;
-          filename: string;
-          height: number | null;
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
           id: string;
-          kind: string;
-          message_id: string;
-          mime_type: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
           org_id: string;
-          size_bytes: number;
-          storage_path: string;
-          uploader_id: string;
-          width: number | null;
-        };
-        Insert: {
-          created_at?: string;
-          duration_ms?: number | null;
-          filename: string;
-          height?: number | null;
-          id?: string;
-          kind: string;
-          message_id: string;
-          mime_type: string;
-          org_id: string;
-          size_bytes: number;
-          storage_path: string;
-          uploader_id: string;
-          width?: number | null;
-        };
-        Update: {
-          created_at?: string;
-          duration_ms?: number | null;
-          filename?: string;
-          height?: number | null;
-          id?: string;
-          kind?: string;
-          message_id?: string;
-          mime_type?: string;
-          org_id?: string;
-          size_bytes?: number;
-          storage_path?: string;
-          uploader_id?: string;
-          width?: number | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "message_attachments_message_id_fkey";
-            columns: ["message_id"];
-            isOneToOne: false;
-            referencedRelation: "messages";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "message_attachments_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      message_reactions: {
-        Row: {
+          /** Format: text */
+          title: string;
+          /** Format: text */
+          details?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `profiles.id`.<fk table='profiles' column='id'/>
+           */
+          assignee_id?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `profiles.id`.<fk table='profiles' column='id'/>
+           */
+          assigned_by: string;
+          /**
+           * Format: text
+           * @default open
+           */
+          status: string;
+          /**
+           * Format: text
+           * @default normal
+           */
+          priority: string;
+          /** Format: timestamp with time zone */
+          due_date?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
           created_at: string;
-          emoji: string;
+          /** Format: uuid */
+          assigned_to?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          start_date?: string;
+          /**
+           * Format: text
+           * @default General
+           */
+          category?: string;
+          /** Format: text */
+          description?: string;
+          /**
+           * Format: text
+           * @default general
+           */
+          task_kind?: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
           id: string;
-          message_id: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          emoji: string;
-          id?: string;
-          message_id: string;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          emoji?: string;
-          id?: string;
-          message_id?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "message_reactions_message_id_fkey";
-            columns: ["message_id"];
-            isOneToOne: false;
-            referencedRelation: "messages";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      message_reads: {
-        Row: {
-          channel_id: string;
-          last_read_at: string;
-          user_id: string;
-        };
-        Insert: {
-          channel_id: string;
-          last_read_at?: string;
-          user_id: string;
-        };
-        Update: {
-          channel_id?: string;
-          last_read_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "message_reads_channel_id_fkey";
-            columns: ["channel_id"];
-            isOneToOne: false;
-            referencedRelation: "channels";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      messages: {
-        Row: {
-          body: string;
-          channel_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          title: string;
+          /** Format: text */
+          details?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `profiles.id`.<fk table='profiles' column='id'/>
+           */
+          assignee_id?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `profiles.id`.<fk table='profiles' column='id'/>
+           */
+          assigned_by: string;
+          /**
+           * Format: text
+           * @default open
+           */
+          status: string;
+          /**
+           * Format: text
+           * @default normal
+           */
+          priority: string;
+          /** Format: timestamp with time zone */
+          due_date?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
           created_at: string;
-          id: string;
-          org_id: string;
-          sender_id: string;
-        };
-        Insert: {
-          body: string;
-          channel_id: string;
-          created_at?: string;
-          id?: string;
-          org_id: string;
-          sender_id: string;
-        };
-        Update: {
-          body?: string;
-          channel_id?: string;
-          created_at?: string;
-          id?: string;
-          org_id?: string;
-          sender_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "messages_channel_id_fkey";
-            columns: ["channel_id"];
-            isOneToOne: false;
-            referencedRelation: "channels";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "messages_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      org_invites: {
-        Row: {
-          accepted_at: string | null;
-          accepted_by: string | null;
-          category: string | null;
-          created_at: string;
-          created_by: string;
-          email: string;
-          expires_at: string;
-          id: string;
-          org_id: string;
-          role: Database["public"]["Enums"]["app_role"];
-          token: string;
-        };
-        Insert: {
-          accepted_at?: string | null;
-          accepted_by?: string | null;
-          category?: string | null;
-          created_at?: string;
-          created_by: string;
-          email: string;
-          expires_at?: string;
-          id?: string;
-          org_id: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          token?: string;
-        };
-        Update: {
-          accepted_at?: string | null;
-          accepted_by?: string | null;
-          category?: string | null;
-          created_at?: string;
-          created_by?: string;
-          email?: string;
-          expires_at?: string;
-          id?: string;
-          org_id?: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          token?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "org_invites_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      organizations: {
-        Row: {
-          accent_color: string | null;
-          access_code: string;
-          created_at: string;
-          created_by: string;
-          day_start_cutoff: string;
-          id: string;
-          logo_url: string | null;
-          name: string;
-          org_type: string;
-          timezone: string;
-          updated_at: string;
-        };
-        Insert: {
-          accent_color?: string | null;
-          access_code: string;
-          created_at?: string;
-          created_by: string;
-          day_start_cutoff?: string;
-          id?: string;
-          logo_url?: string | null;
-          name: string;
-          org_type?: string;
-          timezone?: string;
-          updated_at?: string;
-        };
-        Update: {
-          accent_color?: string | null;
-          access_code?: string;
-          created_at?: string;
-          created_by?: string;
-          day_start_cutoff?: string;
-          id?: string;
-          logo_url?: string | null;
-          name?: string;
-          org_type?: string;
-          timezone?: string;
-          updated_at?: string;
-        };
+          /** Format: uuid */
+          assigned_to?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          start_date?: string;
+          /**
+           * Format: text
+           * @default General
+           */
+          category?: string;
+          /** Format: text */
+          description?: string;
+          /**
+           * Format: text
+           * @default general
+           */
+          task_kind?: string;
+        }>;
         Relationships: [];
       };
       profiles: {
         Row: {
-          category: string | null;
-          created_at: string;
-          full_name: string | null;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default auth.uid()
+           */
           id: string;
-          org_id: string | null;
-          phone: string | null;
-          position: string | null;
-          role: Database["public"]["Enums"]["app_role"];
-          updated_at: string;
-        };
-        Insert: {
-          category?: string | null;
-          created_at?: string;
-          full_name?: string | null;
-          id: string;
-          org_id?: string | null;
-          phone?: string | null;
-          position?: string | null;
-          role?: Database["public"]["Enums"]["app_role"];
-          updated_at?: string;
-        };
-        Update: {
-          category?: string | null;
-          created_at?: string;
-          full_name?: string | null;
-          id?: string;
-          org_id?: string | null;
-          phone?: string | null;
-          position?: string | null;
-          role?: Database["public"]["Enums"]["app_role"];
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "profiles_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      tasks: {
-        Row: {
-          assigned_by: string | null;
-          assigned_to: string | null;
-          created_at: string;
-          description: string | null;
-          due_date: string | null;
-          id: string;
-          org_id: string;
-          start_date: string | null;
-          status: string;
-          title: string;
-          updated_at: string;
-        };
-        Insert: {
-          assigned_by?: string | null;
-          assigned_to?: string | null;
-          created_at?: string;
-          description?: string | null;
-          due_date?: string | null;
-          id?: string;
-          org_id: string;
-          start_date?: string | null;
-          status?: string;
-          title: string;
-          updated_at?: string;
-        };
-        Update: {
-          assigned_by?: string | null;
-          assigned_to?: string | null;
-          created_at?: string;
-          description?: string | null;
-          due_date?: string | null;
-          id?: string;
+          /** Format: text */
+          full_name?: string;
+          /** Format: text */
+          phone?: string;
+          /** Format: text */
+          position?: string;
+          /** Format: text */
+          category?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
           org_id?: string;
-          start_date?: string | null;
-          status?: string;
-          title?: string;
-          updated_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+          /**
+           * Format: text
+           * @default member
+           */
+          role?: string;
+          /** Format: text */
+          avatar_url?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "tasks_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default auth.uid()
+           */
+          id: string;
+          /** Format: text */
+          full_name?: string;
+          /** Format: text */
+          phone?: string;
+          /** Format: text */
+          position?: string;
+          /** Format: text */
+          category?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+          /**
+           * Format: text
+           * @default member
+           */
+          role?: string;
+          /** Format: text */
+          avatar_url?: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default auth.uid()
+           */
+          id: string;
+          /** Format: text */
+          full_name?: string;
+          /** Format: text */
+          phone?: string;
+          /** Format: text */
+          position?: string;
+          /** Format: text */
+          category?: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+          /**
+           * Format: text
+           * @default member
+           */
+          role?: string;
+          /** Format: text */
+          avatar_url?: string;
+        }>;
+        Relationships: [];
+      };
+      org_invites: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          email: string;
+          /**
+           * Format: text
+           * @default encode(extensions.gen_random_bytes(18), 'hex'::text)
+           */
+          token: string;
+          /** Format: text */
+          category?: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default (now() + '14 days'::interval)
+           */
+          expires_at: string;
+          /** Format: timestamp with time zone */
+          accepted_at?: string;
+          /** Format: uuid */
+          accepted_by?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          email: string;
+          /**
+           * Format: text
+           * @default encode(extensions.gen_random_bytes(18), 'hex'::text)
+           */
+          token: string;
+          /** Format: text */
+          category?: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default (now() + '14 days'::interval)
+           */
+          expires_at: string;
+          /** Format: timestamp with time zone */
+          accepted_at?: string;
+          /** Format: uuid */
+          accepted_by?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          email: string;
+          /**
+           * Format: text
+           * @default encode(extensions.gen_random_bytes(18), 'hex'::text)
+           */
+          token: string;
+          /** Format: text */
+          category?: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default (now() + '14 days'::interval)
+           */
+          expires_at: string;
+          /** Format: timestamp with time zone */
+          accepted_at?: string;
+          /** Format: uuid */
+          accepted_by?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
+      leave_requests: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: public.leave_type
+           * @default vacation
+           * @enum {string}
+           */
+          type: "sick" | "vacation" | "personal" | "other";
+          /** Format: date */
+          start_date: string;
+          /** Format: date */
+          end_date: string;
+          /** Format: text */
+          reason?: string;
+          /**
+           * Format: public.leave_status
+           * @default pending
+           * @enum {string}
+           */
+          status: "pending" | "approved" | "denied";
+          /** Format: uuid */
+          decided_by?: string;
+          /** Format: timestamp with time zone */
+          decided_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: public.leave_type
+           * @default vacation
+           * @enum {string}
+           */
+          type: "sick" | "vacation" | "personal" | "other";
+          /** Format: date */
+          start_date: string;
+          /** Format: date */
+          end_date: string;
+          /** Format: text */
+          reason?: string;
+          /**
+           * Format: public.leave_status
+           * @default pending
+           * @enum {string}
+           */
+          status: "pending" | "approved" | "denied";
+          /** Format: uuid */
+          decided_by?: string;
+          /** Format: timestamp with time zone */
+          decided_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: public.leave_type
+           * @default vacation
+           * @enum {string}
+           */
+          type: "sick" | "vacation" | "personal" | "other";
+          /** Format: date */
+          start_date: string;
+          /** Format: date */
+          end_date: string;
+          /** Format: text */
+          reason?: string;
+          /**
+           * Format: public.leave_status
+           * @default pending
+           * @enum {string}
+           */
+          status: "pending" | "approved" | "denied";
+          /** Format: uuid */
+          decided_by?: string;
+          /** Format: timestamp with time zone */
+          decided_at?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
+      message_reads: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           */
+          user_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          last_read_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           */
+          user_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          last_read_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           */
+          user_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          last_read_at: string;
+        }>;
+        Relationships: [];
+      };
+      call_signals: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `calls.id`.<fk table='calls' column='id'/>
+           */
+          call_id: string;
+          /** Format: uuid */
+          from_uid: string;
+          /** Format: uuid */
+          to_uid?: string;
+          /** Format: text */
+          type: string;
+          /** Format: jsonb */
+          payload: unknown;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: text
+           * @default unknown
+           */
+          signal_type: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `calls.id`.<fk table='calls' column='id'/>
+           */
+          call_id: string;
+          /** Format: uuid */
+          from_uid: string;
+          /** Format: uuid */
+          to_uid?: string;
+          /** Format: text */
+          type: string;
+          /** Format: jsonb */
+          payload: unknown;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: text
+           * @default unknown
+           */
+          signal_type: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `calls.id`.<fk table='calls' column='id'/>
+           */
+          call_id: string;
+          /** Format: uuid */
+          from_uid: string;
+          /** Format: uuid */
+          to_uid?: string;
+          /** Format: text */
+          type: string;
+          /** Format: jsonb */
+          payload: unknown;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: text
+           * @default unknown
+           */
+          signal_type: string;
+        }>;
+        Relationships: [];
+      };
+      organizations: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: text */
+          name: string;
+          /**
+           * Format: text
+           * @default generic
+           */
+          org_type: string;
+          /** Format: text */
+          access_code: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+          /**
+           * Format: time without time zone
+           * @default 09:00:00
+           */
+          day_start_cutoff: string;
+          /**
+           * Format: text
+           * @default UTC
+           */
+          timezone: string;
+          /** Format: text */
+          logo_url?: string;
+          /** Format: text */
+          accent_color?: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: text */
+          name: string;
+          /**
+           * Format: text
+           * @default generic
+           */
+          org_type: string;
+          /** Format: text */
+          access_code: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+          /**
+           * Format: time without time zone
+           * @default 09:00:00
+           */
+          day_start_cutoff: string;
+          /**
+           * Format: text
+           * @default UTC
+           */
+          timezone: string;
+          /** Format: text */
+          logo_url?: string;
+          /** Format: text */
+          accent_color?: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /** Format: text */
+          name: string;
+          /**
+           * Format: text
+           * @default generic
+           */
+          org_type: string;
+          /** Format: text */
+          access_code: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          updated_at: string;
+          /**
+           * Format: time without time zone
+           * @default 09:00:00
+           */
+          day_start_cutoff: string;
+          /**
+           * Format: text
+           * @default UTC
+           */
+          timezone: string;
+          /** Format: text */
+          logo_url?: string;
+          /** Format: text */
+          accent_color?: string;
+        }>;
+        Relationships: [];
+      };
+      messages: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          sender_id: string;
+          /** Format: text */
+          body: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+          /**
+           * Format: boolean
+           * @default false
+           */
+          is_archived?: boolean;
+          /**
+           * Format: text
+           * @default sent
+           */
+          status?: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          sender_id: string;
+          /** Format: text */
+          body: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+          /**
+           * Format: boolean
+           * @default false
+           */
+          is_archived?: boolean;
+          /**
+           * Format: text
+           * @default sent
+           */
+          status?: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `channels.id`.<fk table='channels' column='id'/>
+           */
+          channel_id: string;
+          /** Format: uuid */
+          sender_id: string;
+          /** Format: text */
+          body: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+          /**
+           * Format: boolean
+           * @default false
+           */
+          is_archived?: boolean;
+          /**
+           * Format: text
+           * @default sent
+           */
+          status?: string;
+        }>;
+        Relationships: [];
+      };
+      message_reactions: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `messages.id`.<fk table='messages' column='id'/>
+           */
+          message_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /** Format: text */
+          emoji: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `messages.id`.<fk table='messages' column='id'/>
+           */
+          message_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /** Format: text */
+          emoji: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `messages.id`.<fk table='messages' column='id'/>
+           */
+          message_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /** Format: text */
+          emoji: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
+      attendance: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: date
+           * @default ((now() AT TIME ZONE 'utc'::text))
+           */
+          attendance_date: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          checked_in_at: string;
+          /**
+           * Format: text
+           * @default present
+           */
+          status: string;
+          /** Format: text */
+          note?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          checked_out_at?: string;
+          /** Format: timestamp with time zone */
+          break_started_at?: string;
+          /**
+           * Format: integer
+           * @default 0
+           */
+          total_break_minutes: number;
+          /**
+           * Format: boolean
+           * @default false
+           */
+          is_late: boolean;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: date
+           * @default ((now() AT TIME ZONE 'utc'::text))
+           */
+          attendance_date: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          checked_in_at: string;
+          /**
+           * Format: text
+           * @default present
+           */
+          status: string;
+          /** Format: text */
+          note?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          checked_out_at?: string;
+          /** Format: timestamp with time zone */
+          break_started_at?: string;
+          /**
+           * Format: integer
+           * @default 0
+           */
+          total_break_minutes: number;
+          /**
+           * Format: boolean
+           * @default false
+           */
+          is_late: boolean;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: date
+           * @default ((now() AT TIME ZONE 'utc'::text))
+           */
+          attendance_date: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          checked_in_at: string;
+          /**
+           * Format: text
+           * @default present
+           */
+          status: string;
+          /** Format: text */
+          note?: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /** Format: timestamp with time zone */
+          checked_out_at?: string;
+          /** Format: timestamp with time zone */
+          break_started_at?: string;
+          /**
+           * Format: integer
+           * @default 0
+           */
+          total_break_minutes: number;
+          /**
+           * Format: boolean
+           * @default false
+           */
+          is_late: boolean;
+        }>;
+        Relationships: [];
+      };
+      channels: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          name: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: text
+           * @default public
+           */
+          kind?: string;
+          /** Format: timestamp with time zone */
+          archived_at?: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          name: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: text
+           * @default public
+           */
+          kind?: string;
+          /** Format: timestamp with time zone */
+          archived_at?: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: text */
+          name: string;
+          /** Format: uuid */
+          created_by: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+          /**
+           * Format: text
+           * @default public
+           */
+          kind?: string;
+          /** Format: timestamp with time zone */
+          archived_at?: string;
+          /** Format: timestamp with time zone */
+          deleted_at?: string;
+        }>;
+        Relationships: [];
+      };
+      group_members: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `groups.id`.<fk table='groups' column='id'/>
+           */
+          group_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: text
+           * @default member
+           */
+          role: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          joined_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `groups.id`.<fk table='groups' column='id'/>
+           */
+          group_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: text
+           * @default member
+           */
+          role: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          joined_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `groups.id`.<fk table='groups' column='id'/>
+           */
+          group_id: string;
+          /** Format: uuid */
+          user_id: string;
+          /**
+           * Format: text
+           * @default member
+           */
+          role: string;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          joined_at: string;
+        }>;
+        Relationships: [];
+      };
+      message_attachments: {
+        Row: {
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `messages.id`.<fk table='messages' column='id'/>
+           */
+          message_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          uploader_id: string;
+          /** Format: text */
+          storage_path: string;
+          /** Format: text */
+          mime_type: string;
+          /** Format: bigint */
+          size_bytes: number;
+          /** Format: text */
+          kind: string;
+          /** Format: text */
+          filename: string;
+          /** Format: integer */
+          duration_ms?: number;
+          /** Format: integer */
+          width?: number;
+          /** Format: integer */
+          height?: number;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        };
+        Insert: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `messages.id`.<fk table='messages' column='id'/>
+           */
+          message_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          uploader_id: string;
+          /** Format: text */
+          storage_path: string;
+          /** Format: text */
+          mime_type: string;
+          /** Format: bigint */
+          size_bytes: number;
+          /** Format: text */
+          kind: string;
+          /** Format: text */
+          filename: string;
+          /** Format: integer */
+          duration_ms?: number;
+          /** Format: integer */
+          width?: number;
+          /** Format: integer */
+          height?: number;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Update: Partial<{
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Primary Key.<pk/>
+           * @default gen_random_uuid()
+           */
+          id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `messages.id`.<fk table='messages' column='id'/>
+           */
+          message_id: string;
+          /**
+           * Format: uuid
+           * @description Note:
+           * This is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>
+           */
+          org_id: string;
+          /** Format: uuid */
+          uploader_id: string;
+          /** Format: text */
+          storage_path: string;
+          /** Format: text */
+          mime_type: string;
+          /** Format: bigint */
+          size_bytes: number;
+          /** Format: text */
+          kind: string;
+          /** Format: text */
+          filename: string;
+          /** Format: integer */
+          duration_ms?: number;
+          /** Format: integer */
+          width?: number;
+          /** Format: integer */
+          height?: number;
+          /**
+           * Format: timestamp with time zone
+           * @default now()
+           */
+          created_at: string;
+        }>;
+        Relationships: [];
       };
     };
     Views: {
-      [_ in never]: never;
+      [key: string]: {
+        Row: Record<string, any>;
+        Insert: Record<string, any>;
+        Update: Record<string, any>;
+        Relationships: [];
+      };
     };
     Functions: {
-      accept_invite: {
-        Args: { _token: string };
-        Returns: {
-          org_id: string;
-          org_name: string;
-        }[];
-      };
-      create_invite: {
-        Args: {
-          _category: string;
-          _email: string;
-          _role: Database["public"]["Enums"]["app_role"];
-        };
-        Returns: {
-          accepted_at: string | null;
-          accepted_by: string | null;
-          category: string | null;
-          created_at: string;
-          created_by: string;
-          email: string;
-          expires_at: string;
-          id: string;
-          org_id: string;
-          role: Database["public"]["Enums"]["app_role"];
-          token: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "org_invites";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      create_org_as_admin: {
-        Args: { _name: string; _org_type: string };
-        Returns: {
-          access_code: string;
-          org_id: string;
-          org_name: string;
-          org_type: string;
-        }[];
-      };
-      current_org_id: { Args: never; Returns: string };
-      decide_leave: {
-        Args: { _approved: boolean; _id: string };
-        Returns: {
-          created_at: string;
-          decided_at: string | null;
-          decided_by: string | null;
-          end_date: string;
-          id: string;
-          org_id: string;
-          reason: string | null;
-          start_date: string;
-          status: Database["public"]["Enums"]["leave_status"];
-          type: Database["public"]["Enums"]["leave_type"];
-          updated_at: string;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "leave_requests";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      delete_org: { Args: never; Returns: undefined };
-      gen_cym_code: { Args: never; Returns: string };
-      invite_preview: {
-        Args: { _token: string };
-        Returns: {
-          accepted: boolean;
-          email: string;
-          expires_at: string;
-          org_name: string;
-        }[];
-      };
-      is_group_member: {
-        Args: { _group_id: string; _user_id: string };
-        Returns: boolean;
-      };
-      is_org_admin: { Args: never; Returns: boolean };
-      join_call: { Args: { _call_id: string }; Returns: undefined };
-      join_org_with_code: {
-        Args: { _category: string; _code: string };
-        Returns: {
-          org_id: string;
-          org_name: string;
-        }[];
-      };
-      lookup_org_by_code: {
-        Args: { _code: string };
-        Returns: {
-          id: string;
-          name: string;
-          org_type: string;
-        }[];
-      };
-      open_dm: {
-        Args: { _other: string };
-        Returns: {
-          channel_id: string;
-          created_at: string;
-          id: string;
-          last_message_at: string;
-          org_id: string;
-          user_a: string;
-          user_b: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "direct_threads";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      pulse_checkin: {
-        Args: { _note?: string };
-        Returns: {
-          attendance_date: string;
-          break_started_at: string | null;
-          checked_in_at: string;
-          checked_out_at: string | null;
-          created_at: string;
-          id: string;
-          is_late: boolean;
-          note: string | null;
-          org_id: string;
-          status: string;
-          total_break_minutes: number;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "attendance";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      pulse_checkout: {
-        Args: { _id: string };
-        Returns: {
-          attendance_date: string;
-          break_started_at: string | null;
-          checked_in_at: string;
-          checked_out_at: string | null;
-          created_at: string;
-          id: string;
-          is_late: boolean;
-          note: string | null;
-          org_id: string;
-          status: string;
-          total_break_minutes: number;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "attendance";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      pulse_toggle_break: {
-        Args: { _id: string };
-        Returns: {
-          attendance_date: string;
-          break_started_at: string | null;
-          checked_in_at: string;
-          checked_out_at: string | null;
-          created_at: string;
-          id: string;
-          is_late: boolean;
-          note: string | null;
-          org_id: string;
-          status: string;
-          total_break_minutes: number;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "attendance";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      remove_member: { Args: { _user: string }; Returns: undefined };
-      request_leave: {
-        Args: {
-          _end: string;
-          _reason: string;
-          _start: string;
-          _type: Database["public"]["Enums"]["leave_type"];
-        };
-        Returns: {
-          created_at: string;
-          decided_at: string | null;
-          decided_by: string | null;
-          end_date: string;
-          id: string;
-          org_id: string;
-          reason: string | null;
-          start_date: string;
-          status: Database["public"]["Enums"]["leave_status"];
-          type: Database["public"]["Enums"]["leave_type"];
-          updated_at: string;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "leave_requests";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      revoke_invite: { Args: { _id: string }; Returns: undefined };
-      rotate_access_code: { Args: never; Returns: string };
-      set_member_role: {
-        Args: { _role: Database["public"]["Enums"]["app_role"]; _user: string };
-        Returns: undefined;
-      };
-      toggle_reaction: {
-        Args: { _emoji: string; _message: string };
-        Returns: boolean;
-      };
-      update_org_brand: {
-        Args: { _accent_color: string; _logo_url: string };
-        Returns: {
-          accent_color: string | null;
-          access_code: string;
-          created_at: string;
-          created_by: string;
-          day_start_cutoff: string;
-          id: string;
-          logo_url: string | null;
-          name: string;
-          org_type: string;
-          timezone: string;
-          updated_at: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "organizations";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
-      update_org_settings: {
-        Args: { _cutoff: string; _name: string; _org_type: string; _tz: string };
-        Returns: {
-          accent_color: string | null;
-          access_code: string;
-          created_at: string;
-          created_by: string;
-          day_start_cutoff: string;
-          id: string;
-          logo_url: string | null;
-          name: string;
-          org_type: string;
-          timezone: string;
-          updated_at: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "organizations";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
+      [key: string]: any;
+      join_call: {
+        Args: { _call_id: string };
+        Returns: void;
       };
     };
     Enums: {
-      app_role: "admin" | "member";
-      call_kind: "audio" | "video";
-      call_status: "ringing" | "active" | "ended" | "missed" | "declined";
-      channel_kind: "broadcast" | "dm";
-      leave_status: "pending" | "approved" | "denied";
-      leave_type: "sick" | "vacation" | "personal" | "other";
-      participant_state: "invited" | "joined" | "declined" | "left";
+      [key: string]: any;
     };
     CompositeTypes: {
-      [_ in never]: never;
+      [key: string]: any;
     };
   };
-};
-
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R;
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
-      }
-      ? R
-      : never
-    : never;
-
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I;
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
-      }
-      ? I
-      : never
-    : never;
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U;
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
-      }
-      ? U
-      : never
-    : never;
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never;
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never;
-
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: ["admin", "member"],
-      call_kind: ["audio", "video"],
-      call_status: ["ringing", "active", "ended", "missed", "declined"],
-      channel_kind: ["broadcast", "dm"],
-      leave_status: ["pending", "approved", "denied"],
-      leave_type: ["sick", "vacation", "personal", "other"],
-      participant_state: ["invited", "joined", "declined", "left"],
-    },
-  },
-} as const;

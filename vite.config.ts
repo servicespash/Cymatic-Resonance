@@ -12,7 +12,7 @@ const plugins: PluginOption[] = [
   tailwindcss(),
   tsconfigPaths(),
   VitePWA({
-    registerType: "autoUpdate",
+    registerType: "prompt", // Changed from "autoUpdate" to avoid force-loading stale content
     manifest: {
       name: "Cymatic Resonance",
       short_name: "Cymatic",
@@ -21,8 +21,13 @@ const plugins: PluginOption[] = [
     },
     workbox: {
       globPatterns: ["**/*.{js,css,html,png,svg}"],
+      // Skip waiting so new service workers activate immediately
+      skipWaiting: true,
+      clientsClaim: true,
       navigateFallback: null,
       navigateFallbackDenylist: [/^\/auth/],
+      // Ensure the sw itself is not cached aggressively
+      cleanupOutdatedCaches: true,
     },
   }),
 ];
@@ -42,6 +47,12 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       external: ["node:async_hooks"],
+      output: {
+        // Force content hashing for all output files
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]",
+      },
     },
   },
 });
