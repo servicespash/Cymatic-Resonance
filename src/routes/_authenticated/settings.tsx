@@ -6,6 +6,7 @@ import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";
 import { Copy, RefreshCw, ShieldAlert, UserMinus, Crown, User as UserIcon } from "lucide-react";
+import { triggerVibration } from "@/lib/vibration";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -123,6 +124,7 @@ function SettingsPage() {
       .eq("id", user.id);
     setBusy(false);
     if (error) return toast.error(error.message);
+    triggerVibration();
     toast.success("Profile updated");
   };
 
@@ -139,6 +141,7 @@ function SettingsPage() {
     setBusy(false);
     if (error) return toast.error(error.message);
     setOrg(data as Org);
+    triggerVibration();
     toast.success("Workspace updated");
   };
 

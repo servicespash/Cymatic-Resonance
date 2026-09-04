@@ -17,7 +17,6 @@ import { useAuth } from "@/lib/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ConnectivityBanner } from "@/components/connectivity-banner";
-import { useComponentMountDebug, logDataFetchHook } from "@/lib/app-debug";
 
 function NotFoundComponent() {
   return (
@@ -151,12 +150,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function InnerApp() {
-  useComponentMountDebug("InnerApp");
   const { loading } = useAuth();
-
-  React.useEffect(() => {
-    logDataFetchHook("useAuth", loading ? "loading" : "complete");
-  }, [loading]);
 
   if (loading) {
     return (

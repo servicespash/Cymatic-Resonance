@@ -100,6 +100,12 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
+    if (location && !isNaN(location.lat) && !isNaN(location.lng)) {
+      setPosition(new L.LatLng(location.lat, location.lng));
+    }
+  }, [location]);
+
+  useEffect(() => {
     if (position && !isNaN(position.lat) && !isNaN(position.lng)) {
       onChange({ lat: position.lat, lng: position.lng, radius });
     }
@@ -285,7 +291,7 @@ function MapGeocoder({ setPosition }: { setPosition: (pos: L.LatLng) => void }) 
   const map = useMap();
   
   useEffect(() => {
-    // @ts-ignore
+    // @ts-expect-error
     const geocoder = L.Control.geocoder({
       defaultMarkGeocode: false,
       position: "topleft",

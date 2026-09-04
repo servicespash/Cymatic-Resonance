@@ -4,7 +4,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
-import { cloudflare } from "@cloudflare/vite-plugin";
 
 const plugins: PluginOption[] = [
   tanstackStart(),
@@ -31,11 +30,6 @@ const plugins: PluginOption[] = [
     },
   }),
 ];
-
-// Cloudflare plugin disabled as per user request to test cookie persistence
-// if (process.env.ENABLE_CLOUDFLARE_PLUGIN === "true") {
-//   plugins.unshift(cloudflare({ viteEnvironment: { name: "ssr" } }));
-// }
 
 export default defineConfig({
   plugins,
