@@ -16,6 +16,7 @@ GRANT ALL ON public.download_history TO service_role;
 ALTER TABLE public.download_history ENABLE ROW LEVEL SECURITY;
 
 -- Allow users to view and log their own or org download histories
+DROP POLICY IF EXISTS "download_history_insert_self" ON public.download_history;
 CREATE POLICY "download_history_insert_self" ON public.download_history FOR INSERT TO authenticated
   WITH CHECK (user_id = auth.uid() AND org_id = public.current_org_id());
 

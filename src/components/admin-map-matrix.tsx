@@ -37,10 +37,22 @@ interface AdminMapMatrixProps {
   onChange: (loc: LocationData) => void;
 }
 
-function MapUpdater({ position, isFullscreen }: { position: L.LatLng | null; isFullscreen: boolean }) {
+function MapUpdater({
+  position,
+  isFullscreen,
+}: {
+  position: L.LatLng | null;
+  isFullscreen: boolean;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (position && !isNaN(position.lat) && !isNaN(position.lng)) {
+    if (
+      position &&
+      typeof position.lat === "number" &&
+      typeof position.lng === "number" &&
+      !isNaN(position.lat) &&
+      !isNaN(position.lng)
+    ) {
       map.flyTo(position, 16, { animate: true, duration: 1.5 });
     }
   }, [position, map]);
@@ -90,8 +102,8 @@ function LocationMarker({
 export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
   const { theme } = useTheme();
   const [position, setPosition] = useState<L.LatLng | null>(
-    location && !isNaN(location.lat) && !isNaN(location.lng) 
-      ? new L.LatLng(location.lat, location.lng) 
+    location && !isNaN(location.lat) && !isNaN(location.lng)
+      ? new L.LatLng(location.lat, location.lng)
       : null,
   );
   const [radius, setRadius] = useState<number>(location?.radius || 200);
@@ -125,12 +137,12 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
         const { lat, lon } = data[0];
         const latNum = parseFloat(lat);
         const lngNum = parseFloat(lon);
-        
+
         if (!isNaN(latNum) && !isNaN(lngNum)) {
-            const newPos = new L.LatLng(latNum, lngNum);
-            setPosition(newPos);
+          const newPos = new L.LatLng(latNum, lngNum);
+          setPosition(newPos);
         } else {
-            toast.error("Invalid location coordinates found.");
+          toast.error("Invalid location coordinates found.");
         }
       } else {
         toast.error("Location not found. Try different keywords.");
@@ -289,18 +301,21 @@ function RadiusButton({
 
 function MapGeocoder({ setPosition }: { setPosition: (pos: L.LatLng) => void }) {
   const map = useMap();
-  
+
   useEffect(() => {
-    // @ts-expect-error
+    // @ts-expect-error - Leaflet Geocoder control is not properly typed in the current version
     const geocoder = L.Control.geocoder({
       defaultMarkGeocode: false,
       position: "topleft",
     })
-      .on("markgeocode", function (e: any) {
-        const latlng = e.geocode.center;
-        setPosition(latlng);
-        map.fitBounds(e.geocode.bbox);
-      })
+      .on(
+        "markgeocode",
+        function (e: { geocode: { center: L.LatLng; bbox: L.LatLngBoundsExpression } }) {
+          const latlng = e.geocode.center;
+          setPosition(latlng);
+          map.fitBounds(e.geocode.bbox);
+        },
+      )
       .addTo(map);
 
     return () => {

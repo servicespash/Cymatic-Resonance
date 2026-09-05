@@ -190,15 +190,23 @@
 }
 
 @utility glass {
-  background: rgba(15, 23, 42, 0.55);
+  background: color-mix(in oklch, var(--background), transparent 30%);
   backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  @variant dark {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 @utility glass-strong {
-  background: rgba(15, 23, 42, 0.78);
+  background: color-mix(in oklch, var(--background), transparent 10%);
   backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  @variant dark {
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
 
 @utility text-gradient {
