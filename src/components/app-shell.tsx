@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Radio, Users, MessageSquare, Settings, LogOut, Menu } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  LayoutDashboard,
+  Radio,
+  Users,
+  MessageSquare,
+  Settings,
+  LogOut,
+  Menu,
+  ShieldCheck,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
+import { Footer } from "@/components/footer";
+import { LegalViewer, LegalTab } from "@/components/legal-viewer";
 import { toast } from "sonner";
 
 type Profile = {
@@ -36,7 +48,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
   const [open, setOpen] = useState(false);
+  const [legalView, setLegalView] = useState<LegalTab | null>(null);
   const path = useRouterState({ select: (s) => s.location.pathname });
+
+  const openLegal = (tab: LegalTab) => {
+    setLegalView(tab);
+    setOpen(false);
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -94,12 +112,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <nav className="mt-6 flex-1 space-y-1">
             {items.map((n) => {
-              const active = path === n.to;
+              const active = path === n.to && !legalView;
               return (
                 <Link
                   key={n.to}
                   to={n.to}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    setLegalView(null);
+                  }}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
                     active
                       ? "bg-frequency/15 text-foreground resonance-glow"
@@ -111,6 +132,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            <button
+              onClick={() => openLegal("about")}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                legalView
+                  ? "bg-frequency/15 text-foreground resonance-glow"
+                  : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+              }`}
+            >
+              <ShieldCheck className="size-4" />
+              Legal & About
+            </button>
           </nav>
 
           <div className="mt-auto rounded-xl border border-white/5 bg-white/[0.02] p-3">
@@ -168,8 +201,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="min-w-0 flex-1 p-4 md:p-6">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+          <div className="mx-auto w-full max-w-7xl">
+            <AnimatePresence mode="wait">
+              {legalView ? (
+                <LegalViewer key="legal" activeTab={legalView} onClose={() => setLegalView(null)} />
+              ) : (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                >
+                  {children}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </main>
+        <Footer onLegalClick={openLegal} />
       </div>
     </div>
   );

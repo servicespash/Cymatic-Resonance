@@ -5,11 +5,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
-import { Check, Clock, Coffee, LogOut, Flame, AlertTriangle } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Coffee,
+  LogOut,
+  Flame,
+  AlertTriangle,
+  MapPin,
+  Navigation,
+} from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { LeavePanel } from "@/components/leave-panel";
 import { ResonanceSessionTimer } from "@/components/resonance-session-timer";
+import { ProfessionalCheckIn } from "@/components/professional-check-in";
+import { CheckInHistory } from "@/components/check-in-history";
+import { SignalMap } from "@/components/signal-map";
+import { DEFAULT_FALLBACK_LOCATION, getDistance, isValidLatLng, safeCoordinates } from "@/lib/geo";
 
 import { ClientOnly } from "@/components/client-only";
 
@@ -33,19 +46,6 @@ type AttRow = {
   note: string | null;
 };
 
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3;
-  const p1 = (lat1 * Math.PI) / 180;
-  const p2 = (lat2 * Math.PI) / 180;
-  const dp = ((lat2 - lat1) * Math.PI) / 180;
-  const dl = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dp / 2) * Math.sin(dp / 2) +
-    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 function parseOrgType(raw: string) {
   try {
     if (raw.startsWith("{")) return JSON.parse(raw);
@@ -62,21 +62,128 @@ function todayISO() {
 function PulsePage() {
   const { user } = useAuth();
   const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [today, setToday] = useState<AttRow | null>(null);
   const [history, setHistory] = useState<AttRow[]>([]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [locPermission, setLocPermission] = useState<PermissionState | "unknown">("unknown");
+
+  useEffect(() => {
+    if ("permissions" in navigator) {
+      navigator.permissions
+        .query({ name: "geolocation" })
+        .then((status) => {
+          setLocPermission(status.state);
+          status.onchange = () => setLocPermission(status.state);
+        })
+        .catch(() => setLocPermission("unknown"));
+    }
+  }, []);
+
+  const requestLocationPermission = async () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    try {
+      await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setLocPermission("granted");
+            toast.success("Location signal linked");
+            resolve(pos);
+          },
+          (err) => {
+            setLocPermission("denied");
+            toast.error("Location permission denied or timed out");
+            reject(err);
+          },
+          { enableHighAccuracy: true, timeout: 8000 },
+        );
+      });
+    } catch {
+      // handled
+    }
+  };
 
   const [showGreeting, setShowGreeting] = useState(false);
   const [greetingData, setGreetingData] = useState<Record<string, unknown> | null>(null);
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  const [lastTelemetry, setLastTelemetry] = useState<{
+    status: string;
+    variance: number;
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  const [stationLocation, setStationLocation] = useState<{
+    lat: number;
+    lng: number;
+    radius: number;
+  }>(DEFAULT_FALLBACK_LOCATION);
 
   const refresh = useCallback(async () => {
     if (!user) return;
+
+    let locFound = false;
+
+    // 1. Fetch workspace settings for map
+    const { data: ws } = await supabase.from("workspaces").select("settings").maybeSingle();
+    if (
+      ws?.settings?.location &&
+      isValidLatLng(ws.settings.location.lat, ws.settings.location.lng)
+    ) {
+      setStationLocation({
+        lat: Number(ws.settings.location.lat),
+        lng: Number(ws.settings.location.lng),
+        radius:
+          typeof ws.settings.location.radius === "number" && !isNaN(ws.settings.location.radius)
+            ? ws.settings.location.radius
+            : 200,
+      });
+      locFound = true;
+    }
+
+    // 2. If not found in workspace settings, query organization
+    if (!locFound) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("org_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (p?.org_id) {
+        const { data: o } = await supabase
+          .from("organizations")
+          .select("org_type")
+          .eq("id", p.org_id)
+          .maybeSingle();
+
+        const parsed = parseOrgType(o?.org_type || "");
+        if (parsed.location && isValidLatLng(parsed.location.lat, parsed.location.lng)) {
+          setStationLocation({
+            lat: Number(parsed.location.lat),
+            lng: Number(parsed.location.lng),
+            radius:
+              typeof parsed.location.radius === "number" && !isNaN(parsed.location.radius)
+                ? parsed.location.radius
+                : 200,
+          });
+          locFound = true;
+        }
+      }
+    }
+
+    if (!locFound) {
+      setStationLocation(DEFAULT_FALLBACK_LOCATION);
+    }
+
     const { data } = await supabase
       .from("attendance")
       .select(
@@ -87,7 +194,33 @@ function PulsePage() {
       .limit(30);
     const rows = (data ?? []) as AttRow[];
     setHistory(rows);
-    setToday(rows.find((r) => r.attendance_date === todayISO()) ?? null);
+
+    const todayRow = rows.find((r) => r.attendance_date === todayISO());
+    setToday(todayRow ?? null);
+
+    if (todayRow?.note?.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(todayRow.note);
+        if (parsed.telemetry) {
+          const validCoords = safeCoordinates(
+            parsed.telemetry.lat,
+            parsed.telemetry.lng,
+            DEFAULT_FALLBACK_LOCATION,
+          );
+          setLastTelemetry({
+            status: parsed.telemetry.status || "unverified",
+            variance:
+              typeof parsed.telemetry.variance === "number" && !isNaN(parsed.telemetry.variance)
+                ? parsed.telemetry.variance
+                : 0,
+            lat: validCoords.lat,
+            lng: validCoords.lng,
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
   }, [user]);
 
   useEffect(() => {
@@ -98,8 +231,8 @@ function PulsePage() {
     setBusy(true);
     let status = "unverified";
     let variance = 0;
-    let externalLat = 0;
-    let externalLng = 0;
+    let externalLat = DEFAULT_FALLBACK_LOCATION.lat;
+    let externalLng = DEFAULT_FALLBACK_LOCATION.lng;
 
     try {
       // 1. Get org boundaries
@@ -115,42 +248,76 @@ function PulsePage() {
         .single();
 
       const parsedType = parseOrgType(o?.org_type || "");
-      const boundary = parsedType.location;
+      const orgBoundary = parsedType.location;
+      const targetBoundary =
+        orgBoundary && isValidLatLng(orgBoundary.lat, orgBoundary.lng)
+          ? orgBoundary
+          : stationLocation && isValidLatLng(stationLocation.lat, stationLocation.lng)
+            ? stationLocation
+            : DEFAULT_FALLBACK_LOCATION;
 
-      let locConfirmed = false;
-
-      // Spoofing detection caveat: Browser environment cannot natively detect Developer Options/Mock locations.
-      // We rely on standard HTML5 geolocation accuracy and timeouts.
+      // 2. Request Geolocation with safe validation & fallback
       if ("geolocation" in navigator) {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 10000,
-            enableHighAccuracy: true,
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              timeout: 10000,
+              enableHighAccuracy: true,
+            });
           });
-        }).catch(() => null);
 
-        if (pos && boundary) {
-          externalLat = pos.coords.latitude;
-          externalLng = pos.coords.longitude;
-          variance = getDistance(boundary.lat, boundary.lng, externalLat, externalLng);
+          if (pos?.coords && isValidLatLng(pos.coords.latitude, pos.coords.longitude)) {
+            externalLat = pos.coords.latitude;
+            externalLng = pos.coords.longitude;
+            setLocPermission("granted");
 
-          if (variance <= boundary.radius) {
-            status = "verified";
-            locConfirmed = true;
-          } else {
-            const confirmExternal = window.confirm(
-              "You are outside the station boundary (" +
-                Math.round(variance) +
-                "m away). Log current location for this pulse? (Yes/No)",
+            variance = getDistance(
+              targetBoundary.lat,
+              targetBoundary.lng,
+              externalLat,
+              externalLng,
             );
-            if (confirmExternal) {
-              status = "external";
-              locConfirmed = true;
+
+            const allowedRadius = targetBoundary.radius || 200;
+            if (variance <= allowedRadius) {
+              status = "verified";
+            } else {
+              const confirmExternal = window.confirm(
+                `You are outside the station perimeter (${Math.round(variance)}m away). Log this position for today's pulse?`,
+              );
+              if (confirmExternal) {
+                status = "external";
+              }
             }
+          } else {
+            // Unverified or invalid coords fallback
+            status = "unverified";
+            externalLat = targetBoundary.lat;
+            externalLng = targetBoundary.lng;
           }
-        } else if (!pos) {
-          status = "denied"; // or unverified
+        } catch (geoErr) {
+          console.warn("Geolocation access denied or timed out; using fallback:", geoErr);
+          status = "denied";
+          setLocPermission("denied");
+          externalLat = targetBoundary.lat;
+          externalLng = targetBoundary.lng;
+          variance = 0;
         }
+      } else {
+        // Fallback if browser doesn't support geolocation
+        status = "denied";
+        setLocPermission("denied");
+        externalLat = targetBoundary.lat;
+        externalLng = targetBoundary.lng;
+        variance = 0;
+      }
+
+      // Strict validation layer before persistence - guarantees non-NaN values
+      const validatedCoords = safeCoordinates(externalLat, externalLng, DEFAULT_FALLBACK_LOCATION);
+      externalLat = validatedCoords.lat;
+      externalLng = validatedCoords.lng;
+      if (isNaN(variance) || !isFinite(variance) || variance < 0) {
+        variance = 0;
       }
 
       // Fetch Tasks
@@ -160,9 +327,10 @@ function PulsePage() {
         .eq("assignee_id", user?.id)
         .eq("status", "pending");
 
+      const telemetryObj = { status, variance, lat: externalLat, lng: externalLng };
       const telemetryNote = JSON.stringify({
         text: note,
-        telemetry: { status, variance, lat: externalLat, lng: externalLng },
+        telemetry: telemetryObj,
       });
 
       const { data, error } = await supabase.rpc("pulse_checkin", { _note: telemetryNote });
@@ -170,8 +338,10 @@ function PulsePage() {
 
       toast.success("Resonance recorded");
       setNote("");
-      setToday(data as AttRow);
-      setHistory((h) => [data as AttRow, ...h]);
+      const newToday = data as AttRow;
+      setToday(newToday);
+      setLastTelemetry(telemetryObj);
+      setHistory((h) => [newToday, ...h]);
 
       setGreetingData({
         name: p?.full_name || "Agent",
@@ -241,11 +411,75 @@ function PulsePage() {
     return s;
   }, [history]);
 
+  const stationLocationMemo = useMemo(() => {
+    if (stationLocation && isValidLatLng(stationLocation.lat, stationLocation.lng)) {
+      return {
+        lat: Number(stationLocation.lat),
+        lng: Number(stationLocation.lng),
+        radius:
+          typeof stationLocation.radius === "number" && !isNaN(stationLocation.radius)
+            ? stationLocation.radius
+            : 200,
+      };
+    }
+    return DEFAULT_FALLBACK_LOCATION;
+  }, [stationLocation]);
+
+  const userPosMemo = useMemo(() => {
+    if (!lastTelemetry || !isValidLatLng(lastTelemetry.lat, lastTelemetry.lng)) {
+      return null;
+    }
+    return { lat: Number(lastTelemetry.lat), lng: Number(lastTelemetry.lng) };
+  }, [lastTelemetry]);
+
   return (
     <ClientOnly fallback={<div className="p-4">Loading...</div>}>
       <div className="mx-auto grid w-full max-w-3xl gap-6">
         <h1 className="sr-only">Your Resonance Pulse</h1>
-        {/* Pulse card */}
+
+        {/* Location permission banner / request prompt */}
+        {locPermission !== "granted" && (
+          <div
+            id="location-permission-card"
+            className="rounded-2xl border border-accent/20 bg-accent/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                <Navigation className="size-4 animate-pulse" />
+              </div>
+              <div>
+                <div className="font-mono text-xs font-semibold text-foreground">
+                  Location Permissions
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {locPermission === "denied"
+                    ? "GPS access was denied. Check-ins will default to verified station fallback."
+                    : "Authorize GPS access to enable instant perimeter resonance and automatic check-in telemetry."}
+                </p>
+              </div>
+            </div>
+            {locPermission !== "denied" ? (
+              <button
+                id="btn-request-location"
+                type="button"
+                onClick={requestLocationPermission}
+                className="shrink-0 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground hover:opacity-90 transition flex items-center gap-1.5 shadow-sm"
+              >
+                <MapPin className="size-3.5" />
+                Allow Location Access
+              </button>
+            ) : (
+              <button
+                id="btn-retry-location"
+                type="button"
+                onClick={requestLocationPermission}
+                className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground hover:bg-white/10 transition"
+              >
+                Retry GPS
+              </button>
+            )}
+          </div>
+        )}
         <section className="glass-strong relative overflow-hidden rounded-3xl p-8 resonance-glow animate-fade-up">
           <div className="absolute inset-0 -z-10 bg-frequency/30 blur-3xl" />
 
@@ -308,16 +542,39 @@ function PulsePage() {
               )}
 
               {today && (
-                <div className="mt-6 grid w-full max-w-md grid-cols-3 gap-3">
-                  <Stat label="Logged" value={fmtH(liveMinutes)} />
-                  <Stat label="Break" value={`${today.total_break_minutes}m`} />
-                  <Stat
-                    label="Status"
-                    value={
-                      state === "sealed" ? "Sealed" : state === "break" ? "On break" : "Active"
-                    }
-                    tone={today.is_late ? "warn" : state === "sealed" ? "muted" : "ok"}
-                  />
+                <div className="mt-8 flex flex-col gap-6 w-full max-w-xl">
+                  {stationLocationMemo && (
+                    <div className="animate-fade-in">
+                      <SignalMap
+                        center={stationLocationMemo}
+                        radius={stationLocationMemo.radius}
+                        userPos={userPosMemo}
+                      />
+                    </div>
+                  )}
+
+                  {lastTelemetry && (
+                    <ProfessionalCheckIn
+                      status={lastTelemetry.status}
+                      variance={lastTelemetry.variance}
+                      lat={lastTelemetry.lat}
+                      lng={lastTelemetry.lng}
+                      referencePoint={stationLocationMemo}
+                      isLate={today.is_late}
+                    />
+                  )}
+
+                  <div className="grid w-full grid-cols-3 gap-3">
+                    <Stat label="Logged" value={fmtH(liveMinutes)} />
+                    <Stat label="Break" value={`${today.total_break_minutes}m`} />
+                    <Stat
+                      label="Status"
+                      value={
+                        state === "sealed" ? "Sealed" : state === "break" ? "On break" : "Active"
+                      }
+                      tone={today.is_late ? "warn" : state === "sealed" ? "muted" : "ok"}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -331,86 +588,7 @@ function PulsePage() {
         </section>
 
         {/* History */}
-        <section
-          className="glass rounded-2xl p-5 animate-fade-up"
-          style={{ animationDelay: "100ms" }}
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold">Resonance ledger</h2>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              last {history.length} days
-            </span>
-          </div>
-          <div className="divide-y divide-white/5">
-            {history.length === 0 && (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No check-ins yet — tap the pulse above.
-              </div>
-            )}
-            {history.map((r) => {
-              const dur = r.checked_out_at
-                ? Math.max(
-                    0,
-                    Math.floor(
-                      (new Date(r.checked_out_at).getTime() - new Date(r.checked_in_at).getTime()) /
-                        60000,
-                    ) - r.total_break_minutes,
-                  )
-                : null;
-              return (
-                <div key={r.id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-9 place-items-center rounded-lg bg-accent/15">
-                      <Check className="size-4 text-accent" />
-                    </span>
-                    <div>
-                      <div className="text-sm font-medium">
-                        {new Date(r.attendance_date).toLocaleDateString(undefined, {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        {r.is_late && (
-                          <span className="ml-2 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
-                            late
-                          </span>
-                        )}
-                      </div>
-                      {r.note && (
-                        <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-                          {r.note}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center justify-end gap-1.5 font-mono text-xs text-muted-foreground">
-                      <Clock className="size-3" />
-                      {new Date(r.checked_in_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {r.checked_out_at && (
-                        <>
-                          <span className="opacity-50">→</span>
-                          {new Date(r.checked_out_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </>
-                      )}
-                    </div>
-                    {dur !== null && (
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-accent">
-                        {fmtH(dur)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        <CheckInHistory history={history} />
 
         {/* Resonance Focus Session Timer */}
         <section className="animate-fade-up" style={{ animationDelay: "150ms" }}>

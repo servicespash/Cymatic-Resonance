@@ -1,12 +1,10 @@
 import { defineConfig, PluginOption } from "vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
 
 const plugins: PluginOption[] = [
-  tanstackStart(),
   react(),
   tailwindcss(),
   tsconfigPaths(),
@@ -20,6 +18,7 @@ const plugins: PluginOption[] = [
     },
     workbox: {
       globPatterns: ["**/*.{js,css,html,png,svg}"],
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       // Skip waiting so new service workers activate immediately
       skipWaiting: true,
       clientsClaim: true,
@@ -32,6 +31,7 @@ const plugins: PluginOption[] = [
 ];
 
 export default defineConfig({
+  base: "/",
   plugins,
   server: {
     host: "0.0.0.0",
@@ -39,6 +39,8 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       external: ["node:async_hooks"],
       output: {

@@ -2,15 +2,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cymatic-resonance",
   "compatibility_date": "2026-08-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "./dist/server/server.js",
+  "pages_build_output_dir": "./dist/client",
   "observability": {
     "enabled": true,
   },
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "d7f4adcaae9443f7be9ecef042fd4e27",
-    },
-  ],
 }

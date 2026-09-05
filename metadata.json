@@ -1,6 +1,6 @@
 {
   "name": "Cymatic Resonance",
   "description": "Cymatic Resonance sound and visual vibration application",
-  "requestFramePermissions": ["camera", "microphone"],
+  "requestFramePermissions": ["camera", "microphone", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

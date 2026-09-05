@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, ErrorInfo, ReactNode, useEffect, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -18,6 +18,8 @@ import { MapPin, Check, Search, Loader2, Maximize2, Minimize2 } from "lucide-rea
 import { toast } from "sonner";
 import { useTheme } from "@/lib/use-theme";
 
+import { DEFAULT_FALLBACK_LOCATION, isValidLatLng } from "@/lib/geo";
+
 // Fix Leaflet marker icons
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -25,6 +27,11 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
+
+const isLeafletLatLng = (pos: L.LatLng | null | undefined): pos is L.LatLng => {
+  if (!pos) return false;
+  return isValidLatLng(pos.lat, pos.lng);
+};
 
 interface LocationData {
   lat: number;
@@ -37,6 +44,42 @@ interface AdminMapMatrixProps {
   onChange: (loc: LocationData) => void;
 }
 
+class AdminMapBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.warn("Admin Map exception handled:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-72 w-full flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 p-6 text-center">
+          <MapPin className="mb-2 size-6 text-accent" />
+          <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
+            Map Matrix Standby
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-3 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition"
+          >
+            Reset Matrix View
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function MapUpdater({
   position,
   isFullscreen,
@@ -46,20 +89,32 @@ function MapUpdater({
 }) {
   const map = useMap();
   useEffect(() => {
-    if (
-      position &&
-      typeof position.lat === "number" &&
-      typeof position.lng === "number" &&
-      !isNaN(position.lat) &&
-      !isNaN(position.lng)
-    ) {
-      map.flyTo(position, 16, { animate: true, duration: 1.5 });
+    if (isLeafletLatLng(position)) {
+      try {
+        const currentCenter = map.getCenter();
+        if (
+          !currentCenter ||
+          isNaN(currentCenter.lat) ||
+          isNaN(currentCenter.lng) ||
+          Math.abs(currentCenter.lat - position.lat) > 1e-6 ||
+          Math.abs(currentCenter.lng - position.lng) > 1e-6
+        ) {
+          map.flyTo(position, 16, { animate: true, duration: 1.5 });
+        }
+      } catch (err) {
+        console.warn("Admin MapUpdater flyTo skipped:", err);
+      }
     }
-  }, [position, map]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position?.lat, position?.lng, map]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      map.invalidateSize();
+      try {
+        map.invalidateSize();
+      } catch {
+        // ignore
+      }
     }, 100);
     return () => clearTimeout(timeout);
   }, [isFullscreen, map]);
@@ -78,11 +133,17 @@ function LocationMarker({
 }) {
   useMapEvents({
     click(e) {
-      setPosition(e.latlng);
+      if (e.latlng && isValidLatLng(e.latlng.lat, e.latlng.lng)) {
+        setPosition(e.latlng);
+      }
     },
   });
 
-  return position === null ? null : (
+  if (!isLeafletLatLng(position)) return null;
+
+  const safeRadius = typeof radius === "number" && !isNaN(radius) && radius > 0 ? radius : 200;
+
+  return (
     <>
       <Marker position={position}></Marker>
       <Circle
@@ -93,7 +154,7 @@ function LocationMarker({
           weight: 1.5,
           fillOpacity: 0.15,
         }}
-        radius={radius}
+        radius={safeRadius}
       />
     </>
   );
@@ -101,27 +162,72 @@ function LocationMarker({
 
 export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
   const { theme } = useTheme();
-  const [position, setPosition] = useState<L.LatLng | null>(
-    location && !isNaN(location.lat) && !isNaN(location.lng)
-      ? new L.LatLng(location.lat, location.lng)
-      : null,
-  );
+  const [position, setPosition] = useState<L.LatLng | null>(() => {
+    if (
+      location &&
+      typeof location.lat === "number" &&
+      typeof location.lng === "number" &&
+      !isNaN(location.lat) &&
+      !isNaN(location.lng)
+    ) {
+      return new L.LatLng(location.lat, location.lng);
+    }
+    return null;
+  });
   const [radius, setRadius] = useState<number>(location?.radius || 200);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    if (location && !isNaN(location.lat) && !isNaN(location.lng)) {
-      setPosition(new L.LatLng(location.lat, location.lng));
+    if (
+      location &&
+      typeof location.lat === "number" &&
+      typeof location.lng === "number" &&
+      !isNaN(location.lat) &&
+      !isNaN(location.lng)
+    ) {
+      const newPos = new L.LatLng(location.lat, location.lng);
+      const latDiff = position ? Math.abs(position.lat - newPos.lat) : 1;
+      const lngDiff = position ? Math.abs(position.lng - newPos.lng) : 1;
+
+      // Use a larger epsilon (1e-6 is ~11cm precision) to prevent floating point loops
+      if (!position || latDiff > 1e-6 || lngDiff > 1e-6) {
+        setPosition(newPos);
+      }
     }
-  }, [location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.lat, location?.lng]);
 
   useEffect(() => {
-    if (position && !isNaN(position.lat) && !isNaN(position.lng)) {
-      onChange({ lat: position.lat, lng: position.lng, radius });
+    if (
+      location &&
+      typeof location.radius === "number" &&
+      Math.abs(location.radius - radius) > 0.1
+    ) {
+      setRadius(location.radius);
     }
-  }, [position, radius, onChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.radius]);
+
+  useEffect(() => {
+    if (isLeafletLatLng(position)) {
+      const latDiff = location ? Math.abs(location.lat - position.lat) : 1;
+      const lngDiff = location ? Math.abs(location.lng - position.lng) : 1;
+
+      // Only trigger onChange if the values significantly changed from the prop
+      const hasChanged =
+        !location ||
+        latDiff > 1e-6 ||
+        lngDiff > 1e-6 ||
+        Math.abs((location.radius || 0) - radius) > 0.1;
+
+      if (hasChanged) {
+        onChange({ lat: position.lat, lng: position.lng, radius });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position?.lat, position?.lng, radius, onChange]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -201,75 +307,96 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
         </button>
       </div>
 
-      <div
-        className={
-          isFullscreen
-            ? "fixed inset-0 z-[9999] bg-background"
-            : "rounded-xl overflow-hidden border border-white/10 h-72 bg-white/5 relative z-0 shadow-inner"
-        }
-      >
-        <button
-          type="button"
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="absolute bottom-6 left-6 z-[1000] bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition"
-          aria-label="Toggle Fullscreen"
+      <AdminMapBoundary>
+        <div
+          className={
+            isFullscreen
+              ? "fixed inset-0 z-[9999] bg-background"
+              : "rounded-xl overflow-hidden border border-white/10 h-72 bg-white/5 relative z-0 shadow-inner"
+          }
         >
-          {isFullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="absolute bottom-6 left-6 z-[1000] bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition"
+            aria-label="Toggle Fullscreen"
+          >
+            {isFullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
+          </button>
 
-        <MapContainer
-          center={position || [0.3476, 32.5825]} // Default Kampala/Uganda
-          zoom={13}
-          minZoom={3}
-          maxZoom={18}
-          zoomControl={false}
-          style={{ height: "100%", width: "100%" }}
-          preferCanvas={true}
-          touchZoom={true}
-          className={theme === "dark" ? "brightness-90 contrast-125" : ""}
-        >
-          <ZoomControl position="topright" />
-          <LayersControl position="topright">
-            <LayersControl.BaseLayer checked name="OpenStreetMap (Street)">
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maxZoom={19}
-                detectRetina={true}
-              />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="OpenTopoMap (Terrain)">
-              <TileLayer
-                attribution='&copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                maxZoom={17}
-                detectRetina={true}
-              />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="Esri Satellite">
-              <TileLayer
-                attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                maxZoom={19}
-                detectRetina={true}
-              />
-            </LayersControl.BaseLayer>
-          </LayersControl>
+          <MapContainer
+            center={
+              isLeafletLatLng(position)
+                ? position
+                : [DEFAULT_FALLBACK_LOCATION.lat, DEFAULT_FALLBACK_LOCATION.lng]
+            }
+            zoom={13}
+            minZoom={3}
+            maxZoom={20}
+            zoomControl={false}
+            style={{ height: "100%", width: "100%" }}
+            preferCanvas={true}
+            touchZoom={true}
+            className={theme === "dark" ? "brightness-[0.85] contrast-[1.1] saturate-[0.8]" : ""}
+          >
+            <ZoomControl position="topright" />
+            <LayersControl position="topright">
+              <LayersControl.BaseLayer checked name="Cymatic Dark (Institutional)">
+                <TileLayer
+                  attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={20}
+                />
+              </LayersControl.BaseLayer>
+              <LayersControl.BaseLayer name="Cymatic Light (Professional)">
+                <TileLayer
+                  attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={20}
+                />
+              </LayersControl.BaseLayer>
+              <LayersControl.BaseLayer name="Satellite Precision">
+                <TileLayer
+                  attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={19}
+                />
+              </LayersControl.BaseLayer>
+            </LayersControl>
 
-          <ScaleControl position="bottomleft" />
-          <MapGeocoder setPosition={setPosition} />
-          <LocationMarker position={position} radius={radius} setPosition={setPosition} />
-          <MapUpdater position={position} isFullscreen={isFullscreen} />
-        </MapContainer>
-        {!position && (
-          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
-            <div className="text-center">
-              <MapPin className="size-8 mx-auto mb-2 text-accent" />
-              <p className="font-mono text-xs text-white">Search or click map to set Station Pin</p>
+            <ScaleControl position="bottomleft" />
+            <MapGeocoder setPosition={setPosition} />
+            <LocationMarker position={position} radius={radius} setPosition={setPosition} />
+            <MapUpdater position={position} isFullscreen={isFullscreen} />
+
+            {/* Resonance Pulse Overlay */}
+            {isLeafletLatLng(position) && (
+              <Circle
+                center={position}
+                radius={radius * 1.5}
+                pathOptions={{
+                  fillColor: "var(--color-accent)",
+                  fillOpacity: 0.05,
+                  color: "var(--color-accent)",
+                  weight: 1,
+                  dashArray: "4, 8",
+                }}
+                className="animate-pulse"
+              />
+            )}
+          </MapContainer>
+          {!position && (
+            <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
+              <div className="text-center">
+                <MapPin className="size-8 mx-auto mb-2 text-accent" />
+                <p className="font-mono text-xs text-white">
+                  Search or click map to set Station Pin
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </AdminMapBoundary>
     </div>
   );
 }
@@ -303,24 +430,40 @@ function MapGeocoder({ setPosition }: { setPosition: (pos: L.LatLng) => void }) 
   const map = useMap();
 
   useEffect(() => {
-    // @ts-expect-error - Leaflet Geocoder control is not properly typed in the current version
-    const geocoder = L.Control.geocoder({
-      defaultMarkGeocode: false,
-      position: "topleft",
-    })
-      .on(
-        "markgeocode",
-        function (e: { geocode: { center: L.LatLng; bbox: L.LatLngBoundsExpression } }) {
-          const latlng = e.geocode.center;
-          setPosition(latlng);
-          map.fitBounds(e.geocode.bbox);
-        },
-      )
-      .addTo(map);
+    try {
+      // @ts-expect-error - Leaflet Geocoder control is not properly typed in the current version
+      const geocoder = L.Control.geocoder({
+        defaultMarkGeocode: false,
+        position: "topleft",
+      })
+        .on(
+          "markgeocode",
+          function (e: { geocode?: { center?: L.LatLng; bbox?: L.LatLngBoundsExpression } }) {
+            const latlng = e.geocode?.center;
+            if (latlng && isValidLatLng(latlng.lat, latlng.lng)) {
+              setPosition(latlng);
+              if (e.geocode?.bbox) {
+                try {
+                  map.fitBounds(e.geocode.bbox);
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          },
+        )
+        .addTo(map);
 
-    return () => {
-      map.removeControl(geocoder);
-    };
+      return () => {
+        try {
+          map.removeControl(geocoder);
+        } catch {
+          // ignore
+        }
+      };
+    } catch (err) {
+      console.warn("Geocoder control setup skipped:", err);
+    }
   }, [map, setPosition]);
 
   return null;

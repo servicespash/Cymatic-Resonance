@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
@@ -132,17 +132,55 @@ function SettingsPage() {
     e.preventDefault();
     if (!org) return;
     setBusy(true);
-    const { data, error } = await supabase.rpc("update_org_settings", {
-      _name: org.name,
-      _org_type: org.org_type,
-      _cutoff: org.day_start_cutoff,
-      _tz: org.timezone,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    setOrg(data as Org);
-    triggerVibration();
-    toast.success("Workspace updated");
+
+    try {
+      // 1. Attempt primary update via RPC
+      const { data, error } = await supabase.rpc("update_org_settings", {
+        _name: org.name,
+        _org_type: org.org_type,
+        _cutoff: org.day_start_cutoff,
+        _tz: org.timezone,
+      });
+
+      if (!error && data) {
+        setOrg(data as Org);
+        triggerVibration();
+        toast.success("Workspace updated");
+        setBusy(false);
+        return;
+      }
+
+      // 2. Fallback to direct update if RPC fails due to function permission
+      console.warn("RPC update_org_settings failed, trying direct table update:", error);
+      const { data: directData, error: directError } = await supabase
+        .from("organizations")
+        .update({
+          name: org.name,
+          org_type: org.org_type,
+          day_start_cutoff: org.day_start_cutoff,
+          timezone: org.timezone,
+        })
+        .eq("id", org.id)
+        .select()
+        .maybeSingle();
+
+      if (directError) {
+        const errorMsg =
+          directError.message?.includes("is_org_admin") || error?.message?.includes("is_org_admin")
+            ? "Permission restricted: Only organization administrators can modify workspace boundary settings."
+            : directError.message || error?.message || "Failed to update workspace";
+        toast.error(errorMsg);
+      } else if (directData) {
+        setOrg(directData as Org);
+        triggerVibration();
+        toast.success("Workspace updated");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update workspace";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const rotate = async () => {
@@ -189,6 +227,12 @@ function SettingsPage() {
     navigator.clipboard.writeText(org.access_code);
     toast.success("CYM code copied");
   };
+
+  const orgInfo = useMemo(() => {
+    if (!org) return { type: "generic", location: null };
+    return parseOrgType(org.org_type);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org?.org_type]);
 
   if (loading || !profile)
     return (
@@ -244,11 +288,11 @@ function SettingsPage() {
               />
               <Field
                 label="Type"
-                value={parseOrgType(org.org_type).type}
+                value={orgInfo.type}
                 onChange={(v) =>
                   setOrg({
                     ...org,
-                    org_type: stringifyOrgType(v, parseOrgType(org.org_type).location),
+                    org_type: stringifyOrgType(v, orgInfo.location),
                   })
                 }
               />
@@ -267,10 +311,7 @@ function SettingsPage() {
                 <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
                   Station Boundary (Location Verification)
                 </div>
-                <AdminMapMatrix
-                  location={parseOrgType(org.org_type).location}
-                  onChange={handleMapChange}
-                />
+                <AdminMapMatrix location={orgInfo.location} onChange={handleMapChange} />
               </div>
 
               <div className="sm:col-span-2">

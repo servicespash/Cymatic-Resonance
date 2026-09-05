@@ -1,5 +1,7 @@
-import { hydrateRoot } from "react-dom/client";
-import { StartClient } from "@tanstack/react-start/client";
+import "./styles.css";
+import { createRoot } from "react-dom/client";
+import { RouterProvider } from "@tanstack/react-router";
+import { getRouter } from "./router";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/error-boundary";
 import { pingSupabase } from "./lib/supabase-check";
@@ -29,9 +31,16 @@ if (typeof window !== "undefined") {
   }
 }
 
-hydrateRoot(
-  document,
-  <ErrorBoundary>
-    <StartClient />
-  </ErrorBoundary>,
-);
+const router = getRouter();
+
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  const root = createRoot(rootElement);
+  root.render(
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+    </ErrorBoundary>,
+  );
+} else {
+  console.error("[Cymatic Client] #root element not found!");
+}
