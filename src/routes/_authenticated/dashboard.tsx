@@ -427,7 +427,7 @@ function DashboardContent() {
           }
           rangeFrom={range?.from}
           rangeTo={range?.to}
-          onExportLogged={async (format, rowCount, scope) => {
+          onExportLogged={async (format: "pdf" | "excel", rowCount: number, scope: string) => {
             await logDownload(format, range?.from, range?.to, rowCount, scope);
           }}
         />
