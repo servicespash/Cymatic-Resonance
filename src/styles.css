@@ -1,4 +1,16 @@
 @import "tailwindcss";
+
+@layer base {
+  .leaflet-control-attribution {
+    font-size: 10px !important;
+    opacity: 0.6 !important;
+    white-space: nowrap !important;
+    transition: opacity 0.2s !important;
+  }
+  .leaflet-control-attribution:hover {
+    opacity: 1 !important;
+  }
+}
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

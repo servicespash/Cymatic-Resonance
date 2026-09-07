@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { getRouter } from "./router";
 import { supabase } from "@/integrations/supabase/client";
+import { MapProvider } from "./context/map-context";
 import { ErrorBoundary } from "./components/error-boundary";
 import { pingSupabase } from "./lib/supabase-check";
 
@@ -38,7 +39,9 @@ if (rootElement) {
   const root = createRoot(rootElement);
   root.render(
     <ErrorBoundary>
-      <RouterProvider router={router} />
+      <MapProvider>
+        <RouterProvider router={router} />
+      </MapProvider>
     </ErrorBoundary>,
   );
 } else {

@@ -21,7 +21,6 @@ import { LeavePanel } from "@/components/leave-panel";
 import { ResonanceSessionTimer } from "@/components/resonance-session-timer";
 import { ProfessionalCheckIn } from "@/components/professional-check-in";
 import { CheckInHistory } from "@/components/check-in-history";
-import { SignalMap } from "@/components/signal-map";
 import { DEFAULT_FALLBACK_LOCATION, getDistance, isValidLatLng, safeCoordinates } from "@/lib/geo";
 
 import { ClientOnly } from "@/components/client-only";
@@ -414,12 +413,6 @@ function PulsePage() {
     return DEFAULT_FALLBACK_LOCATION;
   }, [stationLocation]);
 
-  const userPosMemo = useMemo(() => {
-    if (!lastTelemetry || !isValidLatLng(lastTelemetry.lat, lastTelemetry.lng)) {
-      return null;
-    }
-    return { lat: Number(lastTelemetry.lat), lng: Number(lastTelemetry.lng) };
-  }, [lastTelemetry]);
 
   return (
     <ClientOnly fallback={<div className="p-4">Loading...</div>}>
@@ -532,16 +525,6 @@ function PulsePage() {
 
               {today && (
                 <div className="mt-8 flex flex-col gap-6 w-full max-w-xl">
-                  {stationLocationMemo && (
-                    <div className="animate-fade-in">
-                      <SignalMap
-                        center={stationLocationMemo}
-                        radius={stationLocationMemo.radius}
-                        userPos={userPosMemo}
-                      />
-                    </div>
-                  )}
-
                   {lastTelemetry && (
                     <ProfessionalCheckIn
                       status={lastTelemetry.status}

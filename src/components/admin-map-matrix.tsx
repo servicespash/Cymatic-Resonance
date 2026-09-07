@@ -1,9 +1,10 @@
-import { Component, ErrorInfo, ReactNode, useEffect, useState } from "react";
+import { Component, ErrorInfo, ReactNode, useEffect, useState, useRef, useCallback } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Circle,
+  Polyline,
   useMapEvents,
   useMap,
   LayersControl,
@@ -17,6 +18,7 @@ import L from "leaflet";
 import { MapPin, Check, Search, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/use-theme";
+import { useMapContext } from "@/context/map-context";
 
 import { DEFAULT_FALLBACK_LOCATION, isValidLatLng } from "@/lib/geo";
 
@@ -41,7 +43,8 @@ interface LocationData {
 
 interface AdminMapMatrixProps {
   location: LocationData | null;
-  onChange: (loc: LocationData) => void;
+  onChange?: (loc: LocationData) => void;
+  readOnly?: boolean;
 }
 
 class AdminMapBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -82,12 +85,11 @@ class AdminMapBoundary extends Component<{ children: ReactNode }, { hasError: bo
 
 function MapUpdater({
   position,
-  isFullscreen,
 }: {
   position: L.LatLng | null;
-  isFullscreen: boolean;
 }) {
   const map = useMap();
+  const { isFullscreen } = useMapContext();
   useEffect(() => {
     if (isLeafletLatLng(position)) {
       try {
@@ -126,10 +128,12 @@ function LocationMarker({
   position,
   radius,
   setPosition,
+  readOnly,
 }: {
   position: L.LatLng | null;
   radius: number;
   setPosition: (pos: L.LatLng) => void;
+  readOnly: boolean;
 }) {
   useMapEvents({
     click(e) {
@@ -143,25 +147,33 @@ function LocationMarker({
 
   const safeRadius = typeof radius === "number" && !isNaN(radius) && radius > 0 ? radius : 200;
 
+  const icon = L.divIcon({
+    className: "bg-accent rounded-full size-4 border-2 border-white",
+    html: "",
+  });
+
   return (
     <>
-      <Marker position={position}></Marker>
-      <Circle
-        center={position}
-        pathOptions={{
-          fillColor: "var(--color-accent)",
-          color: "var(--color-accent)",
-          weight: 1.5,
-          fillOpacity: 0.15,
-        }}
-        radius={safeRadius}
-      />
+      <Marker position={position} icon={!readOnly ? icon : undefined}></Marker>
+      {!readOnly && (
+        <Circle
+            center={position}
+            pathOptions={{
+            fillColor: "var(--color-accent)",
+            color: "var(--color-accent)",
+            weight: 1.5,
+            fillOpacity: 0.15,
+            }}
+            radius={safeRadius}
+        />
+      )}
     </>
   );
 }
 
-export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
+export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMapMatrixProps) {
   const { theme } = useTheme();
+  const { isFullscreen, toggleFullscreen } = useMapContext();
   const [position, setPosition] = useState<L.LatLng | null>(() => {
     if (
       location &&
@@ -177,7 +189,53 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
   const [radius, setRadius] = useState<number>(location?.radius || 200);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackPath, setTrackPath] = useState<L.LatLng[]>([]);
+  const mapRef = useRef<L.Map>(null);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  const toggleTracking = () => {
+    if (isTracking) {
+      setIsTracking(false);
+      setTrackPath([]);
+    } else {
+      setIsTracking(true);
+      setTrackPath(position ? [position] : []);
+    }
+  };
+
+  useEffect(() => {
+    let watchId: number;
+    if (isTracking) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const newPos = new L.LatLng(pos.coords.latitude, pos.coords.longitude);
+          setPosition(newPos);
+          setTrackPath((prev) => [...prev, newPos]);
+        },
+        (err) => toast.error(`Tracking error: ${err.message}`),
+        { enableHighAccuracy: true },
+      );
+    }
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isTracking]);
+
+  const locateMe = () => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setPosition(new L.LatLng(pos.coords.latitude, pos.coords.longitude));
+      },
+      (err) => toast.error(`Location error: ${err.message}`),
+      { enableHighAccuracy: true },
+    );
+  };
 
   useEffect(() => {
     if (
@@ -222,7 +280,7 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
         lngDiff > 1e-6 ||
         Math.abs((location.radius || 0) - radius) > 0.1;
 
-      if (hasChanged) {
+      if (onChange && hasChanged) {
         onChange({ lat: position.lat, lng: position.lng, radius });
       }
     }
@@ -262,6 +320,7 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
 
   return (
     <div className="space-y-4">
+      {/* ... (radius buttons and search input) ... */}
       <div className="grid gap-3 sm:grid-cols-3">
         <RadiusButton
           label="Small Building (~50m)"
@@ -311,18 +370,37 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
         <div
           className={
             isFullscreen
-              ? "fixed inset-0 z-[9999] bg-background"
+              ? "fixed inset-0 z-[10000] w-screen h-screen bg-background overflow-hidden"
               : "rounded-xl overflow-hidden border border-white/10 h-72 bg-white/5 relative z-0 shadow-inner"
           }
         >
           <button
             type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="absolute bottom-6 left-6 z-[1000] bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition"
+            onClick={toggleFullscreen}
+            className="absolute bottom-6 left-6 z-[10001] bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition"
             aria-label="Toggle Fullscreen"
           >
             {isFullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
           </button>
+          
+          {!readOnly && (
+            <div className="absolute bottom-6 right-6 z-[10001] flex gap-2">
+              <button
+                onClick={locateMe}
+                className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono"
+              >
+                Locate
+              </button>
+              <button
+                onClick={toggleTracking}
+                className={`${
+                  isTracking ? "bg-red-500 text-white" : "bg-background/90 text-foreground"
+                } backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono`}
+              >
+                {isTracking ? "Stop" : "Track"}
+              </button>
+            </div>
+          )}
 
           <MapContainer
             center={
@@ -339,35 +417,33 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
             touchZoom={true}
             className={theme === "dark" ? "brightness-[0.85] contrast-[1.1] saturate-[0.8]" : ""}
           >
+            {/* ... map layers and controls ... */}
             <ZoomControl position="topright" />
             <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Cymatic Dark (Institutional)">
+              <LayersControl.BaseLayer checked name="Terrain (Esri)">
                 <TileLayer
                   attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-                  maxZoom={20}
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+                  minZoom={2}
+                  maxZoom={21}
+                  maxNativeZoom={19}
                 />
               </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Cymatic Light (Professional)">
+              <LayersControl.BaseLayer name="OpenStreetMap">
                 <TileLayer
-                  attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-                  maxZoom={20}
-                />
-              </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Satellite Precision">
-                <TileLayer
-                  attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                  maxZoom={19}
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  minZoom={2}
+                  maxZoom={21}
+                  maxNativeZoom={19}
                 />
               </LayersControl.BaseLayer>
             </LayersControl>
 
             <ScaleControl position="bottomleft" />
             <MapGeocoder setPosition={setPosition} />
-            <LocationMarker position={position} radius={radius} setPosition={setPosition} />
-            <MapUpdater position={position} isFullscreen={isFullscreen} />
+            <LocationMarker position={position} radius={radius} setPosition={setPosition} readOnly={readOnly} />
+            <MapUpdater position={position} />
 
             {/* Resonance Pulse Overlay */}
             {isLeafletLatLng(position) && (
@@ -383,6 +459,10 @@ export function AdminMapMatrix({ location, onChange }: AdminMapMatrixProps) {
                 }}
                 className="animate-pulse"
               />
+            )}
+            {/* Live Tracking Path */}
+            {isTracking && trackPath.length > 1 && (
+              <Polyline positions={trackPath} pathOptions={{ color: "var(--color-accent)", weight: 4 }} />
             )}
           </MapContainer>
           {!position && (
