@@ -30,8 +30,18 @@ function ReportingPage() {
       .order("attendance_date", { ascending: false });
 
     if (att) {
+      type AttendanceRow = {
+        checked_in_at: string;
+        checked_out_at: string | null;
+        total_break_minutes: number | null;
+        status: string | null;
+        is_late: boolean | null;
+        note: string | null;
+        profiles?: { full_name: string | null; category: string | null } | null;
+      };
+
       setRows(
-        att.map((r: Record<string, unknown>) => {
+        (att as unknown as AttendanceRow[]).map((r) => {
           let dur = 0;
           if (r.checked_out_at) {
             dur =
@@ -48,8 +58,8 @@ function ReportingPage() {
           if (typeof r.note === "string" && r.note.startsWith("{")) {
             try {
               noteObj = JSON.parse(r.note) as Record<string, unknown>;
-            } catch (e) {
-              // ignore
+            } catch {
+              // ignore malformed telemetry payloads
             }
           }
           const telemetryStatus = (noteObj?.telemetry as { status?: string })?.status || "verified";
