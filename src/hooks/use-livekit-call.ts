@@ -145,7 +145,13 @@ export function useLiveKitCall(opts: {
           }
         }
 
-        const url = import.meta.env.VITE_LIVEKIT_URL || "wss://livekit.cymatichub.xyz";
+        const url = import.meta.env.VITE_LIVEKIT_URL;
+
+        if (!url || !token) {
+          console.warn("LiveKit not configured or token unavailable, falling back to P2P.");
+          // P2P logic here if any, or just exit to prevent crash
+          return;
+        }
 
         if (cancelled) return;
 

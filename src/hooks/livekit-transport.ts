@@ -20,7 +20,11 @@ export class LiveKitTransport implements CallTransport {
 
   async connect(roomId: string, userId: string) {
     const token = await this.fetchToken(roomId, userId);
-    const livekitUrl = import.meta.env.VITE_LIVEKIT_URL || "wss://livekit.cymatichub.xyz";
+    const livekitUrl = import.meta.env.VITE_LIVEKIT_URL;
+    if (!livekitUrl) {
+      console.warn("LiveKit URL not configured.");
+      return;
+    }
 
     if (!token) {
       throw new Error("Failed to acquire valid LiveKit JWT token.");

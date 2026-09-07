@@ -3,6 +3,9 @@
   "name": "cymatic-resonance",
   "compatibility_date": "2026-08-01",
   "pages_build_output_dir": "./dist",
+  "assets": {
+    "directory": "./dist"
+  },
   "observability": {
     "enabled": true,
   },
