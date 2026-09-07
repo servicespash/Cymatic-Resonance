@@ -19,6 +19,11 @@ function SelfRushPage() {
   const [busy, setBusy] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300);
 
+  const handleEndSession = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/self-rush?code=" + code;
+  }, [code]);
+
   useEffect(() => {
     if (step === 2) {
       const t = setInterval(() => {
@@ -87,11 +92,6 @@ function SelfRushPage() {
       handleEndSession();
     }
   };
-
-  const handleEndSession = useCallback(async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/self-rush?code=" + code;
-  }, [code]);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-[#030712] text-white">

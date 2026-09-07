@@ -16,18 +16,29 @@ export interface ExportRow {
   telemetry?: string | null;
 }
 
-interface RegistryExportProps {
+export interface RegistryExportProps {
   selectedCount?: number;
   availableRows?: ExportRow[];
+  rangeFrom?: Date;
+  rangeTo?: Date;
+  onExportLogged?: (
+    format: "pdf" | "excel",
+    rowCount: number,
+    scope: "all" | "selected",
+  ) => Promise<void>;
 }
 
-export const RegistryExport = ({ selectedCount = 0, availableRows = [] }: RegistryExportProps) => {
+export const RegistryExport = ({
+  selectedCount = 0,
+  availableRows = [],
+  onExportLogged,
+}: RegistryExportProps) => {
   const qrRef = useRef<SVGSVGElement>(null);
 
   const handleExport = async (format: "pdf" | "excel") => {
     const isSelectedMode = selectedCount > 0;
     const rowCount = isSelectedMode ? selectedCount : availableRows.length;
-    const scope = isSelectedMode ? "selected" : "all";
+    const scope: "all" | "selected" = isSelectedMode ? "selected" : "all";
 
     if (rowCount === 0) {
       toast.error(`No rows to export for ${format.toUpperCase()}`);

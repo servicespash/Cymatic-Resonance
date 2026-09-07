@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SelfRushRouteImport } from './routes/self-rush'
 import { Route as AuthenticatedCommsRouteImport } from './routes/_authenticated/comms'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDirectoryRouteImport } from './routes/_authenticated/directory'
@@ -35,9 +35,9 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const SelfRushRoute = SelfRushRouteImport.update({
+  id: '/self-rush',
+  path: '/self-rush',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCommsRoute = AuthenticatedCommsRouteImport.update({
@@ -79,7 +79,7 @@ const OauthConsentRoute = OauthConsentRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/self-rush': typeof SelfRushRoute
   '/comms': typeof AuthenticatedCommsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/directory': typeof AuthenticatedDirectoryRoute
@@ -91,7 +91,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/self-rush': typeof SelfRushRoute
   '/comms': typeof AuthenticatedCommsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/directory': typeof AuthenticatedDirectoryRoute
@@ -105,7 +105,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/self-rush': typeof SelfRushRoute
   '/_authenticated/comms': typeof AuthenticatedCommsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/directory': typeof AuthenticatedDirectoryRoute
@@ -119,7 +119,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/sitemap.xml'
+    | '/self-rush'
     | '/comms'
     | '/dashboard'
     | '/directory'
@@ -131,7 +131,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/sitemap.xml'
+    | '/self-rush'
     | '/comms'
     | '/dashboard'
     | '/directory'
@@ -144,7 +144,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/sitemap.xml'
+    | '/self-rush'
     | '/_authenticated/comms'
     | '/_authenticated/dashboard'
     | '/_authenticated/directory'
@@ -158,7 +158,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SelfRushRoute: typeof SelfRushRoute
   OauthConsentRoute: typeof OauthConsentRoute
 }
 
@@ -185,11 +185,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
+    '/self-rush': {
+      id: '/self-rush'
+      path: '/self-rush'
+      fullPath: '/self-rush'
+      preLoaderRoute: typeof SelfRushRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/comms': {
@@ -269,19 +269,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SelfRushRoute: SelfRushRoute,
   OauthConsentRoute: OauthConsentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
