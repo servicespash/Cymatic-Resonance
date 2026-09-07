@@ -113,7 +113,12 @@ function PulsePage() {
   };
 
   const [showGreeting, setShowGreeting] = useState(false);
-  const [greetingData, setGreetingData] = useState<Record<string, unknown> | null>(null);
+  const [greetingData, setGreetingData] = useState<{
+    name: string;
+    institution: string;
+    status: string;
+    tasksCount: number;
+  } | null>(null);
 
   const [lastTelemetry, setLastTelemetry] = useState<{
     status: string;
@@ -133,23 +138,7 @@ function PulsePage() {
 
     let locFound = false;
 
-    // 1. Fetch workspace settings for map
-    const { data: ws } = await supabase.from("workspaces").select("settings").maybeSingle();
-    if (
-      ws?.settings?.location &&
-      isValidLatLng(ws.settings.location.lat, ws.settings.location.lng)
-    ) {
-      setStationLocation({
-        lat: Number(ws.settings.location.lat),
-        lng: Number(ws.settings.location.lng),
-        radius:
-          typeof ws.settings.location.radius === "number" && !isNaN(ws.settings.location.radius)
-            ? ws.settings.location.radius
-            : 200,
-      });
-      locFound = true;
-    }
-
+    // Workspace-level map settings are stored on the organization record.
     // 2. If not found in workspace settings, query organization
     if (!locFound) {
       const { data: p } = await supabase
@@ -239,12 +228,12 @@ function PulsePage() {
       const { data: p } = await supabase
         .from("profiles")
         .select("org_id, full_name")
-        .eq("id", user?.id)
+        .eq("id", user?.id ?? "")
         .single();
       const { data: o } = await supabase
         .from("organizations")
         .select("name, org_type")
-        .eq("id", p?.org_id)
+        .eq("id", p?.org_id ?? "")
         .single();
 
       const parsedType = parseOrgType(o?.org_type || "");
@@ -324,7 +313,7 @@ function PulsePage() {
       const { count } = await supabase
         .from("tasks")
         .select("*", { count: "exact", head: true })
-        .eq("assignee_id", user?.id)
+        .eq("assigned_to", user?.id ?? "")
         .eq("status", "pending");
 
       const telemetryObj = { status, variance, lat: externalLat, lng: externalLng };
