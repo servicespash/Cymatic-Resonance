@@ -21,7 +21,7 @@ export const getRouter = () => {
           Routing Exception
         </h2>
         <pre className="mt-3 max-w-lg overflow-x-auto rounded border border-red-900/40 bg-red-950/20 p-4">
-          {error.message}
+          {error instanceof Error ? error.message : String(error)}
         </pre>
       </div>
     ),

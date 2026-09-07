@@ -21,7 +21,11 @@ export interface RegistryExportProps {
   availableRows?: ExportRow[];
   rangeFrom?: Date;
   rangeTo?: Date;
-  onExportLogged?: (format: "pdf" | "excel", rowCount: number, scope: string) => Promise<void>;
+  onExportLogged?: (
+    format: "pdf" | "excel",
+    rowCount: number,
+    scope: "all" | "selected",
+  ) => Promise<void>;
 }
 
 export const RegistryExport = ({
@@ -34,7 +38,7 @@ export const RegistryExport = ({
   const handleExport = async (format: "pdf" | "excel") => {
     const isSelectedMode = selectedCount > 0;
     const rowCount = isSelectedMode ? selectedCount : availableRows.length;
-    const scope = isSelectedMode ? "selected" : "all";
+    const scope: "all" | "selected" = isSelectedMode ? "selected" : "all";
 
     if (rowCount === 0) {
       toast.error(`No rows to export for ${format.toUpperCase()}`);
