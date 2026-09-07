@@ -9,7 +9,7 @@ const plugins: PluginOption[] = [
   tailwindcss(),
   tsconfigPaths(),
   VitePWA({
-    registerType: "prompt", // Changed from "autoUpdate" to avoid force-loading stale content
+    registerType: "autoUpdate",
     manifest: {
       name: "Cymatic Resonance",
       short_name: "Cymatic",
@@ -19,7 +19,6 @@ const plugins: PluginOption[] = [
     workbox: {
       globPatterns: ["**/*.{js,css,html,png,svg}"],
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-      // Skip waiting so new service workers activate immediately
       skipWaiting: true,
       clientsClaim: true,
       navigateFallback: null,
