@@ -15,8 +15,9 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-control-geocoder/dist/Control.Geocoder.css";
 import "leaflet-control-geocoder";
 import L from "leaflet";
-import { MapPin, Check, Search, Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { MapPin, Check, Search, Loader2, Maximize2, Minimize2, Download, Trash, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { toPng } from "html-to-image";
 import { useTheme } from "@/lib/use-theme";
 import { useMapContext } from "@/context/map-context";
 import { useMapTracking } from "@/hooks/use-map-tracking";
@@ -48,6 +49,48 @@ interface AdminMapMatrixProps {
   location: LocationData | null;
   onChange?: (loc: LocationData) => void;
   readOnly?: boolean;
+}
+
+function MapLegend() {
+  const map = useMap();
+  
+  useEffect(() => {
+    const legend = new L.Control({ position: "bottomright" });
+
+    legend.onAdd = () => {
+      const div = L.DomUtil.create("div", "info legend bg-background/90 backdrop-blur border border-border p-3 rounded-xl shadow-lg text-xs font-mono");
+      
+      div.innerHTML = `
+        <div class="flex flex-col gap-2">
+          <div class="font-bold border-b border-white/10 pb-1 mb-1 text-foreground">Map Legend</div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded-full border-2 border-white bg-accent"></div>
+            <span class="text-muted-foreground">Location Pin</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded-full border border-accent bg-accent/20"></div>
+            <span class="text-muted-foreground">Radius Zone</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-1 bg-accent"></div>
+            <span class="text-muted-foreground">Tracking Path</span>
+          </div>
+        </div>
+      `;
+      
+      // Stop clicks from propagating to the map
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    };
+
+    legend.addTo(map);
+
+    return () => {
+      legend.remove();
+    };
+  }, [map]);
+
+  return null;
 }
 
 class AdminMapBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -194,8 +237,10 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [isSearching, setIsSearching] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
-  const { trackPath, currentPosition } = useMapTracking(isTracking);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const { trackPath, currentPosition, clearTracking, exportGPX } = useMapTracking(isTracking);
   const mapRef = useRef<L.Map>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentPosition) setPosition(currentPosition);
@@ -213,6 +258,38 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
       (err) => toast.error(`Location error: ${err.message}`),
       { enableHighAccuracy: true },
     );
+  };
+
+  const captureMap = async () => {
+    if (!mapContainerRef.current) return;
+    setIsCapturing(true);
+    try {
+      const url = await toPng(mapContainerRef.current, {
+        cacheBust: true,
+        filter: (node) => {
+          if (node instanceof HTMLElement && node.classList) {
+            return !(
+              node.classList.contains("leaflet-control-zoom") ||
+              node.classList.contains("leaflet-control-layers") ||
+              node.classList.contains("leaflet-control-attribution")
+            );
+          }
+          return true;
+        },
+      });
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cymatic-map-snapshot-${new Date().toISOString()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Map snapshot downloaded");
+    } catch (err) {
+      console.error("Failed to capture map", err);
+      toast.error("Failed to capture map snapshot");
+    } finally {
+      setIsCapturing(false);
+    }
   };
 
   useEffect(() => {
@@ -353,12 +430,25 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
       <AdminMapBoundary>
         <MapPortal onClose={toggleFullscreen}>
           <div
+            ref={mapContainerRef}
             className={
               isFullscreen
                 ? "w-screen h-screen bg-background"
                 : "rounded-xl overflow-hidden border border-white/10 h-72 bg-white/5 relative z-0 shadow-inner"
             }
           >
+            <div className="absolute top-6 left-6 z-[10001] flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={captureMap}
+                disabled={isCapturing}
+                className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition flex items-center justify-center disabled:opacity-50"
+                title="Capture Map Snapshot"
+              >
+                {isCapturing ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5" />}
+              </button>
+            </div>
+            
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -369,21 +459,41 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
             </button>
             
             {!readOnly && (
-              <div className="absolute bottom-6 right-6 z-[10001] flex gap-2">
-                <button
-                  onClick={locateMe}
-                  className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono"
-                >
-                  Locate
-                </button>
-                <button
-                  onClick={toggleTracking}
-                  className={`${
-                    isTracking ? "bg-red-500 text-white" : "bg-background/90 text-foreground"
-                  } backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono`}
-                >
-                  {isTracking ? "Stop" : "Track"}
-                </button>
+              <div className="absolute bottom-6 right-6 z-[10001] flex flex-col gap-2 items-end">
+                {trackPath.length > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={exportGPX}
+                      className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono flex items-center gap-1"
+                      title="Download Tracking History (GPX)"
+                    >
+                      <Download className="size-3" /> GPX
+                    </button>
+                    <button
+                      onClick={clearTracking}
+                      className="bg-background/90 text-red-500 backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono flex items-center gap-1"
+                      title="Clear Tracking History"
+                    >
+                      <Trash className="size-3" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={locateMe}
+                    className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono"
+                  >
+                    Locate
+                  </button>
+                  <button
+                    onClick={toggleTracking}
+                    className={`${
+                      isTracking ? "bg-red-500 text-white" : "bg-background/90 text-foreground"
+                    } backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono`}
+                  >
+                    {isTracking ? "Stop" : "Track"}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -405,6 +515,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
             >
               {/* ... map layers and controls ... */}
               <ZoomControl position="topright" />
+              <MapLegend />
               <LayersControl position="topright">
                 <LayersControl.BaseLayer checked name="Terrain (Esri)">
                   <TileLayer

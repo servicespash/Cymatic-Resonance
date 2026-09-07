@@ -26,6 +26,22 @@ const plugins: PluginOption[] = [
       navigateFallbackDenylist: [/^\/auth/],
       // Ensure the sw itself is not cached aggressively
       cleanupOutdatedCaches: true,
+      runtimeCaching: [
+        {
+          urlPattern: /^https:\/\/(tile\.openstreetmap\.org|server\.arcgisonline\.com)\/.*/i,
+          handler: "CacheFirst",
+          options: {
+            cacheName: "map-tiles-cache",
+            expiration: {
+              maxEntries: 500,
+              maxAgeSeconds: 60 * 60 * 24 * 30, // 30 Days
+            },
+            cacheableResponse: {
+              statuses: [0, 200],
+            },
+          },
+        },
+      ],
     },
   }),
 ];
