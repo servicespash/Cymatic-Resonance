@@ -19,6 +19,9 @@ import { MapPin, Check, Search, Loader2, Maximize2, Minimize2 } from "lucide-rea
 import { toast } from "sonner";
 import { useTheme } from "@/lib/use-theme";
 import { useMapContext } from "@/context/map-context";
+import { useMapTracking } from "@/hooks/use-map-tracking";
+import { useDebounce } from "@/hooks/use-debounce";
+import { MapPortal } from "./map-portal";
 
 import { DEFAULT_FALLBACK_LOCATION, isValidLatLng } from "@/lib/geo";
 
@@ -188,44 +191,19 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
   });
   const [radius, setRadius] = useState<number>(location?.radius || 200);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [isSearching, setIsSearching] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
-  const [trackPath, setTrackPath] = useState<L.LatLng[]>([]);
+  const { trackPath, currentPosition } = useMapTracking(isTracking);
   const mapRef = useRef<L.Map>(null);
 
   useEffect(() => {
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
-
-  const toggleTracking = () => {
-    if (isTracking) {
-      setIsTracking(false);
-      setTrackPath([]);
-    } else {
-      setIsTracking(true);
-      setTrackPath(position ? [position] : []);
-    }
-  };
+    if (currentPosition) setPosition(currentPosition);
+  }, [currentPosition]);
 
   useEffect(() => {
-    let watchId: number;
-    if (isTracking) {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const newPos = new L.LatLng(pos.coords.latitude, pos.coords.longitude);
-          setPosition(newPos);
-          setTrackPath((prev) => [...prev, newPos]);
-        },
-        (err) => toast.error(`Tracking error: ${err.message}`),
-        { enableHighAccuracy: true },
-      );
-    }
-    return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-    };
-  }, [isTracking]);
+    if (debouncedSearchQuery) handleSearch();
+  }, [debouncedSearchQuery]);
 
   const locateMe = () => {
     navigator.geolocation.getCurrentPosition(
@@ -287,24 +265,30 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position?.lat, position?.lng, radius, onChange]);
 
+  const toggleTracking = () => {
+    setIsTracking((prev) => !prev);
+  };
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    if (!debouncedSearchQuery.trim()) return;
     setIsSearching(true);
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery,
-        )}`,
+          debouncedSearchQuery,
+        )}&addressdetails=1&limit=5`,
       );
       const data = await res.json();
       if (data && data.length > 0) {
-        const { lat, lon } = data[0];
+        const { lat, lon, display_name } = data[0];
         const latNum = parseFloat(lat);
         const lngNum = parseFloat(lon);
 
         if (!isNaN(latNum) && !isNaN(lngNum)) {
           const newPos = new L.LatLng(latNum, lngNum);
           setPosition(newPos);
+          mapRef.current?.flyTo(newPos, 16, { animate: true, duration: 1.5 });
+          toast.success(`Found: ${display_name}`);
         } else {
           toast.error("Invalid location coordinates found.");
         }
@@ -367,115 +351,118 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
       </div>
 
       <AdminMapBoundary>
-        <div
-          className={
-            isFullscreen
-              ? "fixed inset-0 z-[10000] w-screen h-screen bg-background overflow-hidden"
-              : "rounded-xl overflow-hidden border border-white/10 h-72 bg-white/5 relative z-0 shadow-inner"
-          }
-        >
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="absolute bottom-6 left-6 z-[10001] bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition"
-            aria-label="Toggle Fullscreen"
-          >
-            {isFullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
-          </button>
-          
-          {!readOnly && (
-            <div className="absolute bottom-6 right-6 z-[10001] flex gap-2">
-              <button
-                onClick={locateMe}
-                className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono"
-              >
-                Locate
-              </button>
-              <button
-                onClick={toggleTracking}
-                className={`${
-                  isTracking ? "bg-red-500 text-white" : "bg-background/90 text-foreground"
-                } backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono`}
-              >
-                {isTracking ? "Stop" : "Track"}
-              </button>
-            </div>
-          )}
-
-          <MapContainer
-            center={
-              isLeafletLatLng(position)
-                ? position
-                : [DEFAULT_FALLBACK_LOCATION.lat, DEFAULT_FALLBACK_LOCATION.lng]
+        <MapPortal onClose={toggleFullscreen}>
+          <div
+            className={
+              isFullscreen
+                ? "w-screen h-screen bg-background"
+                : "rounded-xl overflow-hidden border border-white/10 h-72 bg-white/5 relative z-0 shadow-inner"
             }
-            zoom={13}
-            minZoom={3}
-            maxZoom={20}
-            zoomControl={false}
-            style={{ height: "100%", width: "100%" }}
-            preferCanvas={true}
-            touchZoom={true}
-            className={theme === "dark" ? "brightness-[0.85] contrast-[1.1] saturate-[0.8]" : ""}
           >
-            {/* ... map layers and controls ... */}
-            <ZoomControl position="topright" />
-            <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Terrain (Esri)">
-                <TileLayer
-                  attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
-                  minZoom={2}
-                  maxZoom={21}
-                  maxNativeZoom={19}
-                />
-              </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="OpenStreetMap">
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  minZoom={2}
-                  maxZoom={21}
-                  maxNativeZoom={19}
-                />
-              </LayersControl.BaseLayer>
-            </LayersControl>
-
-            <ScaleControl position="bottomleft" />
-            <MapGeocoder setPosition={setPosition} />
-            <LocationMarker position={position} radius={radius} setPosition={setPosition} readOnly={readOnly} />
-            <MapUpdater position={position} />
-
-            {/* Resonance Pulse Overlay */}
-            {isLeafletLatLng(position) && (
-              <Circle
-                center={position}
-                radius={radius * 1.5}
-                pathOptions={{
-                  fillColor: "var(--color-accent)",
-                  fillOpacity: 0.05,
-                  color: "var(--color-accent)",
-                  weight: 1,
-                  dashArray: "4, 8",
-                }}
-                className="animate-pulse"
-              />
-            )}
-            {/* Live Tracking Path */}
-            {isTracking && trackPath.length > 1 && (
-              <Polyline positions={trackPath} pathOptions={{ color: "var(--color-accent)", weight: 4 }} />
-            )}
-          </MapContainer>
-          {!position && (
-            <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
-              <div className="text-center">
-                <MapPin className="size-8 mx-auto mb-2 text-accent" />
-                <p className="font-mono text-xs text-white">
-                  Search or click map to set Station Pin
-                </p>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="absolute bottom-6 left-6 z-[10001] bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition"
+              aria-label="Toggle Fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
+            </button>
+            
+            {!readOnly && (
+              <div className="absolute bottom-6 right-6 z-[10001] flex gap-2">
+                <button
+                  onClick={locateMe}
+                  className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono"
+                >
+                  Locate
+                </button>
+                <button
+                  onClick={toggleTracking}
+                  className={`${
+                    isTracking ? "bg-red-500 text-white" : "bg-background/90 text-foreground"
+                  } backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition text-xs font-mono`}
+                >
+                  {isTracking ? "Stop" : "Track"}
+                </button>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+
+            <MapContainer
+              center={
+                isLeafletLatLng(position)
+                  ? position
+                  : [DEFAULT_FALLBACK_LOCATION.lat, DEFAULT_FALLBACK_LOCATION.lng]
+              }
+              zoom={13}
+              minZoom={3}
+              maxZoom={20}
+              zoomControl={false}
+              style={{ height: "100%", width: "100%" }}
+              preferCanvas={true}
+              touchZoom={true}
+              className={theme === "dark" ? "brightness-[0.85] contrast-[1.1] saturate-[0.8]" : ""}
+              whenReady={(map) => (mapRef.current = map.target)}
+            >
+              {/* ... map layers and controls ... */}
+              <ZoomControl position="topright" />
+              <LayersControl position="topright">
+                <LayersControl.BaseLayer checked name="Terrain (Esri)">
+                  <TileLayer
+                    attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+                    minZoom={2}
+                    maxZoom={21}
+                    maxNativeZoom={19}
+                  />
+                </LayersControl.BaseLayer>
+                <LayersControl.BaseLayer name="OpenStreetMap">
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    minZoom={2}
+                    maxZoom={21}
+                    maxNativeZoom={19}
+                  />
+                </LayersControl.BaseLayer>
+              </LayersControl>
+
+              <ScaleControl position="bottomleft" />
+              <MapGeocoder setPosition={setPosition} />
+              <LocationMarker position={position} radius={radius} setPosition={setPosition} readOnly={readOnly} />
+              <MapUpdater position={position} />
+
+              {/* Resonance Pulse Overlay */}
+              {isLeafletLatLng(position) && (
+                <Circle
+                  center={position}
+                  radius={radius * 1.5}
+                  pathOptions={{
+                    fillColor: "var(--color-accent)",
+                    fillOpacity: 0.05,
+                    color: "var(--color-accent)",
+                    weight: 1,
+                    dashArray: "4, 8",
+                  }}
+                  className="animate-pulse"
+                />
+              )}
+              {/* Live Tracking Path */}
+              {isTracking && trackPath.length > 1 && (
+                <Polyline positions={trackPath} pathOptions={{ color: "var(--color-accent)", weight: 4 }} />
+              )}
+            </MapContainer>
+            {!position && (
+              <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
+                <div className="text-center">
+                  <MapPin className="size-8 mx-auto mb-2 text-accent" />
+                  <p className="font-mono text-xs text-white">
+                    Search or click map to set Station Pin
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </MapPortal>
       </AdminMapBoundary>
     </div>
   );
@@ -510,40 +497,8 @@ function MapGeocoder({ setPosition }: { setPosition: (pos: L.LatLng) => void }) 
   const map = useMap();
 
   useEffect(() => {
-    try {
-      // @ts-expect-error - Leaflet Geocoder control is not properly typed in the current version
-      const geocoder = L.Control.geocoder({
-        defaultMarkGeocode: false,
-        position: "topleft",
-      })
-        .on(
-          "markgeocode",
-          function (e: { geocode?: { center?: L.LatLng; bbox?: L.LatLngBoundsExpression } }) {
-            const latlng = e.geocode?.center;
-            if (latlng && isValidLatLng(latlng.lat, latlng.lng)) {
-              setPosition(latlng);
-              if (e.geocode?.bbox) {
-                try {
-                  map.fitBounds(e.geocode.bbox);
-                } catch {
-                  // ignore
-                }
-              }
-            }
-          },
-        )
-        .addTo(map);
-
-      return () => {
-        try {
-          map.removeControl(geocoder);
-        } catch {
-          // ignore
-        }
-      };
-    } catch (err) {
-      console.warn("Geocoder control setup skipped:", err);
-    }
+    // Custom Nominatim search implementation is already handled by handleSearch in AdminMapMatrix,
+    // so we can remove the Leaflet Geocoder control that was relying on a third-party plugin.
   }, [map, setPosition]);
 
   return null;
