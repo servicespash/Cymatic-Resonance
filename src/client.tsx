@@ -8,6 +8,17 @@ import { ErrorBoundary } from "./components/error-boundary";
 import { pingSupabase } from "./lib/supabase-check";
 
 // Pre-warm Supabase connection during idle periods to speed up initial auth check
+// Global error handler to catch initialization failures
+window.addEventListener("error", (event) => {
+  const rootElement = document.getElementById("root");
+  if (rootElement) {
+    rootElement.innerHTML = `<div style="padding: 20px; color: red; border: 2px solid red; font-family: monospace;">
+      <h1>CRITICAL ERROR</h1>
+      <p>${event.message}</p>
+      <pre>${event.error?.stack || "No stack trace"}</pre>
+    </div>`;
+  }
+});
 interface WindowWithIdle {
   requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
 }
