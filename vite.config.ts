@@ -14,6 +14,8 @@ const plugins: PluginOption[] = [
       name: "Cymatic Resonance",
       short_name: "Cymatic",
       theme_color: "#000000",
+      scope: "/",
+      start_url: "/",
       icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml" }],
     },
     workbox: {
@@ -22,6 +24,8 @@ const plugins: PluginOption[] = [
       skipWaiting: true,
       clientsClaim: true,
       navigateFallback: "/index.html",
+      // Exclude static SEO assets from Service Worker caching
+      navigateFallbackDenylist: [/^\/sitemap\.xml$/, /^\/robots\.txt$/],
       // Ensure the sw itself is not cached aggressively
       cleanupOutdatedCaches: true,
       runtimeCaching: [
