@@ -103,7 +103,7 @@ function SettingsPage() {
       setMembers((mem ?? []) as Member[]);
     }
     setLoading(false);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();

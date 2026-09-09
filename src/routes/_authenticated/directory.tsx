@@ -50,7 +50,7 @@ function DirectoryPage() {
       setRows((data ?? []) as Row[]);
       setLoading(false);
     })();
-  }, [user]);
+  }, [user?.id]);
 
   const filtered = rows.filter(
     (r) =>

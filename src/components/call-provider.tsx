@@ -26,9 +26,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<Record<string, Sender>>({});
   const [incoming, setIncoming] = useState<Call | null>(null);
-  const [active, setActive] = useState<{ id: string; kind: "audio" | "video"; initiator_id?: string } | null>(null);
+  const [active, setActive] = useState<{
+    id: string;
+    kind: "audio" | "video";
+    initiator_id?: string;
+  } | null>(null);
   const ringtone = useRef(createRingtone());
   const activeCallRef = useRef<string | null>(null);
+  const membersRef = useRef(members);
+  membersRef.current = members;
 
   useEffect(() => {
     activeCallRef.current = active?.id ?? null;
@@ -66,7 +72,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user || !orgId) return;
@@ -98,7 +104,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
           setIncoming(c);
           ringtoneRef.start();
-          const who = members[c.initiator_id]?.full_name ?? "Someone";
+          const who = membersRef.current[c.initiator_id]?.full_name ?? "Someone";
           notify(`Incoming ${c.kind} call`, {
             body: `${who} is calling`,
             tag: `call-${c.id}`,
@@ -133,7 +139,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
       ringtoneRef.stop();
     };
-  }, [user, orgId, members, incoming?.id]);
+  }, [user?.id, orgId, incoming?.id]);
 
   const startCall = useCallback(
     async (channelId: string, recipientIds: string[], kind: "audio" | "video") => {
@@ -217,7 +223,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
         { onConflict: "call_id,user_id" },
       );
       await supabase.from("calls").update({ status: "active" }).eq("id", callId);
-      const { data: call } = await supabase.from("calls").select("initiator_id").eq("id", callId).single();
+      const { data: call } = await supabase
+        .from("calls")
+        .select("initiator_id")
+        .eq("id", callId)
+        .single();
       setActive({ id: callId, kind, initiator_id: call?.initiator_id });
     },
     [user],

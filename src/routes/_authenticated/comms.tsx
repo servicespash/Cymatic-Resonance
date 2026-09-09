@@ -89,7 +89,12 @@ function CommsPage() {
   const [pending] = useState<string[]>([]);
 
   const active = activeChannel;
-  const { data: activeMessages = [], isLoading: loadingMessages } = useMessages(active?.id || null);
+  const { data: rawMessages, isLoading: loadingMessages } = useMessages(active?.id || null);
+  const activeMessages = useMemo(() => rawMessages ?? [], [rawMessages]);
+  const activeMessageIdsKey = useMemo(
+    () => activeMessages.map((m) => m.id).join(","),
+    [activeMessages],
+  );
   const deleteMessageMutation = useDeleteMessage();
   const softDeleteMessageMutation = useSoftDeleteMessage();
   const setActive = setActiveChannel;
@@ -348,13 +353,18 @@ function CommsPage() {
     setUnreadCountsStable,
   ]);
 
-  const fetchActiveAttachmentsAndReactions = useCallback(() => {
-    if (!active || activeMessages.length === 0) {
-      setReactionsStable([]);
-      setAttachmentsStable([]);
+  useEffect(() => {
+    if (!active || !activeMessageIdsKey) {
+      setReactionsStable((prev) => (prev.length === 0 ? prev : []));
+      setAttachmentsStable((prev) => (prev.length === 0 ? prev : []));
       return;
     }
-    const ids = activeMessages.map((m) => m.id);
+    const ids = activeMessageIdsKey.split(",").filter(Boolean);
+    if (ids.length === 0) {
+      setReactionsStable((prev) => (prev.length === 0 ? prev : []));
+      setAttachmentsStable((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
     Promise.all([
       supabase.from("message_reactions").select("*").in("message_id", ids),
       supabase.from("message_attachments").select("*").in("message_id", ids),
@@ -362,11 +372,7 @@ function CommsPage() {
       if (rx) setReactionsStable(rx.map((r) => ({ ...r, message_id: r.message_id })));
       if (att) setAttachmentsStable(att as Attachment[]);
     });
-  }, [active, activeMessages, setReactionsStable, setAttachmentsStable]);
-
-  useEffect(() => {
-    fetchActiveAttachmentsAndReactions();
-  }, [fetchActiveAttachmentsAndReactions]);
+  }, [active?.id, activeMessageIdsKey, setReactionsStable, setAttachmentsStable]);
 
   const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;

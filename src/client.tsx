@@ -14,15 +14,19 @@ interface WindowWithIdle {
 
 if (typeof window !== "undefined") {
   const prewarm = async () => {
-    // Ping for diagnostic
-    const status = await pingSupabase();
-    console.log("Supabase connection status:", status);
+    try {
+      // Ping for diagnostic
+      const status = await pingSupabase();
+      console.log("Supabase connection status:", status);
 
-    // Just accessing a property on the proxy triggers the client initialization
-    // and calling getSession starts the network request early.
-    supabase.auth.getSession().catch((e) => {
-      console.error("Auth pre-warm error:", e);
-    });
+      // Just accessing a property on the proxy triggers the client initialization
+      // and calling getSession starts the network request early.
+      supabase.auth.getSession().catch((e) => {
+        console.error("Auth pre-warm error:", e);
+      });
+    } catch (err) {
+      console.warn("Pre-warm skipped or failed:", err);
+    }
   };
 
   if ("requestIdleCallback" in window) {

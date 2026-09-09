@@ -48,7 +48,7 @@ export function LeavePanel() {
       .order("created_at", { ascending: false })
       .limit(10);
     setList((data ?? []) as Leave[]);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();

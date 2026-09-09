@@ -209,7 +209,7 @@ function PulsePage() {
         // ignore
       }
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();

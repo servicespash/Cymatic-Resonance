@@ -250,6 +250,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
   const { trackPath, currentPosition, clearTracking, exportGPX } = useMapTracking(isTracking);
   const mapRef = useRef<L.Map>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const lastEmittedRef = useRef<string>("");
 
   useEffect(() => {
     if (currentPosition) setPosition(currentPosition);
@@ -315,11 +316,11 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
 
       // Use a larger epsilon (1e-6 is ~11cm precision) to prevent floating point loops
       if (!position || latDiff > 1e-6 || lngDiff > 1e-6) {
+        lastEmittedRef.current = `${location.lat.toFixed(6)},${location.lng.toFixed(6)},${Math.round(location.radius || 200)}`;
         setPosition(newPos);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location?.lat, location?.lng]);
+  }, [location?.lat, location?.lng, location?.radius]);
 
   useEffect(() => {
     if (
@@ -329,27 +330,26 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
     ) {
       setRadius(location.radius);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.radius]);
 
   useEffect(() => {
-    if (isLeafletLatLng(position)) {
+    if (isLeafletLatLng(position) && onChange) {
+      const key = `${position.lat.toFixed(6)},${position.lng.toFixed(6)},${Math.round(radius)}`;
+      if (lastEmittedRef.current === key) return;
+
       const latDiff = location ? Math.abs(location.lat - position.lat) : 1;
       const lngDiff = location ? Math.abs(location.lng - position.lng) : 1;
+      const radDiff = location ? Math.abs((location.radius || 0) - radius) : 1;
 
       // Only trigger onChange if the values significantly changed from the prop
-      const hasChanged =
-        !location ||
-        latDiff > 1e-6 ||
-        lngDiff > 1e-6 ||
-        Math.abs((location.radius || 0) - radius) > 0.1;
+      const hasChanged = !location || latDiff > 1e-6 || lngDiff > 1e-6 || radDiff > 0.1;
 
-      if (onChange && hasChanged) {
+      if (hasChanged) {
+        lastEmittedRef.current = key;
         onChange({ lat: position.lat, lng: position.lng, radius });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [position?.lat, position?.lng, radius, onChange]);
+  }, [position?.lat, position?.lng, radius, location, onChange]);
 
   const toggleTracking = () => {
     setIsTracking((prev) => !prev);
@@ -524,7 +524,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
               preferCanvas={true}
               touchZoom={true}
               className={theme === "dark" ? "brightness-[0.85] contrast-[1.1] saturate-[0.8]" : ""}
-              whenReady={((e: any) => (mapRef.current = e.target)) as any}
+              ref={mapRef}
             >
               {/* ... map layers and controls ... */}
               <ZoomControl position="topright" />

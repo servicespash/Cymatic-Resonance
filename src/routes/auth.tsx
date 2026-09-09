@@ -73,6 +73,7 @@ function AuthPage() {
     email: string;
     accepted: boolean;
   } | null>(null);
+  const navigatedRef = useRef(false);
 
   // Detect mode from URL
   useEffect(() => {
@@ -100,15 +101,20 @@ function AuthPage() {
 
   // If signed in + invite token, redeem
   useEffect(() => {
-    if (loading) return;
+    if (loading || navigatedRef.current) return;
     if (user && inviteToken && !invitePreview?.accepted) {
+      navigatedRef.current = true;
       (async () => {
         const { error } = await supabase.rpc("accept_invite", { _token: inviteToken });
-        if (error) return toast.error(error.message);
+        if (error) {
+          navigatedRef.current = false;
+          return toast.error(error.message);
+        }
         toast.success("Joined workspace");
         navigate({ to: "/pulse" });
       })();
     } else if (user && mode === "normal") {
+      navigatedRef.current = true;
       const next = getQuery().get("next");
       if (next && next.startsWith("/") && !next.startsWith("//")) {
         window.location.href = next;
@@ -116,7 +122,7 @@ function AuthPage() {
         navigate({ to: "/pulse" });
       }
     }
-  }, [user, loading, inviteToken, invitePreview?.accepted, mode, navigate]);
+  }, [user?.id, loading, inviteToken, invitePreview?.accepted, mode, navigate]);
 
   if (loading) {
     return (

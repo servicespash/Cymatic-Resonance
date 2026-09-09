@@ -2,10 +2,15 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
+const DEFAULT_SUPABASE_URL = "https://umsgecaeozngdejwvcsu.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_d5k8Td4bx9LMI2GtlsqwpA__G8_uCVG";
+
 function createSupabaseClient(): SupabaseClient<Database> {
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const SUPABASE_ANON_KEY =
-    import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    DEFAULT_SUPABASE_ANON_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     const missing = [
@@ -13,17 +18,20 @@ function createSupabaseClient(): SupabaseClient<Database> {
       ...(!SUPABASE_ANON_KEY ? ["VITE_SUPABASE_ANON_KEY"] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your environment.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+    console.warn(`[Supabase] ${message}`);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      storage: typeof window !== "undefined" ? window.localStorage : undefined,
-      persistSession: true,
-      autoRefreshToken: true,
+  return createClient<Database>(
+    SUPABASE_URL || DEFAULT_SUPABASE_URL,
+    SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
     },
-  });
+  );
 }
 
 // Strictly memoized singleton instance to avoid re-instantiation loops during React re-renders.
