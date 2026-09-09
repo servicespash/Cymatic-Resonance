@@ -16,6 +16,8 @@ export class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error", error, errorInfo);
+    // @ts-ignore
+    window.__lastError = error;
     toast.error("An unexpected error occurred. Please refresh.");
   }
 
@@ -26,6 +28,10 @@ export class ErrorBoundary extends React.Component<
           <div className="glass-strong rounded-2xl p-8 text-center">
             <h1 className="font-display text-xl font-semibold">System interrupted</h1>
             <p className="mt-2 text-sm text-muted-foreground">Please try refreshing the page.</p>
+            <pre className="mt-4 text-xs text-red-400 font-mono text-left bg-black/50 p-4 rounded overflow-auto">
+              {/* @ts-ignore */}
+              {window.__lastError?.message || "Unknown error"}
+            </pre>
           </div>
         </div>
       );
