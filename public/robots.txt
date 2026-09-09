@@ -1,6 +1,10 @@
 User-agent: *
+Disallow: /dashboard
+Disallow: /comms
+Disallow: /pulse
+Disallow: /settings
 Allow: /
-Disallow: /auth
-Disallow: /_authenticated/
+Allow: /auth
+Allow: /legal
 
 Sitemap: https://resonance.cymatichub.xyz/sitemap.xml
