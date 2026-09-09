@@ -18,6 +18,9 @@
   "overrides": {
     "undici": "^7.29.0"
   },
+  "engines": {
+    "node": ">=22.22.0"
+  },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",

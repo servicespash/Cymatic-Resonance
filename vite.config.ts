@@ -21,8 +21,7 @@ const plugins: PluginOption[] = [
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       skipWaiting: true,
       clientsClaim: true,
-      navigateFallback: null,
-      navigateFallbackDenylist: [/^\/auth/],
+      navigateFallback: "/index.html",
       // Ensure the sw itself is not cached aggressively
       cleanupOutdatedCaches: true,
       runtimeCaching: [
@@ -63,6 +62,59 @@ export default defineConfig({
         entryFileNames: "assets/[name]-[hash].js",
         chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash].[ext]",
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (
+              id.includes("livekit-client") ||
+              id.includes("machina") ||
+              id.includes("webrtc-adapter")
+            ) {
+              return "vendor-livekit";
+            }
+            if (
+              id.includes("leaflet") ||
+              id.includes("react-leaflet") ||
+              id.includes("leaflet-control-geocoder")
+            ) {
+              return "vendor-maps";
+            }
+            if (
+              id.includes("jspdf") ||
+              id.includes("jspdf-autotable") ||
+              id.includes("html2canvas") ||
+              id.includes("html-to-image") ||
+              id.includes("dompurify")
+            ) {
+              return "vendor-export";
+            }
+            if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) {
+              return "vendor-charts";
+            }
+            if (id.includes("framer-motion") || id.includes("motion")) {
+              return "vendor-motion";
+            }
+            if (
+              id.includes("@radix-ui") ||
+              id.includes("lucide-react") ||
+              id.includes("cmdk") ||
+              id.includes("vaul") ||
+              id.includes("sonner") ||
+              id.includes("input-otp")
+            ) {
+              return "vendor-ui";
+            }
+            if (id.includes("@tanstack")) {
+              return "vendor-tanstack";
+            }
+            if (id.includes("@supabase")) {
+              return "vendor-supabase";
+            }
+            if (id.includes("react") || id.includes("react-dom") || id.includes("scheduler")) {
+              return "vendor-react";
+            }
+            return "vendor";
+          }
+        },
       },
     },
   },
