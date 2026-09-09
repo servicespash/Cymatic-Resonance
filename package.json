@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 3000",
     "dev-spa": "vite dev -c vite.dev-spa.config.ts --host 0.0.0.0 --port 3000",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.html dist/200.html",
     "deploy": "npm run build && wrangler pages deploy dist --project-name cymatic-resonance",
     "preview": "vite preview",
     "lint": "eslint .",

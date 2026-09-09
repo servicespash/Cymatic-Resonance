@@ -41,6 +41,7 @@ const router = getRouter();
 const rootElement = document.getElementById("root");
 if (rootElement) {
   const root = createRoot(rootElement);
+  console.log("[Cymatic Client] Root element found, mounting React...");
   root.render(
     <ErrorBoundary>
       <MapProvider>
@@ -48,6 +49,7 @@ if (rootElement) {
       </MapProvider>
     </ErrorBoundary>,
   );
+  console.log("[Cymatic Client] React render call completed.");
 } else {
   console.error("[Cymatic Client] #root element not found!");
 }

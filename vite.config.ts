@@ -63,56 +63,63 @@ export default defineConfig({
         chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash].[ext]",
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (
-              id.includes("livekit-client") ||
-              id.includes("machina") ||
-              id.includes("webrtc-adapter")
-            ) {
-              return "vendor-livekit";
-            }
-            if (
-              id.includes("leaflet") ||
-              id.includes("react-leaflet") ||
-              id.includes("leaflet-control-geocoder")
-            ) {
-              return "vendor-maps";
-            }
-            if (
-              id.includes("jspdf") ||
-              id.includes("jspdf-autotable") ||
-              id.includes("html2canvas") ||
-              id.includes("html-to-image") ||
-              id.includes("dompurify")
-            ) {
-              return "vendor-export";
-            }
-            if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) {
-              return "vendor-charts";
-            }
-            if (id.includes("framer-motion") || id.includes("motion")) {
-              return "vendor-motion";
-            }
-            if (
-              id.includes("@radix-ui") ||
-              id.includes("lucide-react") ||
-              id.includes("cmdk") ||
-              id.includes("vaul") ||
-              id.includes("sonner") ||
-              id.includes("input-otp")
-            ) {
-              return "vendor-ui";
-            }
-            if (id.includes("@tanstack")) {
-              return "vendor-tanstack";
-            }
-            if (id.includes("@supabase")) {
-              return "vendor-supabase";
-            }
-            if (id.includes("react") || id.includes("react-dom") || id.includes("scheduler")) {
-              return "vendor-react";
-            }
-            return "vendor";
+          if (!id.includes("node_modules")) return;
+
+          if (
+            id.includes("livekit-client") ||
+            id.includes("machina") ||
+            id.includes("webrtc-adapter")
+          ) {
+            return "vendor-livekit";
+          }
+          if (
+            id.includes("leaflet") ||
+            id.includes("react-leaflet") ||
+            id.includes("leaflet-control-geocoder")
+          ) {
+            return "vendor-maps";
+          }
+          if (
+            id.includes("jspdf") ||
+            id.includes("jspdf-autotable") ||
+            id.includes("html2canvas") ||
+            id.includes("html-to-image") ||
+            id.includes("dompurify")
+          ) {
+            return "vendor-export";
+          }
+          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) {
+            return "vendor-charts";
+          }
+          if (id.includes("framer-motion") || id.includes("motion")) {
+            return "vendor-motion";
+          }
+          if (
+            id.includes("@radix-ui") ||
+            id.includes("lucide-react") ||
+            id.includes("cmdk") ||
+            id.includes("vaul") ||
+            id.includes("sonner") ||
+            id.includes("input-otp") ||
+            id.includes("react-resizable-panels") ||
+            id.includes("react-day-picker") ||
+            id.includes("embla-carousel-react")
+          ) {
+            return "vendor-ui";
+          }
+          if (id.includes("@tanstack")) {
+            return "vendor-tanstack";
+          }
+          if (id.includes("@supabase")) {
+            return "vendor-supabase";
+          }
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/scheduler/") ||
+            id.includes("/node_modules/use-sync-external-store/")
+          ) {
+            return "vendor-react";
           }
         },
       },
