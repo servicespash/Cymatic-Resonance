@@ -79,6 +79,7 @@ export function CallContainer({
   peers,
   kind,
   onLeave,
+  isHost,
 }: {
   callId: string;
   selfId: string;
@@ -86,6 +87,7 @@ export function CallContainer({
   peers: Record<string, Sender>;
   kind: "audio" | "video";
   onLeave: () => void;
+  isHost: boolean;
 }) {
   const {
     localStream,
@@ -102,6 +104,7 @@ export function CallContainer({
     selfId,
     video,
     enabled: true,
+    isHost,
   });
 
   const [duration, setDuration] = useState(0);

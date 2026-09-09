@@ -14,8 +14,9 @@ export function useLiveKitCall(opts: {
   selfId: string | null;
   video: boolean;
   enabled: boolean;
+  isHost: boolean;
 }) {
-  const { callId, selfId, video, enabled } = opts;
+  const { callId, selfId, video, enabled, isHost } = opts;
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotes, setRemotes] = useState<Record<string, RemotePeer>>({});
@@ -120,37 +121,19 @@ export function useLiveKitCall(opts: {
 
     const setupCall = async () => {
       try {
-        let token = "";
-
-        // Attempt 1: Fetch token via Supabase Edge Function
-        const { data: sfData } = await supabase.functions.invoke("livekit-token", {
-          body: { room: callId, identity: selfId },
+        // Fetch token via Supabase Edge Function
+        const { data: sfData, error: sfError } = await supabase.functions.invoke("livekit-token", {
+          body: { roomName: callId, isHost },
         });
 
-        if (sfData?.token) {
-          token = sfData.token;
-        } else {
-          // Attempt 2: Fallback to local endpoint with JSON/text handling
-          const tokenResponse = await fetch(
-            `/api/livekit-token?room=${encodeURIComponent(callId)}&user=${encodeURIComponent(selfId)}`,
-          );
-          if (!tokenResponse.ok) throw new Error("Could not acquire media signaling token.");
+        if (sfError) throw new Error(`Token fetch failed: ${sfError.message}`);
+        if (!sfData?.token) throw new Error("No token returned from server");
 
-          const contentType = tokenResponse.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const resJson = await tokenResponse.json();
-            token = resJson.token;
-          } else {
-            token = await tokenResponse.text();
-          }
-        }
-
+        const token = sfData.token;
         const url = import.meta.env.VITE_LIVEKIT_URL;
 
         if (!url || !token) {
-          console.warn("LiveKit not configured or token unavailable, falling back to P2P.");
-          // P2P logic here if any, or just exit to prevent crash
-          return;
+          throw new Error("LiveKit not configured or token unavailable");
         }
 
         if (cancelled) return;
@@ -211,7 +194,7 @@ export function useLiveKitCall(opts: {
       setRemotes({});
       setIsCallAnswered(false);
     };
-  }, [enabled, callId, selfId, syncLocalTracks, updateRemotes]);
+  }, [enabled, callId, selfId, syncLocalTracks, updateRemotes, isHost]);
 
   const toggleMic = useCallback(async () => {
     const next = !micOn;

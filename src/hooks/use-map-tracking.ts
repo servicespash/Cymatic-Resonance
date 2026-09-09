@@ -63,20 +63,20 @@ export function useMapTracking(isTracking: boolean) {
   <trk>
     <name>Map Tracking History</name>
     <trkseg>`;
-    
+
     const gpxFooter = `
     </trkseg>
   </trk>
 </gpx>`;
 
-    const trkpts = trackPath.map(
-      (p) => `\n      <trkpt lat="${p.lat}" lon="${p.lng}"></trkpt>`
-    ).join("");
+    const trkpts = trackPath
+      .map((p) => `\n      <trkpt lat="${p.lat}" lon="${p.lng}"></trkpt>`)
+      .join("");
 
     const gpxContent = gpxHeader + trkpts + gpxFooter;
     const blob = new Blob([gpxContent], { type: "application/gpx+xml" });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement("a");
     link.href = url;
     link.download = `cymatic-tracking-${new Date().toISOString()}.gpx`;
@@ -84,7 +84,7 @@ export function useMapTracking(isTracking: boolean) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     toast.success("GPX file downloaded successfully.");
   }, [trackPath]);
 
