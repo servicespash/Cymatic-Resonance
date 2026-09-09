@@ -18,6 +18,7 @@ export function useMessageSender(
 
       setSending(true);
       try {
+        console.log("[MessageSender] Attempting to send message to channel:", activeChannelId);
         const { data: msgData, error: msgError } = await supabase
           .from("messages")
           .insert({
@@ -29,17 +30,29 @@ export function useMessageSender(
           .select()
           .single();
 
-        if (msgError || !msgData) throw msgError;
+        if (msgError) {
+          console.error("[MessageSender] Error sending message:", msgError);
+          // @ts-ignore
+          window.__lastError = msgError;
+          throw msgError;
+        }
+        console.log("[MessageSender] Message sent successfully, id:", msgData.id);
 
         // Process file attachments if present
         if (files.length > 0) {
           for (const file of files) {
+            console.log("[MessageSender] Uploading file:", file.name);
             const path = `${orgId}/${msgData.id}/${Date.now()}_${file.name}`;
             const { error: uploadError } = await supabase.storage
               .from("comm-attachments")
               .upload(path, file);
 
-            if (!uploadError) {
+            if (uploadError) {
+                console.error("[MessageSender] Storage upload error:", uploadError);
+                continue;
+            }
+            
+            // ... (rest of the file attachment logic)
               const isImage = file.type.startsWith("image/");
               const isAudio = file.type.startsWith("audio/");
               const kind = isImage ? "image" : isAudio ? "audio" : "file";
