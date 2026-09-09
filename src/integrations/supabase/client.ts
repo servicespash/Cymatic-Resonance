@@ -9,9 +9,11 @@ function createSupabaseClient(): SupabaseClient<Database> {
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error(
-      `Missing required Supabase environment variables: VITE_SUPABASE_URL=${!!SUPABASE_URL}, VITE_SUPABASE_ANON_KEY=${!!SUPABASE_ANON_KEY}. Please ensure these are set in your environment.`,
-    );
+    const errorMsg = `[Supabase Critical] Missing environment variables: URL=${!!SUPABASE_URL}, ANON_KEY=${!!SUPABASE_ANON_KEY}`;
+    console.error(errorMsg);
+    // @ts-ignore
+    window.__lastError = new Error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -28,7 +30,12 @@ let supabaseInstance: SupabaseClient<Database> | null = null;
 
 export const getSupabase = (): SupabaseClient<Database> => {
   if (!supabaseInstance) {
-    supabaseInstance = createSupabaseClient();
+    try {
+      supabaseInstance = createSupabaseClient();
+    } catch (e) {
+      console.error("[Supabase] Failed to create instance:", e);
+      throw e;
+    }
   }
   return supabaseInstance;
 };

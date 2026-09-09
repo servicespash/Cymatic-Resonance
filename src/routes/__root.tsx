@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ConnectivityBanner } from "@/components/connectivity-banner";
+import { DebugOverlay } from "@/components/ui/DebugOverlay";
 
 function NotFoundComponent() {
   return (
@@ -106,6 +107,7 @@ function RootComponent() {
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>
+      <DebugOverlay />
     </ErrorBoundary>
   );
 }
