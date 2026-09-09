@@ -40,6 +40,7 @@ export function CallRoom({
   peers,
   kind,
   onLeave,
+  initiatorId,
 }: {
   callId: string;
   selfId: string;
@@ -47,12 +48,15 @@ export function CallRoom({
   peers: Record<string, Sender>;
   kind: "audio" | "video";
   onLeave: () => void;
+  initiatorId: string;
 }) {
+  const isHost = initiatorId === selfId;
   const { localStream, remotes, micOn, camOn, toggleMic, toggleCam, error } = useLiveKitCall({
     callId,
     selfId,
     video,
     enabled: true,
+    isHost,
   });
 
   const [duration, setDuration] = useState(0);

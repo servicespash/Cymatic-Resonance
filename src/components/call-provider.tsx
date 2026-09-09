@@ -26,7 +26,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<Record<string, Sender>>({});
   const [incoming, setIncoming] = useState<Call | null>(null);
-  const [active, setActive] = useState<{ id: string; kind: "audio" | "video" } | null>(null);
+  const [active, setActive] = useState<{ id: string; kind: "audio" | "video"; initiator_id?: string } | null>(null);
   const ringtone = useRef(createRingtone());
   const activeCallRef = useRef<string | null>(null);
 
@@ -168,7 +168,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         .from("call_participants")
         .insert(rows as Database["public"]["Tables"]["call_participants"]["Insert"][]);
 
-      setActive({ id: call.id, kind });
+      setActive({ id: call.id, kind, initiator_id: call.initiator_id });
     },
     [user, orgId],
   );
@@ -187,7 +187,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       .eq("user_id", user.id);
 
     await supabase.from("calls").update({ status: "active" }).eq("id", incoming.id);
-    setActive({ id: incoming.id, kind: incoming.kind });
+    setActive({ id: incoming.id, kind: incoming.kind, initiator_id: incoming.initiator_id });
     setIncoming(null);
   }, [incoming, user]);
 
@@ -217,7 +217,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         { onConflict: "call_id,user_id" },
       );
       await supabase.from("calls").update({ status: "active" }).eq("id", callId);
-      setActive({ id: callId, kind });
+      const { data: call } = await supabase.from("calls").select("initiator_id").eq("id", callId).single();
+      setActive({ id: callId, kind, initiator_id: call?.initiator_id });
     },
     [user],
   );
@@ -259,6 +260,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
             kind={active.kind}
             peers={members}
             onLeave={handleLeaveCall}
+            initiatorId={active.initiator_id ?? ""}
           />
         </div>
       )}

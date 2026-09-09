@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { createFileRoute } from "@tanstack/react-router";
+import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 
-export const Route = createFileRoute('/diagnostics')({
+export const Route = createFileRoute("/diagnostics")({
   component: DiagnosticsPanel,
 });
 
@@ -12,11 +12,13 @@ function DiagnosticsPanel() {
     VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   };
 
-  const isConfigured = !!envVars.VITE_SUPABASE_URL && (!!envVars.VITE_SUPABASE_ANON_KEY || !!envVars.VITE_SUPABASE_PUBLISHABLE_KEY);
+  const isConfigured =
+    !!envVars.VITE_SUPABASE_URL &&
+    (!!envVars.VITE_SUPABASE_ANON_KEY || !!envVars.VITE_SUPABASE_PUBLISHABLE_KEY);
 
   const maskString = (str?: string) => {
-    if (!str) return 'Not set';
-    if (str.length < 8) return '***';
+    if (!str) return "Not set";
+    if (str.length < 8) return "***";
     return `${str.substring(0, 4)}...${str.substring(str.length - 4)}`;
   };
 
@@ -47,7 +49,7 @@ function DiagnosticsPanel() {
               <div key={key} className="flex flex-col space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">{key}</span>
                 <span className="font-mono text-sm text-foreground">
-                  {key.includes('URL') ? value || 'Not set' : maskString(value)}
+                  {key.includes("URL") ? value || "Not set" : maskString(value)}
                 </span>
               </div>
             ))}

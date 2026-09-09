@@ -311,7 +311,11 @@ function SettingsPage() {
                 <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
                   Station Boundary (Location Verification)
                 </div>
-                <AdminMapMatrix location={orgInfo.location} onChange={isAdmin ? handleMapChange : undefined} readOnly={!isAdmin} />
+                <AdminMapMatrix
+                  location={orgInfo.location}
+                  onChange={isAdmin ? handleMapChange : undefined}
+                  readOnly={!isAdmin}
+                />
               </div>
 
               <div className="sm:col-span-2">

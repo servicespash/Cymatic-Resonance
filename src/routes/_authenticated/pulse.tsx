@@ -413,7 +413,6 @@ function PulsePage() {
     return DEFAULT_FALLBACK_LOCATION;
   }, [stationLocation]);
 
-
   return (
     <ClientOnly fallback={<div className="p-4">Loading...</div>}>
       <div className="mx-auto grid w-full max-w-3xl gap-6">

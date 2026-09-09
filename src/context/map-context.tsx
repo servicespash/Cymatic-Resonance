@@ -23,9 +23,7 @@ export function MapProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <MapContext.Provider value={{ isFullscreen, toggleFullscreen }}>
-      {children}
-    </MapContext.Provider>
+    <MapContext.Provider value={{ isFullscreen, toggleFullscreen }}>{children}</MapContext.Provider>
   );
 }
 

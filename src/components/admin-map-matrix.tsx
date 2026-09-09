@@ -15,7 +15,17 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-control-geocoder/dist/Control.Geocoder.css";
 import "leaflet-control-geocoder";
 import L from "leaflet";
-import { MapPin, Check, Search, Loader2, Maximize2, Minimize2, Download, Trash, Camera } from "lucide-react";
+import {
+  MapPin,
+  Check,
+  Search,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Download,
+  Trash,
+  Camera,
+} from "lucide-react";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
 import { useTheme } from "@/lib/use-theme";
@@ -53,13 +63,16 @@ interface AdminMapMatrixProps {
 
 function MapLegend() {
   const map = useMap();
-  
+
   useEffect(() => {
     const legend = new L.Control({ position: "bottomright" });
 
     legend.onAdd = () => {
-      const div = L.DomUtil.create("div", "info legend bg-background/90 backdrop-blur border border-border p-3 rounded-xl shadow-lg text-xs font-mono");
-      
+      const div = L.DomUtil.create(
+        "div",
+        "info legend bg-background/90 backdrop-blur border border-border p-3 rounded-xl shadow-lg text-xs font-mono",
+      );
+
       div.innerHTML = `
         <div class="flex flex-col gap-2">
           <div class="font-bold border-b border-white/10 pb-1 mb-1 text-foreground">Map Legend</div>
@@ -77,7 +90,7 @@ function MapLegend() {
           </div>
         </div>
       `;
-      
+
       // Stop clicks from propagating to the map
       L.DomEvent.disableClickPropagation(div);
       return div;
@@ -129,11 +142,7 @@ class AdminMapBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
 }
 
-function MapUpdater({
-  position,
-}: {
-  position: L.LatLng | null;
-}) {
+function MapUpdater({ position }: { position: L.LatLng | null }) {
   const map = useMap();
   const { isFullscreen } = useMapContext();
   useEffect(() => {
@@ -203,14 +212,14 @@ function LocationMarker({
       <Marker position={position} icon={!readOnly ? icon : undefined}></Marker>
       {!readOnly && (
         <Circle
-            center={position}
-            pathOptions={{
+          center={position}
+          pathOptions={{
             fillColor: "var(--color-accent)",
             color: "var(--color-accent)",
             weight: 1.5,
             fillOpacity: 0.15,
-            }}
-            radius={safeRadius}
+          }}
+          radius={safeRadius}
         />
       )}
     </>
@@ -445,10 +454,14 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
                 className="bg-background/90 text-foreground backdrop-blur border border-border p-2.5 rounded-xl shadow-lg hover:bg-muted transition flex items-center justify-center disabled:opacity-50"
                 title="Capture Map Snapshot"
               >
-                {isCapturing ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5" />}
+                {isCapturing ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <Camera className="size-5" />
+                )}
               </button>
             </div>
-            
+
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -457,7 +470,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
             >
               {isFullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
             </button>
-            
+
             {!readOnly && (
               <div className="absolute bottom-6 right-6 z-[10001] flex flex-col gap-2 items-end">
                 {trackPath.length > 0 && (
@@ -511,7 +524,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
               preferCanvas={true}
               touchZoom={true}
               className={theme === "dark" ? "brightness-[0.85] contrast-[1.1] saturate-[0.8]" : ""}
-              whenReady={(map) => (mapRef.current = map.target)}
+              whenReady={((e: any) => (mapRef.current = e.target)) as any}
             >
               {/* ... map layers and controls ... */}
               <ZoomControl position="topright" />
@@ -539,7 +552,12 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
 
               <ScaleControl position="bottomleft" />
               <MapGeocoder setPosition={setPosition} />
-              <LocationMarker position={position} radius={radius} setPosition={setPosition} readOnly={readOnly} />
+              <LocationMarker
+                position={position}
+                radius={radius}
+                setPosition={setPosition}
+                readOnly={readOnly}
+              />
               <MapUpdater position={position} />
 
               {/* Resonance Pulse Overlay */}
@@ -559,7 +577,10 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
               )}
               {/* Live Tracking Path */}
               {isTracking && trackPath.length > 1 && (
-                <Polyline positions={trackPath} pathOptions={{ color: "var(--color-accent)", weight: 4 }} />
+                <Polyline
+                  positions={trackPath}
+                  pathOptions={{ color: "var(--color-accent)", weight: 4 }}
+                />
               )}
             </MapContainer>
             {!position && (

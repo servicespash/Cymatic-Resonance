@@ -22,9 +22,7 @@ export function MapPortal({ children, onClose }: { children: ReactNode; onClose:
   if (!isFullscreen) return <>{children}</>;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-background w-screen h-screen">
-      {children}
-    </div>,
-    document.body
+    <div className="fixed inset-0 z-[9999] bg-background w-screen h-screen">{children}</div>,
+    document.body,
   );
 }
