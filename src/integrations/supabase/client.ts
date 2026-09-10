@@ -3,17 +3,15 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
 function createSupabaseClient(): SupabaseClient<Database> {
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://placeholder-url.supabase.co";
   const SUPABASE_ANON_KEY =
     import.meta.env.VITE_SUPABASE_ANON_KEY ||
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    "placeholder-anon-key";
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    const errorMsg = `[Supabase Critical] Missing environment variables: URL=${!!SUPABASE_URL}, ANON_KEY=${!!SUPABASE_ANON_KEY}`;
+  if (!import.meta.env.VITE_SUPABASE_URL || (!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY)) {
+    const errorMsg = `[Supabase Critical] Missing environment variables: URL=${!!import.meta.env.VITE_SUPABASE_URL}, ANON_KEY=${!!import.meta.env.VITE_SUPABASE_ANON_KEY}, PUBLISHABLE_KEY=${!!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`;
     console.error(errorMsg);
-    // @ts-ignore
-    window.__lastError = new Error(errorMsg);
-    throw new Error(errorMsg);
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -34,6 +32,7 @@ export const getSupabase = (): SupabaseClient<Database> => {
       supabaseInstance = createSupabaseClient();
     } catch (e) {
       console.error("[Supabase] Failed to create instance:", e);
+      // Fallback instance if possible or just re-throw
       throw e;
     }
   }

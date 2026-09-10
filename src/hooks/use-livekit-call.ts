@@ -130,10 +130,12 @@ export function useLiveKitCall(opts: {
         if (!sfData?.token) throw new Error("No token returned from server");
 
         const token = sfData.token;
-        const url = import.meta.env.VITE_LIVEKIT_URL;
+        const url = import.meta.env.VITE_LIVEKIT_URL || "wss://placeholder-url.livekit.cloud";
 
         if (!url || !token) {
-          throw new Error("LiveKit not configured or token unavailable");
+          console.error("LiveKit not configured or token unavailable");
+          setError("LiveKit not configured or token unavailable");
+          return;
         }
 
         if (cancelled) return;
