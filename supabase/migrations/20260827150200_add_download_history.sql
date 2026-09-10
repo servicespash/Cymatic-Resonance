@@ -20,6 +20,7 @@ DROP POLICY IF EXISTS "download_history_insert_self" ON public.download_history;
 CREATE POLICY "download_history_insert_self" ON public.download_history FOR INSERT TO authenticated
   WITH CHECK (user_id = auth.uid() AND org_id = public.current_org_id());
 
+DROP POLICY IF EXISTS "download_history_select_org" ON public.download_history;
 CREATE POLICY "download_history_select_org" ON public.download_history FOR SELECT TO authenticated
   USING (org_id = public.current_org_id());
 
