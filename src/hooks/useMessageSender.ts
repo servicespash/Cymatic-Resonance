@@ -48,28 +48,27 @@ export function useMessageSender(
               .upload(path, file);
 
             if (uploadError) {
-                console.error("[MessageSender] Storage upload error:", uploadError);
-                continue;
+              console.error("[MessageSender] Storage upload error:", uploadError);
+              continue;
             }
-            
-            // ... (rest of the file attachment logic)
-              const isImage = file.type.startsWith("image/");
-              const isAudio = file.type.startsWith("audio/");
-              const kind = isImage ? "image" : isAudio ? "audio" : "file";
 
-              await supabase.from("message_attachments").insert({
-                message_id: msgData.id,
-                org_id: orgId,
-                uploader_id: userId,
-                filename: file.name,
-                kind,
-                storage_path: path,
-                mime_type: file.type,
-                size_bytes: file.size,
-              });
-            }
+            const isImage = file.type.startsWith("image/");
+            const isAudio = file.type.startsWith("audio/");
+            const kind = isImage ? "image" : isAudio ? "audio" : "file";
+
+            await supabase.from("message_attachments").insert({
+              message_id: msgData.id,
+              org_id: orgId,
+              uploader_id: userId,
+              filename: file.name,
+              kind,
+              storage_path: path,
+              mime_type: file.type,
+              size_bytes: file.size,
+            });
           }
         }
+
 
         // Process audio recording if present
         if (audio) {
