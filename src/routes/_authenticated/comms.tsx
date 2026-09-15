@@ -788,7 +788,6 @@ function CommsPage() {
                         setSending(true);
                         await sendMessage("", [], audio);
                         toast.success("Voice message sent!");
-                        
                       } catch {
                         toast.error("Failed to send audio message");
                       } finally {

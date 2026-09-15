@@ -1,0 +1,361 @@
+  public: {
+    Tables: {
+      attendance: {
+        Row: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+          org_id: string
+--
+      call_participants: {
+        Row: {
+          call_id: string
+          created_at: string
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          state: Database["public"]["Enums"]["participant_state"]
+          user_id: string
+        }
+        Insert: {
+--
+      calls: {
+        Row: {
+          channel_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          initiator_id: string
+          kind: Database["public"]["Enums"]["call_kind"]
+          org_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["call_status"]
+--
+      channels: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          kind: Database["public"]["Enums"]["channel_kind"]
+          name: string
+          org_id: string
+        }
+        Insert: {
+          created_at?: string
+--
+      direct_threads: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+--
+      download_history: {
+        Row: {
+          created_at: string
+          data_range_end: string | null
+          data_range_start: string | null
+          format: string
+          id: string
+          org_id: string
+          row_count: number
+          scope: string | null
+          user_id: string
+--
+      leave_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          end_date: string
+          id: string
+          org_id: string
+          reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+--
+      message_attachments: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          filename: string
+          height: number | null
+          id: string
+          kind: string
+          message_id: string
+          mime_type: string
+          org_id: string
+--
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+--
+      message_reads: {
+        Row: {
+          channel_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          last_read_at?: string
+          user_id: string
+        }
+--
+      messages: {
+        Row: {
+          body: string
+          channel_id: string
+          created_at: string
+          id: string
+          org_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+--
+      org_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          category: string | null
+          created_at: string
+          created_by: string
+          email: string
+          expires_at: string
+          id: string
+          org_id: string
+--
+      organizations: {
+        Row: {
+          accent_color: string | null
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          logo_url: string | null
+          name: string
+          org_type: string
+--
+      profiles: {
+        Row: {
+          category: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          org_id: string | null
+          phone: string | null
+          position: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+--
+      tasks: {
+        Row: {
+          assigned_by: string | null
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          org_id: string
+          start_date: string | null
+          status: string
+--
+      accept_invite: {
+        Args: { _token: string }
+        Returns: {
+          org_id: string
+          org_name: string
+        }[]
+      }
+      create_invite: {
+        Args: {
+          _category: string
+          _email: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: {
+          accepted_at: string | null
+          accepted_by: string | null
+          category: string | null
+          created_at: string
+--
+      create_org_as_admin: {
+        Args: { _name: string; _org_type: string }
+        Returns: {
+          access_code: string
+          org_id: string
+          org_name: string
+          org_type: string
+        }[]
+      }
+      current_org_id: { Args: never; Returns: string }
+      decide_leave: {
+        Args: { _approved: boolean; _id: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          end_date: string
+          id: string
+          org_id: string
+          reason: string | null
+          start_date: string
+--
+      delete_org: { Args: never; Returns: undefined }
+      gen_cym_code: { Args: never; Returns: string }
+      invite_preview: {
+        Args: { _token: string }
+        Returns: {
+          accepted: boolean
+          email: string
+          expires_at: string
+          org_name: string
+        }[]
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_admin: { Args: never; Returns: boolean }
+      join_call: { Args: { _call_id: string }; Returns: undefined }
+      join_org_with_code: {
+        Args: { _category: string; _code: string }
+        Returns: {
+          org_id: string
+          org_name: string
+        }[]
+      }
+      lookup_org_by_code: {
+        Args: { _code: string }
+        Returns: {
+          id: string
+          name: string
+          org_type: string
+        }[]
+      }
+      open_dm: {
+        Args: { _other: string }
+        Returns: {
+          channel_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          org_id: string
+          user_a: string
+          user_b: string
+        }
+--
+      pulse_checkin: {
+        Args: { _note?: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+--
+      pulse_checkout: {
+        Args: { _id: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+--
+      pulse_toggle_break: {
+        Args: { _id: string }
+        Returns: {
+          attendance_date: string
+          break_started_at: string | null
+          checked_in_at: string
+          checked_out_at: string | null
+          created_at: string
+          id: string
+          is_late: boolean
+          note: string | null
+--
+      remove_member: { Args: { _user: string }; Returns: undefined }
+      request_leave: {
+        Args: {
+          _end: string
+          _reason: string
+          _start: string
+          _type: Database["public"]["Enums"]["leave_type"]
+        }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+--
+      revoke_invite: { Args: { _id: string }; Returns: undefined }
+      rotate_access_code: { Args: never; Returns: string }
+      set_member_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"]; _user: string }
+        Returns: undefined
+      }
+      toggle_reaction: {
+        Args: { _emoji: string; _message: string }
+        Returns: boolean
+      }
+      update_org_brand: {
+        Args: { _accent_color: string; _logo_url: string }
+        Returns: {
+          accent_color: string | null
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          logo_url: string | null
+          name: string
+--
+      update_org_settings: {
+        Args: { _cutoff: string; _name: string; _org_type: string; _tz: string }
+        Returns: {
+          accent_color: string | null
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          logo_url: string | null
+          name: string
+--
+  public: {
+    Enums: {
+      app_role: ["admin", "member"],
+      call_kind: ["audio", "video"],
+      call_status: ["ringing", "active", "ended", "missed", "declined"],
+      channel_kind: ["broadcast", "dm"],
+      leave_status: ["pending", "approved", "denied"],
+      leave_type: ["sick", "vacation", "personal", "other"],
+      participant_state: ["invited", "joined", "declined", "left"],
+    },
+  },

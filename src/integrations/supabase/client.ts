@@ -3,18 +3,33 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { getSupabaseUrl, getSupabaseAnonKey, getMissingSupabaseEnv } from "../../lib/env";
 
-const dummyClient = new Proxy({} as any, {
-  get: (target, prop) => {
-    throw new Error(`[Supabase Error] Supabase is not configured (missing env vars: ${getMissingSupabaseEnv().join(", ")}). Cannot access: ${String(prop)}`);
-  },
-});
+// recursive proxy for safe dummy client
+const createDummyProxy = (path: string[] = []): unknown => {
+  const target = () => {
+    throw new Error(
+      `[Supabase Error] Supabase is not configured (missing env vars: ${getMissingSupabaseEnv().join(", ")}). Cannot call: supabase.${path.join(".")}()`,
+    );
+  };
+  return new Proxy(target, {
+    get: (t, prop) => {
+      if (typeof prop === "string") {
+        return createDummyProxy([...path, prop]);
+      }
+      return (t as Record<string | symbol, unknown>)[prop];
+    },
+  });
+};
+
+const dummyClient = createDummyProxy() as SupabaseClient<Database>;
 
 function createSupabaseClient(): SupabaseClient<Database> {
   const SUPABASE_URL = getSupabaseUrl();
   const SUPABASE_ANON_KEY = getSupabaseAnonKey();
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error(`[Supabase Critical] Missing environment variables: ${getMissingSupabaseEnv().join(", ")}. Using dummy client.`);
+    console.error(
+      `[Supabase Critical] Initialization failed: Missing environment variables (${getMissingSupabaseEnv().join(", ")}). Using dummy client.`,
+    );
     return dummyClient;
   }
 

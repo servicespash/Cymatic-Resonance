@@ -32,7 +32,7 @@ export function useMessageSender(
 
         if (msgError) {
           console.error("[MessageSender] Error sending message:", msgError);
-          // @ts-ignore
+          // @ts-expect-error - debugging hook
           window.__lastError = msgError;
           throw msgError;
         }
@@ -68,7 +68,6 @@ export function useMessageSender(
             });
           }
         }
-
 
         // Process audio recording if present
         if (audio) {
