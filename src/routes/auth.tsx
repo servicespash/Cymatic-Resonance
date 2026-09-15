@@ -122,7 +122,7 @@ function AuthPage() {
         navigate({ to: "/pulse" });
       }
     }
-  }, [user?.id, loading, inviteToken, invitePreview?.accepted, mode, navigate]);
+  }, [user, loading, inviteToken, invitePreview?.accepted, mode, navigate]);
 
   if (loading) {
     return (

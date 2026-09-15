@@ -15,7 +15,7 @@ const createDummyProxy = (path: string[] = []): unknown => {
       if (typeof prop === "string") {
         return createDummyProxy([...path, prop]);
       }
-      return (t as Record<string | symbol, unknown>)[prop];
+      return (t as unknown as Record<string | symbol, unknown>)[prop];
     },
   });
 };

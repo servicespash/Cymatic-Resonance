@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { ReactNode, useEffect } from "react";
-import { useMapContext } from "@/context/map-context";
+import { useMapContext } from "@/hooks/use-map-context";
 
 export function MapPortal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   const { isFullscreen } = useMapContext();

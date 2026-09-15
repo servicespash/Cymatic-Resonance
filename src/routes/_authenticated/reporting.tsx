@@ -78,7 +78,7 @@ function ReportingPage() {
       );
     }
     setLoading(false);
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     loadData();

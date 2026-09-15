@@ -72,7 +72,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !orgId) return;
@@ -139,7 +139,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
       ringtoneRef.stop();
     };
-  }, [user?.id, orgId, incoming?.id]);
+  }, [user, orgId, incoming]);
 
   const startCall = useCallback(
     async (channelId: string, recipientIds: string[], kind: "audio" | "video") => {

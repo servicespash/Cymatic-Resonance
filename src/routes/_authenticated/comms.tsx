@@ -273,7 +273,7 @@ function CommsPage() {
     return onReconnect(() => {
       loadWorkspaceRef.current();
     });
-  }, []);
+  }, [loadWorkspace]);
 
   // Update read receipts when opening a channel
   const markChannelAsRead = useCallback(
@@ -297,7 +297,7 @@ function CommsPage() {
       markChannelAsRead(active.id);
       if (typeof window !== "undefined") window.localStorage.setItem("cym.lastChannel", active.id);
     }
-  }, [active?.id, markChannelAsRead]);
+  }, [active, markChannelAsRead]);
 
   const sendersRef = useRef(senders);
   useEffect(() => {
@@ -372,7 +372,7 @@ function CommsPage() {
       if (rx) setReactionsStable(rx.map((r) => ({ ...r, message_id: r.message_id })));
       if (att) setAttachmentsStable(att as Attachment[]);
     });
-  }, [active?.id, activeMessageIdsKey, setReactionsStable, setAttachmentsStable]);
+  }, [active, activeMessageIdsKey, setReactionsStable, setAttachmentsStable]);
 
   const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;

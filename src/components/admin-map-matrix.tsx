@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
 import { useTheme } from "@/lib/use-theme";
-import { useMapContext } from "@/context/map-context";
+import { useMapContext } from "@/hooks/use-map-context";
 import { useMapTracking } from "@/hooks/use-map-tracking";
 import { useDebounce } from "@/hooks/use-debounce";
 import { MapPortal } from "./map-portal";
@@ -256,10 +256,6 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
     if (currentPosition) setPosition(currentPosition);
   }, [currentPosition]);
 
-  useEffect(() => {
-    if (debouncedSearchQuery) handleSearch();
-  }, [debouncedSearchQuery]);
-
   const locateMe = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -302,60 +298,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
     }
   };
 
-  useEffect(() => {
-    if (
-      location &&
-      typeof location.lat === "number" &&
-      typeof location.lng === "number" &&
-      !isNaN(location.lat) &&
-      !isNaN(location.lng)
-    ) {
-      const newPos = new L.LatLng(location.lat, location.lng);
-      const latDiff = position ? Math.abs(position.lat - newPos.lat) : 1;
-      const lngDiff = position ? Math.abs(position.lng - newPos.lng) : 1;
-
-      // Use a larger epsilon (1e-6 is ~11cm precision) to prevent floating point loops
-      if (!position || latDiff > 1e-6 || lngDiff > 1e-6) {
-        lastEmittedRef.current = `${location.lat.toFixed(6)},${location.lng.toFixed(6)},${Math.round(location.radius || 200)}`;
-        setPosition(newPos);
-      }
-    }
-  }, [location?.lat, location?.lng, location?.radius]);
-
-  useEffect(() => {
-    if (
-      location &&
-      typeof location.radius === "number" &&
-      Math.abs(location.radius - radius) > 0.1
-    ) {
-      setRadius(location.radius);
-    }
-  }, [location?.radius]);
-
-  useEffect(() => {
-    if (isLeafletLatLng(position) && onChange) {
-      const key = `${position.lat.toFixed(6)},${position.lng.toFixed(6)},${Math.round(radius)}`;
-      if (lastEmittedRef.current === key) return;
-
-      const latDiff = location ? Math.abs(location.lat - position.lat) : 1;
-      const lngDiff = location ? Math.abs(location.lng - position.lng) : 1;
-      const radDiff = location ? Math.abs((location.radius || 0) - radius) : 1;
-
-      // Only trigger onChange if the values significantly changed from the prop
-      const hasChanged = !location || latDiff > 1e-6 || lngDiff > 1e-6 || radDiff > 0.1;
-
-      if (hasChanged) {
-        lastEmittedRef.current = key;
-        onChange({ lat: position.lat, lng: position.lng, radius });
-      }
-    }
-  }, [position?.lat, position?.lng, radius, location, onChange]);
-
-  const toggleTracking = () => {
-    setIsTracking((prev) => !prev);
-  };
-
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (!debouncedSearchQuery.trim()) return;
     setIsSearching(true);
     try {
@@ -386,6 +329,63 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
     } finally {
       setIsSearching(false);
     }
+  }, [debouncedSearchQuery]);
+
+  useEffect(() => {
+    if (debouncedSearchQuery) handleSearch();
+  }, [debouncedSearchQuery, handleSearch]);
+
+  useEffect(() => {
+    if (
+      location &&
+      typeof location.lat === "number" &&
+      typeof location.lng === "number" &&
+      !isNaN(location.lat) &&
+      !isNaN(location.lng)
+    ) {
+      const newPos = new L.LatLng(location.lat, location.lng);
+      const latDiff = position ? Math.abs(position.lat - newPos.lat) : 1;
+      const lngDiff = position ? Math.abs(position.lng - newPos.lng) : 1;
+
+      // Use a larger epsilon (1e-6 is ~11cm precision) to prevent floating point loops
+      if (!position || latDiff > 1e-6 || lngDiff > 1e-6) {
+        lastEmittedRef.current = `${location.lat.toFixed(6)},${location.lng.toFixed(6)},${Math.round(location.radius || 200)}`;
+        setPosition(newPos);
+      }
+    }
+  }, [location, position]);
+
+  useEffect(() => {
+    if (
+      location &&
+      typeof location.radius === "number" &&
+      Math.abs(location.radius - radius) > 0.1
+    ) {
+      setRadius(location.radius);
+    }
+  }, [location, radius]);
+
+  useEffect(() => {
+    if (isLeafletLatLng(position) && onChange) {
+      const key = `${position.lat.toFixed(6)},${position.lng.toFixed(6)},${Math.round(radius)}`;
+      if (lastEmittedRef.current === key) return;
+
+      const latDiff = location ? Math.abs(location.lat - position.lat) : 1;
+      const lngDiff = location ? Math.abs(location.lng - position.lng) : 1;
+      const radDiff = location ? Math.abs((location.radius || 0) - radius) : 1;
+
+      // Only trigger onChange if the values significantly changed from the prop
+      const hasChanged = !location || latDiff > 1e-6 || lngDiff > 1e-6 || radDiff > 0.1;
+
+      if (hasChanged) {
+        lastEmittedRef.current = key;
+        onChange({ lat: position.lat, lng: position.lng, radius });
+      }
+    }
+  }, [position, radius, location, onChange]);
+
+  const toggleTracking = () => {
+    setIsTracking((prev) => !prev);
   };
 
   return (

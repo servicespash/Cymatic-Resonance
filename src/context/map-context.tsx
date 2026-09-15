@@ -1,11 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-
-interface MapContextType {
-  isFullscreen: boolean;
-  toggleFullscreen: () => void;
-}
-
-const MapContext = createContext<MapContextType | undefined>(undefined);
+import { useState, ReactNode } from "react";
+import { MapContext } from "./map-context-base";
 
 export function MapProvider({ children }: { children: ReactNode }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -25,12 +19,4 @@ export function MapProvider({ children }: { children: ReactNode }) {
   return (
     <MapContext.Provider value={{ isFullscreen, toggleFullscreen }}>{children}</MapContext.Provider>
   );
-}
-
-export function useMapContext() {
-  const context = useContext(MapContext);
-  if (context === undefined) {
-    throw new Error("useMapContext must be used within a MapProvider");
-  }
-  return context;
 }
