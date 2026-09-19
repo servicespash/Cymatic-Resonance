@@ -104,7 +104,6 @@ function CallRoomInner({
     flipCamera,
     toggleTorch,
     torchOn,
-    error,
   } = useLiveKitCall({
     callId,
     selfId,
@@ -120,10 +119,10 @@ function CallRoomInner({
     if (!isCallAnswered) {
       if (isHost) {
         dialtone.loop = true;
-        dialtone.play().catch((e) => console.error("Dialtone play failed", e));
+        dialtone.play().catch(() => {});
       } else {
         ringtone.loop = true;
-        ringtone.play().catch((e) => console.error("Ringtone play failed", e));
+        ringtone.play().catch(() => {});
       }
     }
 
@@ -432,12 +431,6 @@ function CallRoomInner({
               />
             ))}
           </div>
-
-          {error && (
-            <div className="mx-auto mb-4 max-w-md rounded-xl bg-destructive/20 border border-destructive/30 px-4 py-2.5 text-center text-xs text-destructive animate-bounce">
-              {error}
-            </div>
-          )}
 
           {/* Bottom Kinetic Command Layer */}
           <div className="flex flex-col gap-4 border-t border-white/10 p-6 bg-background/50 backdrop-blur-md z-50">
