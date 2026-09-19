@@ -32,3 +32,6 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+
+# Public build-time backend config (publishable values only) must ship to CI/Cloudflare
+!.env.production
