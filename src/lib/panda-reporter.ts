@@ -1,4 +1,7 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const recentConsoleLogs: string[] = [];
+const QUEUE_KEY = "cym.panda.queue.v1";
 
 if (typeof window !== "undefined") {
   const origError = console.error;
@@ -31,6 +34,12 @@ export interface ErrorReportContext {
   consoleTrace: string[];
 }
 
+export interface PandaPingResult {
+  delivered: boolean;
+  queued: boolean;
+  detail: string;
+}
+
 export function compileErrorReport(issue: string): ErrorReportContext {
   return {
     app: "Cymatic Resonance",
@@ -45,35 +54,92 @@ export function compileErrorReport(issue: string): ErrorReportContext {
   };
 }
 
-export async function sendSilentPandaPing(context: ErrorReportContext): Promise<boolean> {
+function readQueue(): ErrorReportContext[] {
   try {
-    console.info(
-      "[Panda Reporter] Compiling and dispatching silent report to Isabirye Latif:",
-      context,
-    );
-    await new Promise((r) => setTimeout(r, 1200));
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
 
-    const traceStr = context.consoleTrace.slice(-6).join("\n");
-    const message = encodeURIComponent(
-      `[Cymatic Resonance Panda Alert]\nDeveloper: ${context.developer}\nWhatsApp: ${context.whatsapp}\nEmail: ${context.email}\nIssue: ${context.issue}\nURL: ${context.url}\nTime: ${context.timestamp}\n\nRecent Trace:\n${traceStr}`,
-    );
+function writeQueue(items: ErrorReportContext[]) {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-20)));
+  } catch {
+    // storage full / unavailable
+  }
+}
 
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=256768715065&text=${message}`;
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = whatsappUrl;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-      try {
-        document.body.removeChild(iframe);
-      } catch {
-        // ignore
-      }
-    }, 6000);
+function enqueue(context: ErrorReportContext) {
+  writeQueue([...readQueue(), context]);
+}
 
-    return true;
+async function dispatch(context: ErrorReportContext): Promise<{ delivered: boolean; detail: string }> {
+  const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL ?? ""}/functions/v1/panda-ping`;
+  const { data, error } = await supabase.functions.invoke<{
+    delivered?: boolean;
+    delivery?: Record<string, string>;
+  }>("panda-ping", { body: context });
+
+  if (!error && data) {
+    return {
+      delivered: Boolean(data.delivered),
+      detail: data.delivery ? Object.entries(data.delivery).map(([k, v]) => `${k}: ${v}`).join(" · ") : "stored",
+    };
+  }
+
+  // Direct fallback in case the client wrapper is unavailable (missing env vars).
+  if (functionsUrl.startsWith("http")) {
+    const res = await fetch(functionsUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(context),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      return { delivered: Boolean(body.delivered), detail: "stored" };
+    }
+  }
+
+  throw error ?? new Error("Panda Ping transport unavailable");
+}
+
+/** Flush any reports captured while the device was offline. */
+export async function flushPandaQueue(): Promise<number> {
+  const queued = readQueue();
+  if (!queued.length) return 0;
+  const remaining: ErrorReportContext[] = [];
+  let sent = 0;
+  for (const item of queued) {
+    try {
+      await dispatch(item);
+      sent += 1;
+    } catch {
+      remaining.push(item);
+    }
+  }
+  writeQueue(remaining);
+  return sent;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    void flushPandaQueue();
+  });
+}
+
+export async function sendSilentPandaPing(context: ErrorReportContext): Promise<PandaPingResult> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    enqueue(context);
+    return { delivered: false, queued: true, detail: "Saved offline — will send when back online." };
+  }
+
+  try {
+    const result = await dispatch(context);
+    return { ...result, queued: false };
   } catch (err) {
-    console.error("[Panda Reporter] Failed to dispatch silent report:", err);
-    return false;
+    console.info("[Panda Reporter] Dispatch failed, queued for retry:", err);
+    enqueue(context);
+    return { delivered: false, queued: true, detail: "Saved — will retry automatically." };
   }
 }
