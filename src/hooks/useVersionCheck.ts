@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 
-export function useVersionCheck(checkIntervalMs = 5 * 60 * 1000) {
+export function useVersionCheck(checkIntervalMs = 60 * 1000) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [initialVersion, setInitialVersion] = useState<string | null>(null);
+  const [userDismissed, setUserDismissed] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const checkVersion = useCallback(async () => {
     try {
@@ -20,14 +22,13 @@ export function useVersionCheck(checkIntervalMs = 5 * 60 * 1000) {
         setHasUpdate(true);
       }
     } catch {
-      // Offline or network error; ignore quietly
+      // Offline or network error
     }
   }, [initialVersion]);
 
   useEffect(() => {
     checkVersion();
     const interval = setInterval(checkVersion, checkIntervalMs);
-
     const onFocus = () => checkVersion();
     window.addEventListener("focus", onFocus);
 
@@ -37,9 +38,25 @@ export function useVersionCheck(checkIntervalMs = 5 * 60 * 1000) {
     };
   }, [checkVersion, checkIntervalMs]);
 
+  const dismissUpdate = () => {
+    setUserDismissed(true);
+    setShowModal(false);
+  };
+
+  const openUpdateModal = () => {
+    setShowModal(true);
+  };
+
   const reloadApp = () => {
     window.location.reload();
   };
 
-  return { hasUpdate, reloadApp };
+  return {
+    hasUpdate,
+    userDismissed,
+    showModal,
+    dismissUpdate,
+    openUpdateModal,
+    reloadApp,
+  };
 }

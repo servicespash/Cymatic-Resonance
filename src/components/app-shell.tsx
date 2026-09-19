@@ -16,6 +16,8 @@ import { usePresenceTracker } from "@/hooks/use-presence-tracker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UpdateHeaderButton } from "@/components/update-header-button";
+import { UpdateNotificationManager } from "@/components/update-notification-manager";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import { Footer } from "@/components/footer";
 import { LegalViewer, LegalTab } from "@/components/legal-viewer";
@@ -202,9 +204,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 live
               </span>
             </div>
+            <UpdateHeaderButton />
             <ThemeToggle />
           </div>
         </header>
+
+        <UpdateNotificationManager />
 
         <main className="min-w-0 flex-1 p-4 md:p-6">
           <div className="mx-auto w-full max-w-7xl">

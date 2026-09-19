@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ConnectivityBanner } from "@/components/connectivity-banner";
+import { SupabaseEnvBanner } from "@/components/supabase-env-banner";
 import { DebugOverlay } from "@/components/ui/DebugOverlay";
 
 function NotFoundComponent() {
@@ -98,6 +99,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <ErrorBoundary>
+      <SupabaseEnvBanner />
       <ConnectivityBanner />
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
