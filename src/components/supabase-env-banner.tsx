@@ -22,14 +22,25 @@ export function ErrorPandaBanner({ runtimeError }: ErrorPandaBannerProps) {
       ? `Missing Supabase environment variables: ${missing.join(", ")}`
       : runtimeError || "Unexpected runtime exception";
 
+  const [queued, setQueued] = useState(false);
+  const [detail, setDetail] = useState<string>("");
+
   const handlePingAuthor = async () => {
     setSending(true);
     try {
       const context = compileErrorReport(issueDescription);
-      await sendSilentPandaPing(context);
+      const result = await sendSilentPandaPing(context);
       setSending(false);
       setPinged(true);
-      toast.success("Author Isabirye Latif successfully notified via Panda Ping report.");
+      setQueued(result.queued);
+      setDetail(result.detail);
+      if (result.delivered) {
+        toast.success("Report delivered to Isabirye Latif.");
+      } else if (result.queued) {
+        toast.info("No connection — report saved and will send automatically.");
+      } else {
+        toast.success("Report logged for Isabirye Latif.");
+      }
     } catch (err) {
       console.error("Failed to ping author:", err);
       toast.error("Failed to dispatch automated message.");
