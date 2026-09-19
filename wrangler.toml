@@ -1,6 +1,14 @@
 name = "cymatic-resonance"
 pages_build_output_dir = "dist"
 
-# Backend configuration is intentionally NOT stored here.
-# Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as build-time environment
-# variables in the Cloudflare Pages project settings (per environment).
+# Backend configuration is PUBLIC (project URL + publishable/anon key), so it can
+# safely live here. These values are inlined into the bundle at build time by
+# vite.config.ts, which also accepts the SUPABASE_URL / SUPABASE_ANON_KEY and
+# VITE_SUPABASE_PUBLISHABLE_KEY spellings if you prefer setting them in the
+# Cloudflare Pages dashboard instead.
+[vars]
+VITE_SUPABASE_URL = "https://amoopevwutclqkyimpsx.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtb29wZXZ3dXRjbHFreWltcHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTI5MzcsImV4cCI6MjA5MzY2ODkzN30.oMOWSV0fFM8XMIXd1twFS_gMdyDEPPNmG9msIh-WMeE"
+
+# Optional: set VITE_LIVEKIT_URL (wss://...) when a LiveKit cloud project is in use.
+# Without it, calls automatically use the direct peer-to-peer engine.

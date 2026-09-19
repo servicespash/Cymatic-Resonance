@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { AlertCircle, Camera, Mic, Settings } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { AlertCircle, Camera, Mic, Settings, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -8,16 +8,72 @@ interface PermissionGateProps {
   videoRequired?: boolean;
 }
 
+const MANUAL_KEY = "cym.media.mode.v1";
+
+type Diagnostics = {
+  secureContext: boolean;
+  hasMediaDevices: boolean;
+  camera: string;
+  microphone: string;
+  cams: number;
+  mics: number;
+};
+
 export function PermissionGate({ onGranted, videoRequired = true }: PermissionGateProps) {
   const [status, setStatus] = useState<"prompt" | "granted" | "denied">("prompt");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [diag, setDiag] = useState<Diagnostics | null>(null);
   const hasTestedRef = useRef(false);
 
-  const checkPermissions = async () => {
+  const runDiagnostics = useCallback(async () => {
+    const secureContext = typeof window !== "undefined" && window.isSecureContext;
+    const hasMediaDevices = Boolean(navigator.mediaDevices?.getUserMedia);
+    let camera = "unknown";
+    let microphone = "unknown";
+    try {
+      const perms = navigator.permissions as unknown as
+        | { query: (d: { name: string }) => Promise<{ state: string }> }
+        | undefined;
+      if (perms?.query) {
+        camera = (await perms.query({ name: "camera" }).catch(() => ({ state: "unknown" }))).state;
+        microphone = (await perms.query({ name: "microphone" }).catch(() => ({ state: "unknown" })))
+          .state;
+      }
+    } catch {
+      // permissions API unsupported
+    }
+    let cams = 0;
+    let mics = 0;
+    try {
+      const devices = (await navigator.mediaDevices?.enumerateDevices()) ?? [];
+      cams = devices.filter((d) => d.kind === "videoinput").length;
+      mics = devices.filter((d) => d.kind === "audioinput").length;
+    } catch {
+      // device listing blocked
+    }
+    const result = { secureContext, hasMediaDevices, camera, microphone, cams, mics };
+    console.info("[PermissionGate] diagnostics:", result);
+    setDiag(result);
+    return result;
+  }, []);
+
+  const checkPermissions = useCallback(async () => {
     setChecking(true);
     try {
       setErrorMessage(null);
+      const info = await runDiagnostics();
+
+      if (!info.secureContext) {
+        throw new DOMException(
+          "This page is not served over HTTPS, so the browser blocks camera and microphone access.",
+          "SecurityError",
+        );
+      }
+      if (!info.hasMediaDevices) {
+        throw new DOMException("This browser does not expose media devices.", "NotSupportedError");
+      }
+
       const constraints: MediaStreamConstraints = {
         audio: true,
         video: videoRequired ? { width: { ideal: 640 }, height: { ideal: 360 } } : false,
@@ -27,6 +83,11 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
       stream.getTracks().forEach((track) => track.stop());
 
       setStatus("granted");
+      try {
+        localStorage.setItem(MANUAL_KEY, "hardware");
+      } catch {
+        // ignore
+      }
       onGranted();
     } catch (err: unknown) {
       console.info("[PermissionGate] Media hardware permission skipped or denied:", err);
@@ -34,49 +95,65 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
       if (err instanceof DOMException) {
         if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
           setErrorMessage(
-            "Camera and microphone access was denied. You can continue in Simulated / Audio-Only Mode below.",
+            "Access was blocked. Tap the padlock in your browser's address bar, set Camera and Microphone to Allow, then retry.",
           );
         } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-          setErrorMessage(
-            "No camera or microphone hardware found. You can continue in Simulated Mode.",
-          );
+          setErrorMessage("No camera or microphone hardware found on this device.");
+        } else if (err.name === "NotReadableError") {
+          setErrorMessage("Another app is already using the camera or microphone. Close it and retry.");
         } else {
           setErrorMessage(err.message || "Failed to access media hardware.");
         }
       } else {
-        setErrorMessage(
-          "Media access restricted in preview container. Use Simulated Mode to proceed.",
-        );
+        setErrorMessage("Media access restricted. Use audio-only or simulated mode to proceed.");
       }
     } finally {
       setChecking(false);
     }
-  };
+  }, [onGranted, runDiagnostics, videoRequired]);
 
   useEffect(() => {
-    if (!hasTestedRef.current) {
-      hasTestedRef.current = true;
-      checkPermissions();
+    if (hasTestedRef.current) return;
+    hasTestedRef.current = true;
+    let remembered: string | null = null;
+    try {
+      remembered = localStorage.getItem(MANUAL_KEY);
+    } catch {
+      // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (remembered === "simulated") {
+      setStatus("granted");
+      onGranted();
+      return;
+    }
+    void checkPermissions();
+  }, [checkPermissions, onGranted]);
 
-  if (status === "granted") {
-    return null;
-  }
+  if (status === "granted") return null;
+
+  const chip = (label: string, value: string | number, good: boolean) => (
+    <span
+      key={label}
+      className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+        good ? "bg-frequency/15 text-frequency" : "bg-destructive/10 text-destructive"
+      }`}
+    >
+      {label}: {value}
+    </span>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md p-4 animate-fade-in">
-      <div className="w-full max-w-md bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-6 text-center">
+      <div className="w-full max-w-md bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-5 text-center">
         <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-accent/10 text-accent animate-pulse">
           {videoRequired ? <Camera className="size-8" /> : <Mic className="size-8" />}
         </div>
         <div className="space-y-2">
-          <h2 className="text-xl font-display font-semibold">Camera & Microphone Access</h2>
+          <h2 className="text-xl font-display font-semibold">Camera &amp; Microphone Access</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {videoRequired
-              ? "Secure peer calling requires camera and microphone permissions, or you can run in simulated mode."
-              : "Secure audio calling requires microphone permissions, or you can run in simulated mode."}
+              ? "Secure peer calling needs camera and microphone permission, or you can run in simulated mode."
+              : "Secure audio calling needs microphone permission, or you can run in simulated mode."}
           </p>
         </div>
 
@@ -88,29 +165,54 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
           </Alert>
         )}
 
-        <div className="flex flex-col gap-3 pt-2">
+        {diag && (
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {chip("https", diag.secureContext ? "yes" : "no", diag.secureContext)}
+            {chip("camera", diag.camera, diag.camera === "granted")}
+            {chip("mic", diag.microphone, diag.microphone === "granted")}
+            {chip("devices", `${diag.cams}v/${diag.mics}a`, diag.cams + diag.mics > 0)}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 pt-1">
           <Button
             onClick={checkPermissions}
             disabled={checking}
             className="w-full gap-2 text-xs py-5 rounded-xl bg-accent text-accent-foreground font-semibold hover:brightness-110"
           >
-            <Settings className="size-4" />
-            {checking ? "Testing Hardware..." : "Grant Hardware Permissions"}
+            {checking ? <Loader2 className="size-4 animate-spin" /> : <Settings className="size-4" />}
+            {checking ? "Testing hardware..." : "Grant hardware permissions"}
           </Button>
           <Button
             variant="outline"
             onClick={() => {
+              try {
+                localStorage.setItem(MANUAL_KEY, "simulated");
+              } catch {
+                // ignore
+              }
               setStatus("granted");
               onGranted();
             }}
-            className="w-full text-xs py-5 rounded-xl font-semibold border-accent/40 text-accent hover:bg-accent/10"
+            className="w-full gap-2 text-xs py-5 rounded-xl font-semibold border-accent/40 text-accent hover:bg-accent/10"
           >
-            Continue in Simulated / Audio-Only Mode
+            <CheckCircle2 className="size-4" />
+            Always continue in simulated / audio-only mode
           </Button>
-          <p className="text-[10px] text-muted-foreground">
-            Simulated mode bypasses physical hardware constraints so you can explore calls
-            instantly.
-          </p>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem(MANUAL_KEY);
+              } catch {
+                // ignore
+              }
+              void checkPermissions();
+            }}
+            className="text-[10px] text-muted-foreground underline underline-offset-2"
+          >
+            Reset saved choice and ask again
+          </button>
         </div>
       </div>
     </div>

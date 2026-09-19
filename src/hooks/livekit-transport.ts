@@ -2,16 +2,20 @@ import { Room, RoomEvent, Participant } from "livekit-client";
 import { CallTransport } from "./call-transport";
 import { supabase } from "@/integrations/supabase/client";
 
+export type TransportMode = "livekit" | "p2p";
+
+/**
+ * Connects through LiveKit when the workspace has LiveKit credentials configured.
+ * When the token service reports LiveKit is unavailable, the transport reports
+ * `p2p` mode so the caller can fall back to the direct peer-to-peer engine.
+ */
 export class LiveKitTransport implements CallTransport {
   private room: Room;
   private participantsChangeCallback?: (participants: string[]) => void;
+  public mode: TransportMode = "p2p";
 
   constructor() {
-    this.room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
-    });
-
+    this.room = new Room({ adaptiveStream: true, dynacast: true });
     this.room.on(RoomEvent.ParticipantConnected, this.updateParticipants);
     this.room.on(RoomEvent.ParticipantDisconnected, this.updateParticipants);
   }
@@ -19,19 +23,22 @@ export class LiveKitTransport implements CallTransport {
   capabilities = { supportsSimulcast: true };
 
   async connect(roomId: string, userId: string) {
-    const token = await this.fetchToken(roomId, userId);
-    const livekitUrl = import.meta.env.VITE_LIVEKIT_URL;
-    if (!livekitUrl) {
-      console.warn("LiveKit URL not configured.");
+    const creds = await this.fetchToken(roomId, userId);
+
+    if (!creds) {
+      this.mode = "p2p";
+      console.info("[Cymatic Transport] LiveKit unavailable — using direct peer-to-peer calling.");
       return;
     }
 
-    if (!token) {
-      throw new Error("Failed to acquire valid LiveKit JWT token.");
+    try {
+      await this.room.connect(creds.url, creds.token);
+      await this.room.localParticipant.enableCameraAndMicrophone();
+      this.mode = "livekit";
+    } catch (err) {
+      this.mode = "p2p";
+      console.info("[Cymatic Transport] LiveKit connect failed — falling back to peer-to-peer:", err);
     }
-
-    await this.room.connect(livekitUrl, token);
-    await this.room.localParticipant.enableCameraAndMicrophone();
   }
 
   async disconnect() {
@@ -41,6 +48,7 @@ export class LiveKitTransport implements CallTransport {
   }
 
   getParticipants(): string[] {
+    if (this.mode !== "livekit") return [];
     const remotes: Participant[] = Array.from(this.room.remoteParticipants.values());
     return [this.room.localParticipant, ...remotes].map((p) => p.identity);
   }
@@ -50,37 +58,27 @@ export class LiveKitTransport implements CallTransport {
   }
 
   private updateParticipants = () => {
-    if (this.participantsChangeCallback) {
-      this.participantsChangeCallback(this.getParticipants());
-    }
+    this.participantsChangeCallback?.(this.getParticipants());
   };
 
-  private async fetchToken(roomId: string, userId: string): Promise<string> {
+  private async fetchToken(
+    roomId: string,
+    identity: string,
+  ): Promise<{ token: string; url: string } | null> {
     try {
-      // 1. First try Supabase Edge Function endpoint
-      const { data, error } = await supabase.functions.invoke("livekit-token", {
-        body: { room: roomId, identity: userId },
-      });
+      const { data, error } = await supabase.functions.invoke<{
+        available?: boolean;
+        token?: string;
+        url?: string;
+      }>("livekit-token", { body: { roomName: roomId, identity, isHost: false } });
 
-      if (!error && data?.token) {
-        return data.token;
-      }
+      if (error || !data?.available || !data.token) return null;
 
-      // 2. Fallback to API route parsing both JSON and raw text
-      const res = await fetch(
-        `/api/livekit-token?room=${encodeURIComponent(roomId)}&user=${encodeURIComponent(userId)}`,
-      );
-      if (!res.ok) throw new Error("Signaling bridge rejected token request.");
-
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const json = await res.json();
-        return json.token;
-      }
-      return await res.text();
+      const url = data.url || import.meta.env.VITE_LIVEKIT_URL;
+      return url ? { token: data.token, url } : null;
     } catch (err) {
-      console.error("[Cymatic Transport] Token acquisition failure:", err);
-      throw err;
+      console.info("[Cymatic Transport] Token request failed:", err);
+      return null;
     }
   }
 }
