@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";
-import { Copy, RefreshCw, ShieldAlert, UserMinus, Crown, User as UserIcon } from "lucide-react";
+import { Copy, RefreshCw, UserMinus, Crown, User as UserIcon } from "lucide-react";
 import { triggerVibration } from "@/lib/vibration";
 import {
   AlertDialog,
@@ -30,7 +30,7 @@ function parseOrgType(raw: string): { type: string; location: OrgLocation | null
       const parsed = JSON.parse(raw);
       return { type: parsed.type || "generic", location: parsed.location || null };
     }
-  } catch (e) {
+  } catch {
     // ignore parse error
   }
   return { type: raw || "generic", location: null };

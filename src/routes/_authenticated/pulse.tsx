@@ -5,16 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
-import {
-  Check,
-  Clock,
-  Coffee,
-  LogOut,
-  Flame,
-  AlertTriangle,
-  MapPin,
-  Navigation,
-} from "lucide-react";
+import { Check, Coffee, LogOut, Flame, AlertTriangle, MapPin, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { LeavePanel } from "@/components/leave-panel";
@@ -48,7 +39,7 @@ type AttRow = {
 function parseOrgType(raw: string) {
   try {
     if (raw.startsWith("{")) return JSON.parse(raw);
-  } catch (e) {
+  } catch {
     // ignore
   }
   return { type: raw, location: null };
@@ -205,7 +196,7 @@ function PulsePage() {
             lng: validCoords.lng,
           });
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

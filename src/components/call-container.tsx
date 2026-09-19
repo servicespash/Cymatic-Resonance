@@ -1,35 +1,8 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import {
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  PhoneOff,
-  Users,
-  Hand,
-  Maximize2,
-  Minimize2,
-  LayoutGrid,
-  Monitor,
-  Sparkles,
-  Volume2,
-  MessageSquare,
-  X,
-  Paperclip,
-  Smile,
-  Send,
-  Loader2,
-  FileText,
-  WifiOff,
-  Wifi,
-} from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Users, WifiOff } from "lucide-react";
 import { ConnectionQuality } from "livekit-client";
 import { useLiveKitCall } from "@/hooks/use-livekit-call";
 import { supabase } from "@/integrations/supabase/client";
-import { CymaticWave } from "@/components/cymatic-wave";
-import { RecordAudioMessage, type RecordedAudio } from "@/components/record-audio-message";
-import { CommAttachment, type Attachment } from "@/components/comm-attachment";
-import { toast } from "sonner";
 
 type Sender = { id: string; full_name: string | null };
 
@@ -51,26 +24,14 @@ type FloatingReaction = {
   delay: number;
 };
 
-type CallMsg = {
-  id: string;
-  channel_id: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
-};
-
-type Reaction = { id: string; message_id: string; emoji: string; user_id: string };
-
 interface TileProps {
   stream: MediaStream | null;
   name: string;
   isSelf: boolean;
   video: boolean;
-  isHandRaised: boolean;
-  isMuted: boolean;
+  isHandRaised?: boolean;
+  isMuted?: boolean;
 }
-
-const EMOJI_OPTIONS = ["👍", "❤️", "👏", "🔥", "😮", "🎉"];
 
 export function CallContainer({
   callId,
@@ -98,7 +59,6 @@ export function CallContainer({
     isCallAnswered,
     toggleMic,
     toggleCam,
-    error,
   } = useLiveKitCall({
     callId,
     selfId,
@@ -110,27 +70,9 @@ export function CallContainer({
   const [duration, setDuration] = useState(0);
   const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
   const [bursts, setBursts] = useState<FloatingReaction[]>([]);
-  const [isHandRaised, setIsHandRaised] = useState(false);
-  const [activeButton, setActiveButton] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"stage" | "grid">("stage");
   const [featuredUserId, setFeaturedUserId] = useState<string>(selfId);
-  const [isMinimized, setIsMinimized] = useState(false);
 
-  // In-Call Chat State
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [channelId, setChannelId] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<CallMsg[]>([]);
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [attachmentsMap, setAttachmentsMap] = useState<Record<string, Attachment[]>>({});
-  const [chatInput, setChatInput] = useState("");
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -159,7 +101,7 @@ export function CallContainer({
         osc.stop();
         ctx.close();
       };
-    } catch (e) {
+    } catch {
       console.warn("AudioContext ring synth blocked by browser autoplay policy");
     }
   }, [isCallAnswered]);
@@ -196,22 +138,6 @@ export function CallContainer({
       setFeaturedUserId(firstRemote ? firstRemote.userId : selfId);
     }
   }, [allParticipants, featuredUserId, selfId]);
-
-  // Channel & Call Org lookup
-  useEffect(() => {
-    (async () => {
-      const { data: callData } = await supabase
-        .from("calls")
-        .select("channel_id, org_id")
-        .eq("id", callId)
-        .maybeSingle();
-
-      if (callData) {
-        setChannelId(callData.channel_id);
-        setOrgId(callData.org_id);
-      }
-    })();
-  }, [callId]);
 
   // Realtime Broadcast Channel
   useEffect(() => {
@@ -274,58 +200,6 @@ export function CallContainer({
       console.error(e);
     }
     onLeave();
-  };
-
-  const toggleHandRaise = () => {
-    const nextState = !isHandRaised;
-    setIsHandRaised(nextState);
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: "broadcast",
-        event: "interaction",
-        payload: { userId: selfId, raised: nextState },
-      });
-    }
-  };
-
-  const triggerReaction = (type: "thumb" | "heart" | "clap" | "fire" | "wow" | "party") => {
-    setActiveButton(type);
-    setTimeout(() => setActiveButton(null), 500);
-
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: "broadcast",
-        event: "interaction",
-        payload: {
-          userId: selfId,
-          reaction: type,
-          burstId: `burst-${Date.now()}-${Math.random()}`,
-        },
-      });
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!chatInput.trim() && pendingFiles.length === 0) return;
-    if (!channelId || !orgId) return;
-
-    setIsSending(true);
-    try {
-      const { data: msg, error: msgErr } = await supabase
-        .from("messages")
-        .insert({ org_id: orgId, channel_id: channelId, sender_id: selfId, body: chatInput.trim() })
-        .select()
-        .single();
-
-      if (msgErr || !msg) throw msgErr;
-
-      setChatInput("");
-      setPendingFiles([]);
-    } catch (e) {
-      toast.error("Failed to send message in call");
-    } finally {
-      setIsSending(false);
-    }
   };
 
   const mmss = (s: number) =>
@@ -486,7 +360,7 @@ export function CallContainer({
   );
 }
 
-function StageTile({ stream, name, isSelf, video, isHandRaised, isMuted }: TileProps) {
+function StageTile({ stream, name, isSelf, video }: TileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hasVideoTrack =
     video &&
@@ -532,7 +406,7 @@ function StageTile({ stream, name, isSelf, video, isHandRaised, isMuted }: TileP
   );
 }
 
-function GridTile({ stream, name, isSelf, video, isHandRaised, isMuted }: TileProps) {
+function GridTile({ stream, name, isSelf, video }: TileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hasVideoTrack =
     video &&

@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { useComms } from "@/lib/use-comms";
 import { CommsProvider } from "@/lib/comms-context";
-import { CymaticWave } from "@/components/cymatic-wave";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { useCallController } from "@/hooks/use-call-controller";
 import {
@@ -18,7 +17,9 @@ import {
   ListTodo,
   MessageSquarePlus,
   Mic,
+  Settings,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -33,13 +34,15 @@ import { CallControls } from "@/components/call-controls";
 import { CallHistoryPanel } from "@/components/call-history";
 import { TasksPanel } from "@/components/tasks-panel";
 import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-message";
+import { CymaticWave } from "@/components/cymatic-wave";
 import { MessageItem } from "@/components/message-item";
 import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
 import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 import { ClientOnly } from "@/components/client-only";
 
-import { useMessages, useDeleteMessage, useSoftDeleteMessage } from "@/lib/use-messages";
+import { useMessages, useDeleteMessage } from "@/lib/use-messages";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 
 const CommsComponent = () => (
   <RequireWorkspace>
@@ -54,6 +57,14 @@ export const Route = createFileRoute("/_authenticated/comms")({
 });
 
 type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
+type Thread = {
+  id: string;
+  channel_id: string;
+  user_a: string;
+  user_b: string;
+  org_id: string;
+  last_message_at: string;
+};
 type Msg = { id: string; channel_id: string; sender_id: string; body: string; created_at: string };
 type Reaction = { id: string; message_id: string; emoji: string; user_id: string };
 
@@ -68,16 +79,14 @@ function CommsPage() {
     setActiveChannel,
     threads,
     setThreads,
-    messages: msgs,
-    setMessages: setMsgs,
     senders,
     setSenders,
-    reads,
     setReads,
     lastMessageByChannel,
     setLastMessageByChannel,
     sendMessage,
     startDm,
+    sending,
   } = useComms();
   const callController = useCallController();
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -85,7 +94,6 @@ function CommsPage() {
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
   const [pending] = useState<string[]>([]);
 
   const active = activeChannel;
@@ -96,20 +104,20 @@ function CommsPage() {
     [activeMessages],
   );
   const deleteMessageMutation = useDeleteMessage();
-  const softDeleteMessageMutation = useSoftDeleteMessage();
   const setActive = setActiveChannel;
 
-  const [tab] = useState<"all" | "channels" | "direct" | "verified">("all");
-  const [search, setSearch] = useState("");
-  const [body, setBody] = useState("");
-  const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
-  const [sending, setSending] = useState(false);
+  const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
+  const [body, setBody] = useState("");
+  const [newChannelOpen, setNewChannelOpen] = useState(false);
+  const [tab] = useState<"channels" | "direct" | "verified" | "all">("all");
+  const [search, setSearch] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
   const activeRef = useRef<Channel | null>(null);
   activeRef.current = active;
@@ -239,8 +247,14 @@ function CommsPage() {
     setOrgIdStable((prev) => prev ?? cached.orgId);
     setIsAdminStable(cached.isAdmin);
     setChannelsStable((prev) => (prev.length ? prev : (cached.channels as Channel[])));
-    setSendersStable((prev) =>
-      Object.keys(prev).length ? prev : Object.fromEntries(cached.senders.map((s) => [s.id, s])),
+    setSendersStable(
+      (
+        prev: Record<
+          string,
+          { id: string; full_name: string | null; role: string; avatar_url?: string | null }
+        >,
+      ) =>
+        Object.keys(prev).length ? prev : Object.fromEntries(cached.senders.map((s) => [s.id, s])),
     );
     setThreadsStable((prev) => (prev.length ? prev : (cached.threads as typeof prev)));
     setReadsStable((prev) => (Object.keys(prev).length ? prev : cached.reads));
@@ -280,8 +294,8 @@ function CommsPage() {
     async (channelId: string) => {
       if (!user?.id) return;
       const now = new Date().toISOString();
-      setReadsStable((prev) => ({ ...prev, [channelId]: now }));
-      setUnreadCountsStable((prev) => ({ ...prev, [channelId]: 0 }));
+      setReadsStable((prev: Record<string, string>) => ({ ...prev, [channelId]: now }));
+      setUnreadCountsStable((prev: Record<string, number>) => ({ ...prev, [channelId]: 0 }));
 
       await supabase.from("message_reads").upsert({
         channel_id: channelId,
@@ -304,7 +318,7 @@ function CommsPage() {
     sendersRef.current = senders;
   }, [senders]);
 
-  // Realtime subscription for incoming messages
+  // Realtime subscription for incoming messages, channels, and threads
   useEffect(() => {
     if (!orgId) return;
     const ch = supabase
@@ -333,6 +347,38 @@ function CommsPage() {
           setLastMessageByChannelStable((prev) => ({ ...prev, [m.channel_id]: m }));
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "channels",
+          filter: `org_id=eq.${orgId}`,
+        },
+        (p) => {
+          const newChannel = p.new as Channel;
+          setChannelsStable((prev) => {
+            if (prev.some((c) => c.id === newChannel.id)) return prev;
+            return [...prev, newChannel];
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "direct_threads",
+          filter: `org_id=eq.${orgId}`,
+        },
+        (p) => {
+          const newThread = p.new as Thread;
+          setThreadsStable((prev) => {
+            if (prev.some((t) => t.id === newThread.id)) return prev;
+            return [newThread, ...prev];
+          });
+        },
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (p) => {
         if (p.eventType === "INSERT") {
           setReactionsStable((prev) => [...prev, p.new as Reaction]);
@@ -351,6 +397,8 @@ function CommsPage() {
     setLastMessageByChannelStable,
     setReactionsStable,
     setUnreadCountsStable,
+    setChannelsStable,
+    setThreadsStable,
   ]);
 
   useEffect(() => {
@@ -376,26 +424,33 @@ function CommsPage() {
 
   const handleSendMessage = async () => {
     if (!body.trim() && pending.length === 0) return;
-    setSending(true);
-    await sendMessage(body, []);
-    setSending(false);
-    setBody("");
+    try {
+      await sendMessage(body, []);
+      setBody("");
+    } catch {
+      toast.error("Failed to send message");
+    }
   };
 
   const handleDeleteChat = async (channelId: string) => {
     if (!user) return;
     try {
+      // Hard delete messages first
+      await supabase.from("messages").delete().eq("channel_id", channelId);
+
       const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
       if (isDm) {
         await supabase.from("direct_threads").delete().eq("channel_id", channelId);
-      } else {
-        await supabase.from("channels").delete().eq("id", channelId);
       }
+
+      // Hard delete channel
+      await supabase.from("channels").delete().eq("id", channelId);
+
       setChannels((prev) => prev.filter((c) => c.id !== channelId));
       if (active?.id === channelId) setActive(null);
-      toast.success("Chat removed successfully");
-    } catch {
-      toast.error("Failed to delete chat");
+      toast.success("Chat and conversation deleted permanently");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete chat");
     }
   };
 
@@ -509,6 +564,13 @@ function CommsPage() {
             <div className="mb-4 flex items-center justify-between">
               <h1 className="font-display text-2xl font-bold tracking-tight">Chats</h1>
               <div className="flex items-center gap-1">
+                <Link
+                  to="/comms-settings"
+                  className="rounded-lg p-2 hover:bg-white/5"
+                  aria-label="Settings"
+                >
+                  <Settings className="h-5 w-5" />
+                </Link>
                 <Dialog open={newDmOpen} onOpenChange={setNewDmOpen}>
                   <DialogTrigger asChild>
                     <button className="rounded-lg p-2 hover:bg-white/5" aria-label="New chat">
@@ -757,15 +819,23 @@ function CommsPage() {
                     Archive
                   </button>
                   <button
-                    onClick={() => {
-                      selectedMessageIds.forEach((id) => handleDeleteMessage(id));
-                      setSelectedMessageIds(new Set());
-                      setIsSelectionMode(false);
-                    }}
+                    onClick={() => setShowBatchDeleteConfirm(true)}
                     className="px-3 py-1.5 bg-destructive/20 hover:bg-destructive/30 text-destructive text-xs font-semibold rounded-xl transition"
                   >
                     Delete ({selectedMessageIds.size})
                   </button>
+                  <ConfirmDeleteDialog
+                    open={showBatchDeleteConfirm}
+                    onOpenChange={setShowBatchDeleteConfirm}
+                    title={`Delete ${selectedMessageIds.size} messages?`}
+                    description="This will permanently delete all selected messages. This action cannot be undone."
+                    onConfirm={() => {
+                      selectedMessageIds.forEach((id) => handleDeleteMessage(id));
+                      setSelectedMessageIds(new Set());
+                      setIsSelectionMode(false);
+                    }}
+                    confirmText="Delete All"
+                  />
                   <button
                     onClick={() => {
                       setSelectedMessageIds(new Set());
@@ -785,13 +855,10 @@ function CommsPage() {
                     onSend={async (audio: RecordedAudio) => {
                       setIsRecording(false);
                       try {
-                        setSending(true);
                         await sendMessage("", [], audio);
                         toast.success("Voice message sent!");
                       } catch {
                         toast.error("Failed to send audio message");
-                      } finally {
-                        setSending(false);
                       }
                     }}
                   />

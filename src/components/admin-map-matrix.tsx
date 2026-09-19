@@ -112,7 +112,7 @@ class AdminMapBoundary extends Component<{ children: ReactNode }, { hasError: bo
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(_: Error) {
+  static getDerivedStateFromError() {
     return { hasError: true };
   }
 
@@ -324,7 +324,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
       } else {
         toast.error("Location not found. Try different keywords.");
       }
-    } catch (err) {
+    } catch {
       toast.error("Search failed. Check your connection.");
     } finally {
       setIsSearching(false);

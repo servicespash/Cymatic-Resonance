@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { Download, FileSpreadsheet, FileText, CheckSquare, QrCode } from "lucide-react";
+import React, { useRef } from "react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -28,11 +28,7 @@ export interface RegistryExportProps {
   ) => Promise<void>;
 }
 
-export const RegistryExport = ({
-  selectedCount = 0,
-  availableRows = [],
-  onExportLogged,
-}: RegistryExportProps) => {
+export const RegistryExport = ({ selectedCount = 0, availableRows = [] }: RegistryExportProps) => {
   const qrRef = useRef<SVGSVGElement>(null);
 
   const handleExport = async (format: "pdf" | "excel") => {
@@ -92,7 +88,6 @@ export const RegistryExport = ({
 
         doc.setFontSize(10);
         doc.setTextColor(100);
-        const extractTime = new Date().toISOString();
         const hash = Array.from(crypto.getRandomValues(new Uint8Array(16)))
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -141,8 +136,8 @@ export const RegistryExport = ({
 
       if (format === "excel")
         toast.success(`Excel Export completed successfully!`, { id: "export-toast" });
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       toast.error(`Failed to export ${format.toUpperCase()}`, { id: "export-toast" });
     }
   };

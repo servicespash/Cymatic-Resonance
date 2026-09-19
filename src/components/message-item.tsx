@@ -1,7 +1,8 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { User, Trash2, SmilePlus, CheckCircle2 } from "lucide-react";
 import { CommAttachment, Attachment } from "./comm-attachment";
 import { ClientOnly } from "./client-only";
+import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 
 export type Msg = {
   id: string;
@@ -51,6 +52,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   isSelected,
   onToggleSelection,
 }) => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const isMe = m.sender_id === user?.id;
 
   // Use hydrated profile info
@@ -181,16 +184,26 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <SmilePlus className="h-4 w-4" />
           </button>
           {isMe && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteMessage(m.id);
-              }}
-              className="p-1 text-muted-foreground hover:text-red-400 rounded transition"
-              aria-label="Delete message"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(true);
+                }}
+                className="p-1 text-muted-foreground hover:text-red-400 rounded transition"
+                aria-label="Delete message"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <ConfirmDeleteDialog
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                title="Delete message?"
+                description="This message will be permanently deleted. This action cannot be undone."
+                onConfirm={() => handleDeleteMessage(m.id)}
+                confirmText="Delete"
+              />
+            </>
           )}
         </div>
       )}

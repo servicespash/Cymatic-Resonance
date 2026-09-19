@@ -131,7 +131,7 @@ async function runAudit() {
           console.log(` - ${table}: ${COLORS.red}NOT FOUND in frontend code!${COLORS.reset}`);
           issuesFound = true;
         }
-      } catch (e) {
+      } catch {
         console.log(` - ${table}: ${COLORS.red}Usage check failed${COLORS.reset}`);
       }
     }

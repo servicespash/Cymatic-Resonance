@@ -1,6 +1,6 @@
-import React, { useContext, ReactNode } from "react";
+import React, { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CommsContextType, Channel, Msg, Thread, Reaction, Sender } from "./comms-context-def";
+import { Channel, Msg, Thread, Reaction, Sender } from "./comms-context-def";
 import { CommsContext } from "./comms-context-core";
 import { uploadAttachment, persistAttachmentMetadata } from "./attachment-manager";
 import { useAuth } from "./use-auth";
@@ -15,7 +15,7 @@ export const CommsProvider = ({ children }: { children: ReactNode }) => {
   const [senders, setSenders] = React.useState<Record<string, Sender>>({});
   const [reads, setReads] = React.useState<Record<string, string>>({});
   const [lastMessageByChannel, setLastMessageByChannel] = React.useState<Record<string, Msg>>({});
-  const [loading, setLoading] = React.useState(true);
+  const [loading] = React.useState(true);
   const [sending, setSending] = React.useState(false);
 
   const sendMessage = async (

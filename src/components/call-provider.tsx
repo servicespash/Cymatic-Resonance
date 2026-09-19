@@ -1,15 +1,7 @@
 // Global call state: ringing overlay for incoming calls, mounted active call,
 // API for the rest of the app to start a call.
 
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { Phone, PhoneOff, Video } from "lucide-react";
@@ -262,7 +254,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         />
       )}
       {active && user && (
-        <div className="fixed inset-0 z-[100]">
+        <div className="fixed inset-0 z-[100] pointer-events-none">
           <CallRoom
             callId={active.id}
             selfId={user.id}

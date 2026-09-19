@@ -40,7 +40,7 @@ export function CheckInHistory({ history }: { history: CheckInRecord[] }) {
           </div>
         );
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
     return raw;

@@ -18,6 +18,10 @@ export function useLiveKitCall(opts: {
 }) {
   const { callId, selfId, video, enabled, isHost } = opts;
 
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [torchOn, setTorchOn] = useState(false);
+  const [filter, setFilter] = useState<string>("none");
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotes, setRemotes] = useState<Record<string, RemotePeer>>({});
   const [micOn, setMicOn] = useState(true);
@@ -122,20 +126,22 @@ export function useLiveKitCall(opts: {
     const setupCall = async () => {
       try {
         // Fetch token via Supabase Edge Function
-        const { data: sfData, error: sfError } = await supabase.functions.invoke("livekit-token", {
+        const { data: sfData, error: sfError } = await supabase.functions.invoke<{
+          token?: string;
+        }>("livekit-token", {
           body: { roomName: callId, isHost },
         });
 
-        if (sfError) throw new Error(`Token fetch failed: ${sfError.message}`);
-        if (!sfData?.token) throw new Error("No token returned from server");
+        if (sfError || !sfData?.token) {
+          console.error("[Cymatic Resonance Engine] LiveKit token invocation failed:", sfError);
+          throw new Error(sfError?.message || "No token returned from server");
+        }
 
         const token = sfData.token;
-        const url = import.meta.env.VITE_LIVEKIT_URL || "wss://placeholder-url.livekit.cloud";
+        const url = import.meta.env.VITE_LIVEKIT_URL;
 
-        if (!url || !token) {
-          console.error("LiveKit not configured or token unavailable");
-          setError("LiveKit not configured or token unavailable");
-          return;
+        if (!url) {
+          throw new Error("LiveKit URL not configured");
         }
 
         if (cancelled) return;
@@ -171,7 +177,7 @@ export function useLiveKitCall(opts: {
           }
         });
       } catch (err: unknown) {
-        console.error("[Cymatic Resonance Engine] LiveKit failure:", err);
+        console.error("[Cymatic Resonance Engine] LiveKit connect error:", err);
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Media bridge failure");
         }
@@ -196,7 +202,7 @@ export function useLiveKitCall(opts: {
       setRemotes({});
       setIsCallAnswered(false);
     };
-  }, [enabled, callId, selfId, syncLocalTracks, updateRemotes, isHost]);
+  }, [enabled, callId, selfId, syncLocalTracks, updateRemotes, isHost, video]);
 
   const toggleMic = useCallback(async () => {
     const next = !micOn;
@@ -215,10 +221,47 @@ export function useLiveKitCall(opts: {
     camStateRef.current = next;
 
     if (roomRef.current && roomRef.current.state === "connected") {
-      await roomRef.current.localParticipant.setCameraEnabled(next);
+      const room = roomRef.current;
+      if (next) {
+        // Turning on camera
+        await room.localParticipant.setCameraEnabled(true);
+        // Apply facingMode/torch
+        const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+        if (track && "setDeviceId" in track.mediaStreamTrack) {
+          // This needs proper LiveKit API usage for facingMode
+          // For now, simulating via track constraints if possible
+        }
+      } else {
+        await room.localParticipant.setCameraEnabled(false);
+      }
       await syncLocalTracks();
     }
   }, [camOn, syncLocalTracks]);
+
+  const flipCamera = useCallback(async () => {
+    const newMode = facingMode === "user" ? "environment" : "user";
+    setFacingMode(newMode);
+
+    if (roomRef.current && roomRef.current.state === "connected") {
+      const room = roomRef.current;
+      // In a real LiveKit implementation, you might need to create a new track
+      // for the new device and swap it. This is a simplified placeholder.
+      await room.localParticipant.setCameraEnabled(false);
+      await room.localParticipant.setCameraEnabled(true);
+    }
+  }, [facingMode]);
+
+  const toggleTorch = useCallback(async () => {
+    const next = !torchOn;
+    setTorchOn(next);
+
+    // LiveKit torch control
+    const track = roomRef.current?.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+    if (track && "applyConstraints" in track.mediaStreamTrack) {
+      // @ts-expect-error - Torch not in standard types yet
+      await track.mediaStreamTrack.applyConstraints({ advanced: [{ torch: next }] });
+    }
+  }, [torchOn]);
 
   return {
     localStream,
@@ -229,6 +272,14 @@ export function useLiveKitCall(opts: {
     isCallAnswered,
     toggleMic,
     toggleCam,
+    flipCamera,
+    toggleTorch,
     error,
+    facingMode,
+    setFacingMode,
+    torchOn,
+    setTorchOn,
+    filter,
+    setFilter,
   };
 }

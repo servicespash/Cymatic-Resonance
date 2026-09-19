@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   category TEXT,
   role public.app_role NOT NULL DEFAULT 'member',
   org_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL,
+  last_seen_at TIMESTAMPTZ DEFAULT now(),
+  is_online BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

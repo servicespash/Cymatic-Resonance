@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageItem, Msg } from "./message-item";
 import { Paperclip, Mic, Send } from "lucide-react";
@@ -12,11 +12,9 @@ interface ChatPanelProps {
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) => {
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [loading, setLoading] = useState(false);
   const [body, setBody] = useState("");
 
-  const fetchMessages = async () => {
-    setLoading(true);
+  const fetchMessages = useCallback(async () => {
     const { data, error } = await supabase
       .from("messages")
       .select("id, channel_id, sender_id, body, created_at, profiles(full_name)")
@@ -28,13 +26,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) 
     } else {
       setMessages(data as unknown as Msg[]);
     }
-    setLoading(false);
-  };
+  }, [channelId]);
 
   useEffect(() => {
     fetchMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId]);
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`chat:${channelId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `channel_id=eq.${channelId}`,
+        },
+        () => {
+          fetchMessages();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [channelId, fetchMessages]);
 
   const sendMessage = async () => {
     if (!body.trim() || !user) return;

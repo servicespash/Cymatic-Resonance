@@ -1,5 +1,6 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Users, Hash, BadgeCheck, Trash2 } from "lucide-react";
+import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 
 export type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
 export type Msg = {
@@ -37,6 +38,7 @@ export const ChatItem: React.FC<ChatItemProps> = ({
   onDeleteChannel,
 }) => {
   const isDm = c.channel.kind === "dm";
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use the pre-resolved title
@@ -92,17 +94,27 @@ export const ChatItem: React.FC<ChatItemProps> = ({
           <div className="flex items-center gap-1">
             {c.verified && <BadgeCheck className="h-4 w-4 text-frequency" />}
             {onDeleteChannel && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteChannel(c.channel.id);
-                }}
-                className="opacity-100 md:opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 transition"
-                aria-label="Delete chat thread"
-                title="Delete chat thread"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
+                  className="opacity-100 md:opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 transition"
+                  aria-label="Delete chat thread"
+                  title="Delete chat thread"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <ConfirmDeleteDialog
+                  open={showDeleteDialog}
+                  onOpenChange={setShowDeleteDialog}
+                  title="Delete Conversation"
+                  description={`Are you sure you want to delete this ${isDm ? "direct message" : "channel"}? This will permanently remove the chat and all associated messages.`}
+                  onConfirm={() => onDeleteChannel(c.channel.id)}
+                  confirmText="Delete Chat"
+                />
+              </>
             )}
           </div>
         </div>

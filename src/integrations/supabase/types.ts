@@ -229,6 +229,66 @@ export type Database = {
           },
         ];
       };
+      clients: {
+        Row: {
+          company: string | null;
+          created_at: string;
+          created_by: string | null;
+          email: string | null;
+          id: string;
+          last_seen_at: string | null;
+          name: string;
+          notes: string | null;
+          org_id: string | null;
+          phone: string | null;
+          status: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          company?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          email?: string | null;
+          id?: string;
+          last_seen_at?: string | null;
+          name: string;
+          notes?: string | null;
+          org_id?: string | null;
+          phone?: string | null;
+          status?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          company?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          email?: string | null;
+          id?: string;
+          last_seen_at?: string | null;
+          name?: string;
+          notes?: string | null;
+          org_id?: string | null;
+          phone?: string | null;
+          status?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clients_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clients_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       direct_threads: {
         Row: {
           archived_at: string | null;
@@ -638,6 +698,8 @@ export type Database = {
           created_at: string;
           full_name: string | null;
           id: string;
+          is_online: boolean | null;
+          last_seen_at: string | null;
           org_id: string | null;
           phone: string | null;
           position: string | null;
@@ -649,6 +711,8 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id: string;
+          is_online?: boolean | null;
+          last_seen_at?: string | null;
           org_id?: string | null;
           phone?: string | null;
           position?: string | null;
@@ -660,6 +724,8 @@ export type Database = {
           created_at?: string;
           full_name?: string | null;
           id?: string;
+          is_online?: boolean | null;
+          last_seen_at?: string | null;
           org_id?: string | null;
           phone?: string | null;
           position?: string | null;

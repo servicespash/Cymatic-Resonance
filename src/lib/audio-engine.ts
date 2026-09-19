@@ -149,7 +149,7 @@ export class AudioEngine {
       try {
         // Smoothly fade out active sound before stopping to kill audio clicks
         osc.stop(now + 0.05);
-      } catch (_) {
+      } catch {
         // Ignore if oscillator was already stopped
       }
     });

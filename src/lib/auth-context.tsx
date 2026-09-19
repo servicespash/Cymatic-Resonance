@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Ctx } from "@/lib/auth-context-core";
@@ -52,6 +52,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setSession((prevSession) => {
                 // Prevent unneeded re-renders on same access token
                 if (prevSession?.access_token === newSession?.access_token) return prevSession;
+
+                // Presence tracking deferred until schema updated
+
                 return newSession;
               });
               setUser((prevUser) => {

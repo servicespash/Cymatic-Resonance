@@ -22,6 +22,8 @@ type Row = {
   category: string | null;
   role: string;
   phone: string | null;
+  is_online?: boolean;
+  last_seen_at?: string;
 };
 
 function DirectoryPage() {
@@ -32,24 +34,52 @@ function DirectoryPage() {
 
   useEffect(() => {
     if (!user) return;
-    (async () => {
+    let orgId: string | null = null;
+
+    const fetchData = async () => {
       const { data: p } = await supabase
         .from("profiles")
         .select("org_id")
         .eq("id", user.id)
         .maybeSingle();
+
       if (!p?.org_id) {
         setLoading(false);
         return;
       }
+      orgId = p.org_id;
+
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, position, category, role, phone")
+        .select("id, full_name, position, category, role, phone, is_online, last_seen_at")
         .eq("org_id", p.org_id)
         .order("full_name");
       setRows((data ?? []) as Row[]);
       setLoading(false);
-    })();
+    };
+
+    fetchData();
+
+    // Subscribe to profile changes for real-time presence updates
+    const channel = supabase
+      .channel("directory_presence")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: orgId ? `org_id=eq.${orgId}` : undefined,
+        },
+        () => {
+          fetchData();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const filtered = rows.filter(
@@ -94,12 +124,31 @@ function DirectoryPage() {
                 {(r.full_name ?? "?").slice(0, 1).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <div className="truncate font-display text-sm font-semibold">
-                  {r.full_name ?? "—"}
+                <div className="flex items-center gap-2">
+                  <div className="truncate font-display text-sm font-semibold">
+                    {r.full_name ?? "—"}
+                  </div>
+                  {r.is_online ? (
+                    <span
+                      className="size-2 rounded-full bg-accent animate-pulse-ring"
+                      title="Online"
+                    />
+                  ) : (
+                    <span className="size-2 rounded-full bg-muted-foreground/30" title="Offline" />
+                  )}
                 </div>
                 <div className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   {r.role === "admin" ? "Admin · " : ""}
                   {r.position ?? "—"}
+                  {!r.is_online && r.last_seen_at && (
+                    <span className="ml-2 text-[9px] lowercase opacity-60">
+                      · last seen{" "}
+                      {new Date(r.last_seen_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,22 +1,19 @@
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 export const useLongPress = (
   callback: (e: React.MouseEvent | React.TouchEvent) => void,
   ms = 500,
 ) => {
-  const [startLongPress, setStartLongPress] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const start = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
-      setStartLongPress(true);
       timerRef.current = setTimeout(() => callback(e), ms);
     },
     [callback, ms],
   );
 
   const stop = useCallback(() => {
-    setStartLongPress(false);
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 

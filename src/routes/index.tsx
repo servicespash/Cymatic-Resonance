@@ -6,7 +6,6 @@ import { ClientOnly } from "@/components/client-only";
 import {
   ArrowRight,
   Radio,
-  Activity,
   ShieldCheck,
   MessagesSquare,
   Waves,

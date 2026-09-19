@@ -10,7 +10,9 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  BarChart3,
 } from "lucide-react";
+import { usePresenceTracker } from "@/hooks/use-presence-tracker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -36,6 +38,7 @@ const nav: {
   adminOnly?: boolean;
 }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
+  { to: "/reporting", label: "Team Analytics", icon: BarChart3, adminOnly: true },
   { to: "/pulse", label: "Sync Pulse", icon: Radio },
   { to: "/directory", label: "Team Directory", icon: Users },
   { to: "/comms", label: "Cymatic Comms", icon: MessageSquare },
@@ -56,6 +59,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setOpen(false);
   };
 
+  usePresenceTracker(user?.id);
+
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
@@ -65,6 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         .eq("id", user.id)
         .maybeSingle();
       setProfile(p as Profile | null);
+
       if (p?.org_id) {
         const { data: o } = await supabase
           .from("organizations")

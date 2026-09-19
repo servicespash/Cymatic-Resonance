@@ -25,7 +25,7 @@ export const ExportRegistry = () => {
       document.body.appendChild(link);
       link.click();
       toast.success("Export successful");
-    } catch (e) {
+    } catch {
       toast.error("Export failed");
     } finally {
       setLoading(false);

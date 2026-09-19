@@ -10,7 +10,6 @@ import {
   Sparkles,
   Timer,
   CheckCircle2,
-  Bell,
   Waves,
 } from "lucide-react";
 import { toast } from "sonner";

@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as SelfRushRouteImport } from './routes/self-rush'
 import { Route as AuthenticatedCommsRouteImport } from './routes/_authenticated/comms'
+import { Route as AuthenticatedCommsSettingsRouteImport } from './routes/_authenticated/comms-settings'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDirectoryRouteImport } from './routes/_authenticated/directory'
 import { Route as AuthenticatedPulseRouteImport } from './routes/_authenticated/pulse'
@@ -51,6 +52,12 @@ const AuthenticatedCommsRoute = AuthenticatedCommsRouteImport.update({
   path: '/comms',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCommsSettingsRoute =
+  AuthenticatedCommsSettingsRouteImport.update({
+    id: '/comms-settings',
+    path: '/comms-settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -88,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/diagnostics': typeof DiagnosticsRoute
   '/self-rush': typeof SelfRushRoute
   '/comms': typeof AuthenticatedCommsRoute
+  '/comms-settings': typeof AuthenticatedCommsSettingsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/directory': typeof AuthenticatedDirectoryRoute
   '/pulse': typeof AuthenticatedPulseRoute
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/diagnostics': typeof DiagnosticsRoute
   '/self-rush': typeof SelfRushRoute
   '/comms': typeof AuthenticatedCommsRoute
+  '/comms-settings': typeof AuthenticatedCommsSettingsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/directory': typeof AuthenticatedDirectoryRoute
   '/pulse': typeof AuthenticatedPulseRoute
@@ -116,6 +125,7 @@ export interface FileRoutesById {
   '/diagnostics': typeof DiagnosticsRoute
   '/self-rush': typeof SelfRushRoute
   '/_authenticated/comms': typeof AuthenticatedCommsRoute
+  '/_authenticated/comms-settings': typeof AuthenticatedCommsSettingsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/directory': typeof AuthenticatedDirectoryRoute
   '/_authenticated/pulse': typeof AuthenticatedPulseRoute
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/diagnostics'
     | '/self-rush'
     | '/comms'
+    | '/comms-settings'
     | '/dashboard'
     | '/directory'
     | '/pulse'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/diagnostics'
     | '/self-rush'
     | '/comms'
+    | '/comms-settings'
     | '/dashboard'
     | '/directory'
     | '/pulse'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/diagnostics'
     | '/self-rush'
     | '/_authenticated/comms'
+    | '/_authenticated/comms-settings'
     | '/_authenticated/dashboard'
     | '/_authenticated/directory'
     | '/_authenticated/pulse'
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/comms-settings': {
+      id: '/_authenticated/comms-settings'
+      path: '/comms-settings'
+      fullPath: '/comms-settings'
+      preLoaderRoute: typeof AuthenticatedCommsSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -266,6 +286,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCommsRoute: typeof AuthenticatedCommsRoute
+  AuthenticatedCommsSettingsRoute: typeof AuthenticatedCommsSettingsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDirectoryRoute: typeof AuthenticatedDirectoryRoute
   AuthenticatedPulseRoute: typeof AuthenticatedPulseRoute
@@ -275,6 +296,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCommsRoute: AuthenticatedCommsRoute,
+  AuthenticatedCommsSettingsRoute: AuthenticatedCommsSettingsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDirectoryRoute: AuthenticatedDirectoryRoute,
   AuthenticatedPulseRoute: AuthenticatedPulseRoute,

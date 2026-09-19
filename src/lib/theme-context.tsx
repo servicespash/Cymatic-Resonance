@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Theme, ThemeContext } from "./theme-context-core";
 
 const STORAGE_KEY = "cymatic-theme";
@@ -9,7 +9,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       try {
         const stored = localStorage.getItem(STORAGE_KEY) as Theme;
         if (stored === "dark" || stored === "light") return stored;
-      } catch (e) {
+      } catch {
         // Ignore localStorage errors (e.g., incognito mode)
       }
     }
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     try {
       localStorage.setItem(STORAGE_KEY, theme);
-    } catch (e) {
+    } catch {
       // Handle mobile incognito / privacy modes where localStorage might fail
     }
   }, [theme]);

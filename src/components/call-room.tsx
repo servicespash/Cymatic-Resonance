@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Mic,
   MicOff,
@@ -9,9 +9,13 @@ import {
   Hand,
   Minimize,
   Maximize,
+  Camera,
+  Flashlight,
 } from "lucide-react";
 import { useLiveKitCall } from "@/hooks/use-livekit-call";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { PermissionGate } from "@/components/permission-gate";
 
 type Sender = { id: string; full_name: string | null };
 
@@ -50,8 +54,58 @@ export function CallRoom({
   onLeave: () => void;
   initiatorId: string;
 }) {
+  const [hasPermission, setHasPermission] = useState(false);
+
+  if (!hasPermission) {
+    return (
+      <PermissionGate onGranted={() => setHasPermission(true)} videoRequired={kind === "video"} />
+    );
+  }
+
+  return (
+    <CallRoomInner
+      callId={callId}
+      selfId={selfId}
+      video={video}
+      peers={peers}
+      kind={kind}
+      onLeave={onLeave}
+      initiatorId={initiatorId}
+    />
+  );
+}
+
+function CallRoomInner({
+  callId,
+  selfId,
+  video,
+  peers,
+  kind,
+  onLeave,
+  initiatorId,
+}: {
+  callId: string;
+  selfId: string;
+  video: boolean;
+  peers: Record<string, Sender>;
+  kind: "audio" | "video";
+  onLeave: () => void;
+  initiatorId: string;
+}) {
   const isHost = initiatorId === selfId;
-  const { localStream, remotes, micOn, camOn, toggleMic, toggleCam, error } = useLiveKitCall({
+  const {
+    localStream,
+    remotes,
+    micOn,
+    camOn,
+    isCallAnswered,
+    toggleMic,
+    toggleCam,
+    flipCamera,
+    toggleTorch,
+    torchOn,
+    error,
+  } = useLiveKitCall({
     callId,
     selfId,
     video,
@@ -59,12 +113,35 @@ export function CallRoom({
     isHost,
   });
 
+  // Audio feedback
+  useEffect(() => {
+    const ringtone = new Audio("/ringtones/call-incoming.mp3");
+    const dialtone = new Audio("/ringtones/crystal-resonance.mp3"); // Using crystal-resonance as dial tone
+    if (!isCallAnswered) {
+      if (isHost) {
+        dialtone.loop = true;
+        dialtone.play().catch((e) => console.error("Dialtone play failed", e));
+      } else {
+        ringtone.loop = true;
+        ringtone.play().catch((e) => console.error("Ringtone play failed", e));
+      }
+    }
+
+    return () => {
+      ringtone.pause();
+      ringtone.currentTime = 0;
+      dialtone.pause();
+      dialtone.currentTime = 0;
+    };
+  }, [isCallAnswered, isHost]);
+
   const [duration, setDuration] = useState(0);
   const [minimized, setMinimized] = useState(false);
   const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
   const [bursts, setBursts] = useState<FloatingReaction[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [activeButton, setActiveButton] = useState<"thumb" | "heart" | "clap" | null>(null);
+  const [showVoicePrompt, setShowVoicePrompt] = useState(false);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -73,6 +150,56 @@ export function CallRoom({
     const t = setInterval(() => setDuration((d) => d + 1), 1000);
     return () => clearInterval(t);
   }, []);
+
+  const leave = useCallback(async () => {
+    try {
+      await supabase
+        .from("call_participants")
+        .update({ state: "left", left_at: new Date().toISOString() })
+        .eq("call_id", callId)
+        .eq("user_id", selfId);
+
+      const { data: still } = await supabase
+        .from("call_participants")
+        .select("id")
+        .eq("call_id", callId)
+        .eq("state", "joined");
+
+      if (!still || still.length === 0) {
+        await supabase
+          .from("calls")
+          .update({ status: "ended", ended_at: new Date().toISOString() })
+          .eq("id", callId);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    onLeave();
+  }, [callId, selfId, onLeave]);
+
+  // Automatic timeout for unanswered calls
+  useEffect(() => {
+    if (!isHost || isCallAnswered || duration < 60) return;
+
+    // Check if call is still ringing
+    supabase
+      .from("calls")
+      .select("status")
+      .eq("id", callId)
+      .single()
+      .then(({ data }) => {
+        if (data?.status === "ringing") {
+          supabase
+            .from("calls")
+            .update({ status: "ended", ended_at: new Date().toISOString() })
+            .eq("id", callId)
+            .then(() => {
+              toast.info("Call timed out");
+              setShowVoicePrompt(true);
+            });
+        }
+      });
+  }, [duration, isHost, isCallAnswered, callId]);
 
   // Real-time synchronization layer for Reactions and Raised Hands via Supabase Broadcast
   useEffect(() => {
@@ -114,32 +241,6 @@ export function CallRoom({
       supabase.removeChannel(channel);
     };
   }, [callId]);
-
-  const leave = async () => {
-    try {
-      await supabase
-        .from("call_participants")
-        .update({ state: "left", left_at: new Date().toISOString() })
-        .eq("call_id", callId)
-        .eq("user_id", selfId);
-
-      const { data: still } = await supabase
-        .from("call_participants")
-        .select("id")
-        .eq("call_id", callId)
-        .eq("state", "joined");
-
-      if (!still || still.length === 0) {
-        await supabase
-          .from("calls")
-          .update({ status: "ended", ended_at: new Date().toISOString() })
-          .eq("id", callId);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    onLeave();
-  };
 
   const toggleHandRaise = () => {
     const nextState = !isHandRaised;
@@ -185,159 +286,296 @@ export function CallRoom({
 
   return (
     <div
-      className={`fixed z-50 flex flex-col bg-background/95 backdrop-blur-xl relative overflow-hidden selection:bg-primary/30 ${minimized ? "bottom-4 right-4 w-64 h-48 rounded-2xl border border-white/10 shadow-2xl" : "inset-0"}`}
+      className={`fixed z-50 flex flex-col bg-background/95 backdrop-blur-xl overflow-hidden selection:bg-primary/30 pointer-events-auto transition-all duration-300 ${
+        minimized
+          ? "bottom-6 right-6 w-80 h-48 rounded-2xl border border-white/10 shadow-2xl"
+          : "inset-0"
+      }`}
     >
-      {/* Particle Overlay Plane */}
-      <div className="absolute inset-x-0 bottom-36 top-0 pointer-events-none z-40 overflow-hidden">
-        {bursts.map((particle) => (
-          <div
-            key={particle.id}
-            className="absolute bottom-0 text-5xl animate-float-up opacity-0 filter drop-shadow-[0_10px_8px_rgba(0,0,0,0.4)]"
-            style={{
-              left: `${particle.left}%`,
-              animationDelay: `${particle.delay}ms`,
-            }}
-          >
-            {particle.type === "thumb" && "👍"}
-            {particle.type === "heart" && "❤️"}
-            {particle.type === "clap" && "👏"}
-          </div>
-        ))}
-      </div>
+      {minimized ? (
+        /* Compact Picture-in-Picture View */
+        <div className="flex flex-col h-full w-full relative">
+          <header className="flex items-center justify-between border-b border-white/10 px-4 py-2 w-full bg-black/40 z-10 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="grid size-6 place-items-center rounded-full bg-frequency text-primary-foreground">
+                {kind === "video" ? <Video className="size-3.5" /> : <Mic className="size-3.5" />}
+              </span>
+              <span className="truncate text-xs font-semibold text-white">
+                Call ({mmss(duration)})
+              </span>
+            </div>
+            <button
+              onClick={() => setMinimized(false)}
+              className="p-1 hover:bg-white/10 rounded text-muted-foreground hover:text-white transition"
+              title="Maximize"
+            >
+              <Maximize className="size-3.5" />
+            </button>
+          </header>
 
-      {/* Extended Width Workspace Header */}
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-4 w-full">
-        <div className="flex items-center gap-4">
-          <span className="grid size-10 place-items-center rounded-full bg-frequency text-primary-foreground resonance-glow">
-            {kind === "video" ? <Video className="size-5" /> : <Mic className="size-5" />}
-          </span>
-          {!minimized && (
-            <div>
-              <div className="font-display text-base font-semibold tracking-wide text-foreground">
-                {kind === "video"
-                  ? "Cymatic Resonance Video Stream"
-                  : "Cymatic Resonance Audio Workspace"}
+          <div className="flex-1 relative min-h-0 bg-black/20">
+            {all[0]?.stream && video ? (
+              <Tile
+                stream={all[0].stream}
+                name={peers[all[0].userId]?.full_name ?? "Connection"}
+                isSelf={all[0].isSelf}
+                state={all[0].state}
+                video={video}
+                isHandRaised={false}
+                compact
+              />
+            ) : (
+              <div className="grid size-full place-items-center bg-gradient-to-br from-primary/10 to-accent/5">
+                <div className="size-12 rounded-full bg-frequency flex items-center justify-center text-sm font-bold text-white animate-pulse">
+                  {peers[all[0]?.userId]?.full_name?.charAt(0).toUpperCase() || "C"}
+                </div>
               </div>
-              <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <span className="text-accent animate-pulse">●</span> live · {mmss(duration)}
+            )}
+
+            {/* Hover mini controls layer */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-zinc-950/90 border border-white/10 rounded-full px-3 py-1 shadow-lg backdrop-blur-sm z-20">
+              <button
+                onClick={toggleMic}
+                className={`p-1.5 rounded-full transition-all ${
+                  micOn ? "text-white hover:bg-white/10" : "text-destructive bg-destructive/20"
+                }`}
+                aria-label="Toggle mic"
+              >
+                {micOn ? <Mic className="size-3.5" /> : <MicOff className="size-3.5" />}
+              </button>
+              {video && (
+                <button
+                  onClick={toggleCam}
+                  className={`p-1.5 rounded-full transition-all ${
+                    camOn ? "text-white hover:bg-white/10" : "text-destructive bg-destructive/20"
+                  }`}
+                  aria-label="Toggle camera"
+                >
+                  {camOn ? <Video className="size-3.5" /> : <VideoOff className="size-3.5" />}
+                </button>
+              )}
+              <button
+                onClick={leave}
+                className="p-1.5 rounded-full text-red-500 hover:bg-red-500/20 transition-colors"
+                aria-label="End call"
+              >
+                <PhoneOff className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Full Screen Interactive Video Stream Matrix */
+        <>
+          {/* Particle Overlay Plane */}
+          <div className="absolute inset-x-0 bottom-36 top-0 pointer-events-none z-40 overflow-hidden">
+            {bursts.map((particle) => (
+              <div
+                key={particle.id}
+                className="absolute bottom-0 text-5xl animate-float-up opacity-0 filter drop-shadow-[0_10px_8px_rgba(0,0,0,0.4)]"
+                style={{
+                  left: `${particle.left}%`,
+                  animationDelay: `${particle.delay}ms`,
+                }}
+              >
+                {particle.type === "thumb" && "👍"}
+                {particle.type === "heart" && "❤️"}
+                {particle.type === "clap" && "👏"}
+              </div>
+            ))}
+          </div>
+
+          {/* Extended Width Workspace Header */}
+          <header className="flex items-center justify-between border-b border-white/10 px-8 py-4 w-full">
+            <div className="flex items-center gap-4">
+              <span className="grid size-10 place-items-center rounded-full bg-frequency text-primary-foreground resonance-glow">
+                {kind === "video" ? <Video className="size-5" /> : <Mic className="size-5" />}
+              </span>
+              <div>
+                <div className="font-display text-base font-semibold tracking-wide text-foreground">
+                  {kind === "video"
+                    ? "Cymatic Resonance Video Stream"
+                    : "Cymatic Resonance Audio Workspace"}
+                </div>
+                <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-accent animate-pulse">●</span> live · {mmss(duration)}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setMinimized(true)}
+                className="p-2 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-white transition"
+                title="Minimize"
+              >
+                <Minimize className="size-4" />
+              </button>
+              <div className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-xs font-medium text-muted-foreground ring-1 ring-white/10">
+                <Users className="size-4 text-primary" /> {all.length} Execution Partners Connected
+              </div>
+            </div>
+          </header>
+
+          {/* Main Stream Matrix Display - Stretched wide to support expanded layout design */}
+          <div
+            className={`grid flex-1 gap-4 p-6 w-full max-w-[1800px] mx-auto ${gridCols(all.length)}`}
+          >
+            {all.map((p) => (
+              <Tile
+                key={p.userId}
+                stream={p.stream}
+                name={peers[p.userId]?.full_name ?? (p.isSelf ? "You" : "Execution Member")}
+                isSelf={p.isSelf}
+                state={p.state}
+                video={video}
+                isHandRaised={!!raisedHands[p.userId]}
+              />
+            ))}
+          </div>
+
+          {error && (
+            <div className="mx-auto mb-4 max-w-md rounded-xl bg-destructive/20 border border-destructive/30 px-4 py-2.5 text-center text-xs text-destructive animate-bounce">
+              {error}
+            </div>
+          )}
+
+          {/* Bottom Kinetic Command Layer */}
+          <div className="flex flex-col gap-4 border-t border-white/10 p-6 bg-background/50 backdrop-blur-md z-50">
+            {/* State Trigger Interaction Interface */}
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={() => triggerReaction("thumb")}
+                className={`flex size-12 items-center justify-center rounded-full border text-xl transition-all duration-300 transform active:scale-90 ${
+                  activeButton === "thumb"
+                    ? "bg-emerald-500/20 border-emerald-500 scale-125 animate-shake-burst grayscale-0 opacity-100"
+                    : "bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-white/10"
+                }`}
+                title="Thumbs Up Execution"
+              >
+                👍
+              </button>
+              <button
+                onClick={() => triggerReaction("heart")}
+                className={`flex size-12 items-center justify-center rounded-full border text-xl transition-all duration-300 transform active:scale-90 ${
+                  activeButton === "heart"
+                    ? "bg-rose-500/20 border-rose-500 scale-125 animate-shake-burst grayscale-0 opacity-100"
+                    : "bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-white/10"
+                }`}
+                title="Heart Synchronization"
+              >
+                ❤️
+              </button>
+              <button
+                onClick={() => triggerReaction("clap")}
+                className={`flex size-12 items-center justify-center rounded-full border text-xl transition-all duration-300 transform active:scale-90 ${
+                  activeButton === "clap"
+                    ? "bg-amber-500/20 border-amber-500 scale-125 animate-shake-burst grayscale-0 opacity-100"
+                    : "bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-white/10"
+                }`}
+                title="Applaud Execution"
+              >
+                👏
+              </button>
+
+              <div className="w-px h-8 bg-white/10 mx-2" />
+
+              <button
+                onClick={toggleHandRaise}
+                className={`flex items-center gap-2 px-5 h-12 rounded-full transition-all border font-semibold text-xs tracking-wider active:scale-95 ${
+                  isHandRaised
+                    ? "bg-amber-500 border-amber-400 text-black shadow-lg shadow-amber-500/20 animate-pulse-glow"
+                    : "bg-white/5 border-white/10 text-foreground hover:bg-white/10"
+                }`}
+              >
+                <Hand className={`size-4 ${isHandRaised ? "animate-bounce" : ""}`} />
+                {isHandRaised ? "Hand Raised" : "Raise Hand"}
+              </button>
+            </div>
+
+            {/* Primary Hardware Media IO Switches */}
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={toggleMic}
+                className={`grid size-14 place-items-center rounded-full transition-all ${
+                  micOn
+                    ? "bg-white/10 text-foreground hover:bg-white/20"
+                    : "bg-destructive text-destructive-foreground"
+                }`}
+                aria-label="Toggle mic"
+              >
+                {micOn ? <Mic className="size-5" /> : <MicOff className="size-5" />}
+              </button>
+              {video && (
+                <button
+                  onClick={toggleCam}
+                  className={`grid size-14 place-items-center rounded-full transition-all ${
+                    camOn
+                      ? "bg-white/10 text-foreground hover:bg-white/20"
+                      : "bg-destructive text-destructive-foreground"
+                  }`}
+                  aria-label="Toggle camera"
+                >
+                  {camOn ? <Video className="size-5" /> : <VideoOff className="size-5" />}
+                </button>
+              )}
+              <button
+                onClick={leave}
+                className="grid size-14 place-items-center rounded-full bg-destructive text-destructive-foreground transition hover:brightness-110"
+                aria-label="Leave call execution"
+              >
+                <PhoneOff className="size-5" />
+              </button>
+            </div>
+            {video && camOn && (
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <button
+                  onClick={() => flipCamera()}
+                  className="p-3 bg-white/10 rounded-full hover:bg-white/20"
+                >
+                  <Camera className="size-5" />
+                </button>
+                <button
+                  onClick={() => toggleTorch()}
+                  className={`p-3 rounded-full ${torchOn ? "bg-amber-500" : "bg-white/10"}`}
+                >
+                  <Flashlight className="size-5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {showVoicePrompt && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md">
+              <div className="bg-background border border-white/10 rounded-3xl p-8 max-w-sm text-center shadow-2xl animate-in zoom-in-95">
+                <div className="size-16 rounded-full bg-frequency/20 flex items-center justify-center mx-auto mb-4">
+                  <Mic className="size-8 text-frequency" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">No Answer</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  The call timed out. Would you like to leave a recorded voice message?
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => {
+                      toast.success("Recording feature coming soon");
+                      leave();
+                    }}
+                    className="w-full bg-frequency text-white font-bold py-3 rounded-xl hover:brightness-110 transition"
+                  >
+                    Leave Voice Message
+                  </button>
+                  <button
+                    onClick={leave}
+                    className="w-full bg-white/5 text-foreground py-3 rounded-xl hover:bg-white/10 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}
-        </div>
-        <button
-          onClick={() => setMinimized(!minimized)}
-          className="p-2 hover:bg-white/5 rounded-lg"
-        >
-          {minimized ? <Maximize className="size-4" /> : <Minimize className="size-4" />}
-        </button>
-        <div className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-xs font-medium text-muted-foreground ring-1 ring-white/10">
-          <Users className="size-4 text-primary" /> {all.length} Execution Partners Connected
-        </div>
-      </header>
-
-      {/* Main Stream Matrix Display - Stretched wide to support expanded layout design */}
-      <div
-        className={`grid flex-1 gap-4 p-6 w-full max-w-[1800px] mx-auto ${gridCols(all.length)}`}
-      >
-        {all.map((p) => (
-          <Tile
-            key={p.userId}
-            stream={p.stream}
-            name={peers[p.userId]?.full_name ?? (p.isSelf ? "You" : "Execution Member")}
-            isSelf={p.isSelf}
-            state={p.state}
-            video={video}
-            isHandRaised={!!raisedHands[p.userId]}
-          />
-        ))}
-      </div>
-
-      {error && (
-        <div className="mx-auto mb-4 max-w-md rounded-xl bg-destructive/20 border border-destructive/30 px-4 py-2.5 text-center text-xs text-destructive animate-bounce">
-          {error}
-        </div>
+        </>
       )}
-
-      {/* Bottom Kinetic Command Layer */}
-      <div className="flex flex-col gap-4 border-t border-white/10 p-6 bg-background/50 backdrop-blur-md z-50">
-        {/* State Trigger Interaction Interface */}
-        <div className="flex items-center justify-center gap-4">
-          <button
-            onClick={() => triggerReaction("thumb")}
-            className={`flex size-12 items-center justify-center rounded-full border text-xl transition-all duration-300 transform active:scale-90 ${
-              activeButton === "thumb"
-                ? "bg-emerald-500/20 border-emerald-500 scale-125 animate-shake-burst grayscale-0 opacity-100"
-                : "bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-white/10"
-            }`}
-            title="Thumbs Up Execution"
-          >
-            👍
-          </button>
-          <button
-            onClick={() => triggerReaction("heart")}
-            className={`flex size-12 items-center justify-center rounded-full border text-xl transition-all duration-300 transform active:scale-90 ${
-              activeButton === "heart"
-                ? "bg-rose-500/20 border-rose-500 scale-125 animate-shake-burst grayscale-0 opacity-100"
-                : "bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-white/10"
-            }`}
-            title="Heart Synchronization"
-          >
-            ❤️
-          </button>
-          <button
-            onClick={() => triggerReaction("clap")}
-            className={`flex size-12 items-center justify-center rounded-full border text-xl transition-all duration-300 transform active:scale-90 ${
-              activeButton === "clap"
-                ? "bg-amber-500/20 border-amber-500 scale-125 animate-shake-burst grayscale-0 opacity-100"
-                : "bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-white/10"
-            }`}
-            title="Applaud Execution"
-          >
-            👏
-          </button>
-
-          <div className="w-px h-8 bg-white/10 mx-2" />
-
-          <button
-            onClick={toggleHandRaise}
-            className={`flex items-center gap-2 px-5 h-12 rounded-full transition-all border font-semibold text-xs tracking-wider active:scale-95 ${
-              isHandRaised
-                ? "bg-amber-500 border-amber-400 text-black shadow-lg shadow-amber-500/20 animate-pulse-glow"
-                : "bg-white/5 border-white/10 text-foreground hover:bg-white/10"
-            }`}
-          >
-            <Hand className={`size-4 ${isHandRaised ? "animate-bounce" : ""}`} />
-            {isHandRaised ? "Hand Raised" : "Raise Hand"}
-          </button>
-        </div>
-
-        {/* Primary Hardware Media IO Switches */}
-        <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={toggleMic}
-            className={`grid size-14 place-items-center rounded-full transition-all ${micOn ? "bg-white/10 text-foreground hover:bg-white/20" : "bg-destructive text-destructive-foreground"}`}
-            aria-label="Toggle mic"
-          >
-            {micOn ? <Mic className="size-5" /> : <MicOff className="size-5" />}
-          </button>
-          {video && (
-            <button
-              onClick={toggleCam}
-              className={`grid size-14 place-items-center rounded-full transition-all ${camOn ? "bg-white/10 text-foreground hover:bg-white/20" : "bg-destructive text-destructive-foreground"}`}
-              aria-label="Toggle camera"
-            >
-              {camOn ? <Video className="size-5" /> : <VideoOff className="size-5" />}
-            </button>
-          )}
-          <button
-            onClick={leave}
-            className="grid size-14 place-items-center rounded-full bg-destructive text-destructive-foreground transition hover:brightness-110"
-            aria-label="Leave call execution"
-          >
-            <PhoneOff className="size-5" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -356,6 +594,7 @@ function Tile({
   state,
   video,
   isHandRaised,
+  compact,
 }: {
   stream: MediaStream | null;
   name: string;
@@ -363,6 +602,7 @@ function Tile({
   state: RTCPeerConnectionState;
   video: boolean;
   isHandRaised: boolean;
+  compact?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -374,19 +614,37 @@ function Tile({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl bg-card transition-all duration-300 ring-2 ${
-        isHandRaised
-          ? "ring-amber-500 shadow-xl shadow-amber-500/10 scale-[1.01] animate-pulse-glow"
-          : "ring-white/10"
+      className={`relative overflow-hidden bg-card transition-all duration-300 ring-2 ${
+        compact
+          ? "rounded-xl ring-1 ring-white/15 size-full"
+          : isHandRaised
+            ? "rounded-2xl ring-amber-500 shadow-xl shadow-amber-500/10 scale-[1.01] animate-pulse-glow"
+            : "rounded-2xl ring-white/10"
       }`}
     >
       {hasVideo ? (
-        <video ref={ref} autoPlay playsInline muted={isSelf} className="size-full object-cover" />
+        <video
+          ref={ref}
+          autoPlay
+          playsInline
+          muted={isSelf}
+          className="size-full object-cover"
+          style={{
+            transform: "none",
+            filter: "none",
+          }}
+        />
       ) : (
-        <div className="grid size-full place-items-center bg-gradient-to-br from-primary/20 to-accent/10 min-h-[240px]">
+        <div
+          className={`grid size-full place-items-center bg-gradient-to-br from-primary/20 to-accent/10 ${compact ? "min-h-0 py-4" : "min-h-[240px]"}`}
+        >
           <div
-            className={`grid size-24 place-items-center rounded-full bg-frequency text-3xl font-bold text-primary-foreground resonance-glow transition-transform ${
-              isHandRaised ? "border-2 border-amber-500 scale-110" : ""
+            className={`grid place-items-center rounded-full bg-frequency font-bold text-primary-foreground resonance-glow transition-transform ${
+              compact
+                ? "size-12 text-sm"
+                : isHandRaised
+                  ? "size-24 text-3xl border-2 border-amber-500 scale-110"
+                  : "size-24 text-3xl"
             }`}
           >
             {name.charAt(0).toUpperCase()}
@@ -401,18 +659,26 @@ function Tile({
           )}
         </div>
       )}
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-xl bg-black/70 px-3 py-1.5 backdrop-blur-md border border-white/5">
-        <span className="truncate text-xs font-medium tracking-wide">
-          {name}
-          {isSelf && " (you)"}
-        </span>
-        <div className="flex items-center gap-2">
-          {isHandRaised && <Hand className="size-3.5 text-amber-500 animate-bounce" />}
-          <span
-            className={`size-1.5 rounded-full ${state === "connected" ? "bg-accent" : state === "failed" || state === "disconnected" ? "bg-destructive" : "bg-yellow-400"}`}
-          />
+      {!compact && (
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-xl bg-black/70 px-3 py-1.5 backdrop-blur-md border border-white/5">
+          <span className="truncate text-xs font-medium tracking-wide">
+            {name}
+            {isSelf && " (you)"}
+          </span>
+          <div className="flex items-center gap-2">
+            {isHandRaised && <Hand className="size-3.5 text-amber-500 animate-bounce" />}
+            <span
+              className={`size-1.5 rounded-full ${
+                state === "connected"
+                  ? "bg-accent"
+                  : state === "failed" || state === "disconnected"
+                    ? "bg-destructive"
+                    : "bg-yellow-400"
+              }`}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
