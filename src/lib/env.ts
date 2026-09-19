@@ -4,9 +4,17 @@
  * production simply by changing the environment.
  */
 
-type ViteEnv = Record<string, string | undefined>;
+// NOTE: these must be written as literal `import.meta.env.X` expressions so the
+// bundler can inline them at build time (dynamic lookups are never replaced).
+const BUILT_IN_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const BUILT_IN_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 
-const env = (import.meta.env ?? {}) as ViteEnv;
+const env = {
+  VITE_SUPABASE_URL: BUILT_IN_URL || undefined,
+  VITE_SUPABASE_ANON_KEY: BUILT_IN_KEY || undefined,
+  VITE_SUPABASE_PUBLISHABLE_KEY: BUILT_IN_KEY || undefined,
+} as Record<string, string | undefined>;
 
 export function getSupabaseUrl(): string | undefined {
   if (typeof window !== "undefined") {
