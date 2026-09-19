@@ -191,6 +191,56 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          company: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          org_id: string
+          phone: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          org_id: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       direct_threads: {
         Row: {
           channel_id: string
@@ -581,12 +631,41 @@ export type Database = {
         }
         Relationships: []
       }
+      panda_reports: {
+        Row: {
+          console_trace: Json
+          created_at: string
+          id: string
+          issue: string
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          console_trace?: Json
+          created_at?: string
+          id?: string
+          issue: string
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          console_trace?: Json
+          created_at?: string
+          id?: string
+          issue?: string
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           category: string | null
           created_at: string
           full_name: string | null
           id: string
+          is_online: boolean
+          last_seen_at: string | null
           org_id: string | null
           phone: string | null
           position: string | null
@@ -598,6 +677,8 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          is_online?: boolean
+          last_seen_at?: string | null
           org_id?: string | null
           phone?: string | null
           position?: string | null
@@ -609,6 +690,8 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_online?: boolean
+          last_seen_at?: string | null
           org_id?: string | null
           phone?: string | null
           position?: string | null
