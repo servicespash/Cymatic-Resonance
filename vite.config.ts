@@ -1,4 +1,4 @@
-import { defineConfig, PluginOption } from "vite";
+import { defineConfig, loadEnv, PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -49,7 +49,27 @@ const plugins: PluginOption[] = [
   }),
 ];
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Accept several spellings of the backend variables so a deploy works whether
+  // the host exposes VITE_SUPABASE_*, SUPABASE_* or *_PUBLISHABLE_KEY names.
+  const env = loadEnv(mode, process.cwd(), "");
+  const pick = (...keys: string[]) => keys.map((k) => env[k]).find((v) => !!v) ?? "";
+  const supabaseUrl = pick("VITE_SUPABASE_URL", "SUPABASE_URL");
+  const supabaseKey = pick(
+    "VITE_SUPABASE_ANON_KEY",
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+  );
+  const livekitUrl = pick("VITE_LIVEKIT_URL", "LIVEKIT_URL");
+
+  return {
+  define: {
+    "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
+    "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(supabaseKey),
+    "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabaseKey),
+    "import.meta.env.VITE_LIVEKIT_URL": JSON.stringify(livekitUrl),
+  },
   base: "/",
   plugins,
   server: {
@@ -130,4 +150,6 @@ export default defineConfig({
       },
     },
   },
+  },
+  };
 });
