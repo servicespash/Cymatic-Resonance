@@ -44,27 +44,56 @@ export function useLiveKitCall(opts: {
   }, [camOn]);
 
   const syncLocalTracks = useCallback(async () => {
+    const isSimulated =
+      typeof window !== "undefined" && localStorage.getItem("cym.media.mode.v1") === "simulated";
+    if (isSimulated) {
+      console.info("[useLiveKitCall] Simulated mode: skipping hardware track sync.");
+      setLocalStream(null);
+      return;
+    }
+
     const room = roomRef.current;
-    if (!room || room.state !== "connected") return;
 
-    try {
-      await room.localParticipant.setMicrophoneEnabled(micStateRef.current);
-      await room.localParticipant.setCameraEnabled(camStateRef.current);
+    // If room is connected, use LiveKit's participant management
+    if (room && room.state === "connected") {
+      try {
+        await room.localParticipant.setMicrophoneEnabled(micStateRef.current);
+        await room.localParticipant.setCameraEnabled(camStateRef.current);
 
-      const tracks: MediaStreamTrack[] = [];
-      const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        const tracks: MediaStreamTrack[] = [];
+        const camPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
 
-      if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
-        tracks.push(camPub.track.mediaStreamTrack);
+        if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
+          tracks.push(camPub.track.mediaStreamTrack);
+        }
+        if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
+          tracks.push(micPub.track.mediaStreamTrack);
+        }
+
+        setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
+      } catch (err) {
+        console.error("[Cymatic Resonance] Local track sync error:", err);
       }
-      if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
-        tracks.push(micPub.track.mediaStreamTrack);
-      }
+      return;
+    }
 
-      setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
-    } catch (err) {
-      console.error("[Cymatic Resonance] Local track sync error:", err);
+    // Fallback: Direct getUserMedia if no LiveKit connection but we want local feedback
+    if (camStateRef.current || micStateRef.current) {
+      try {
+        const constraints = {
+          video: camStateRef.current ? { width: { ideal: 640 }, height: { ideal: 360 } } : false,
+          audio: micStateRef.current,
+        };
+        console.info("[useLiveKitCall] Direct getUserMedia fallback:", constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        setLocalStream(stream);
+      } catch (err) {
+        console.error("[useLiveKitCall] Direct fallback failed:", err);
+        setLocalStream(null);
+      }
+    } else {
+      setLocalStream(null);
     }
   }, []);
 

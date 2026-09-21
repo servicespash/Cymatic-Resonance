@@ -74,7 +74,9 @@ function enqueue(context: ErrorReportContext) {
   writeQueue([...readQueue(), context]);
 }
 
-async function dispatch(context: ErrorReportContext): Promise<{ delivered: boolean; detail: string }> {
+async function dispatch(
+  context: ErrorReportContext,
+): Promise<{ delivered: boolean; detail: string }> {
   const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL ?? ""}/functions/v1/panda-ping`;
   const { data, error } = await supabase.functions.invoke<{
     delivered?: boolean;
@@ -84,7 +86,11 @@ async function dispatch(context: ErrorReportContext): Promise<{ delivered: boole
   if (!error && data) {
     return {
       delivered: Boolean(data.delivered),
-      detail: data.delivery ? Object.entries(data.delivery).map(([k, v]) => `${k}: ${v}`).join(" · ") : "stored",
+      detail: data.delivery
+        ? Object.entries(data.delivery)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" · ")
+        : "stored",
     };
   }
 
@@ -126,12 +132,20 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     void flushPandaQueue();
   });
+  // Also try flushing on startup if we are already online
+  if (navigator.onLine) {
+    void flushPandaQueue();
+  }
 }
 
 export async function sendSilentPandaPing(context: ErrorReportContext): Promise<PandaPingResult> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     enqueue(context);
-    return { delivered: false, queued: true, detail: "Saved offline — will send when back online." };
+    return {
+      delivered: false,
+      queued: true,
+      detail: "Saved offline — will send when back online.",
+    };
   }
 
   try {

@@ -37,7 +37,10 @@ export class LiveKitTransport implements CallTransport {
       this.mode = "livekit";
     } catch (err) {
       this.mode = "p2p";
-      console.info("[Cymatic Transport] LiveKit connect failed — falling back to peer-to-peer:", err);
+      console.info(
+        "[Cymatic Transport] LiveKit connect failed — falling back to peer-to-peer:",
+        err,
+      );
     }
   }
 
