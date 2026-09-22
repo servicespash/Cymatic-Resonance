@@ -166,17 +166,32 @@ function CallRoomInner({
         .eq("call_id", callId)
         .eq("user_id", selfId);
 
-      const { data: still } = await supabase
+      // If it's a 1-on-1 call, leaving should end it for both
+      // We can check the number of participants or the kind of call
+      const { data: participants } = await supabase
         .from("call_participants")
-        .select("id")
-        .eq("call_id", callId)
-        .eq("state", "joined");
+        .select("id, state")
+        .eq("call_id", callId);
 
-      if (!still || still.length === 0) {
-        await supabase
-          .from("calls")
-          .update({ status: "ended", ended_at: new Date().toISOString() })
-          .eq("id", callId);
+      const stillJoined = participants?.filter((p) => p.state === "joined") ?? [];
+
+      if (stillJoined.length <= 1) {
+        // Either I was the last one, or only one person is left.
+        // In 1-on-1, if I leave, only one is left (the other person), but we want to end it.
+        // Actually, if it's 1-on-1, and I leave, the other person is 'stillJoined'.
+        // If it's a group call, we only end if NO ONE is left.
+        // Let's check the total invited count to see if it was 1-on-1
+        if (participants && participants.length <= 2) {
+          await supabase
+            .from("calls")
+            .update({ status: "ended", ended_at: new Date().toISOString() })
+            .eq("id", callId);
+        } else if (stillJoined.length === 0) {
+          await supabase
+            .from("calls")
+            .update({ status: "ended", ended_at: new Date().toISOString() })
+            .eq("id", callId);
+        }
       }
     } catch (e) {
       console.error(e);

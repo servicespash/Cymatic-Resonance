@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Phone } from "lucide-react";
+import { Phone, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCallController } from "@/hooks/use-call-controller";
 
 interface Member {
   id: string;
@@ -12,6 +13,7 @@ interface Member {
 
 export const CommunicationsDashboard = () => {
   const [members, setMembers] = useState<Member[]>([]);
+  const { startCall } = useCallController();
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -21,9 +23,10 @@ export const CommunicationsDashboard = () => {
     fetchMembers();
   }, []);
 
-  const initiateCall = (userId: string) => {
-    // Integration point: call logic here
-    console.log("Initiating call to", userId);
+  const initiateCall = (userId: string, kind: "audio" | "video") => {
+    // Generate a temporary channel ID or use a dedicated one
+    const channelId = `direct-${userId}`;
+    startCall(channelId, [userId], kind);
   };
 
   const getStatusColor = (isOnline: boolean) => {
@@ -43,9 +46,14 @@ export const CommunicationsDashboard = () => {
               <div className={cn("size-3 rounded-full", getStatusColor(member.is_online))} />
               <span>{member.full_name || "Unknown"}</span>
             </div>
-            <Button size="sm" onClick={() => initiateCall(member.id)}>
-              <Phone className="size-4 mr-2" /> Call
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => initiateCall(member.id, "audio")}>
+                <Phone className="size-4 mr-2" /> Call
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => initiateCall(member.id, "video")}>
+                <Video className="size-4 mr-2" /> Video
+              </Button>
+            </div>
           </div>
         ))}
       </div>

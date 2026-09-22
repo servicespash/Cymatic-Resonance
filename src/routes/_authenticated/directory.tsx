@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
-import { Search } from "lucide-react";
+import { Search, Phone, Video } from "lucide-react";
+import { useCallController } from "@/hooks/use-call-controller";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 import { RequireWorkspace } from "@/components/require-workspace";
 
@@ -28,13 +31,14 @@ type Row = {
 
 function DirectoryPage() {
   const { user } = useAuth();
+  const { startCall } = useCallController();
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    let orgId: string | null = null;
 
     const fetchData = async () => {
       const { data: p } = await supabase
@@ -47,7 +51,7 @@ function DirectoryPage() {
         setLoading(false);
         return;
       }
-      orgId = p.org_id;
+      setOrgId(p.org_id);
 
       const { data } = await supabase
         .from("profiles")
@@ -80,7 +84,21 @@ function DirectoryPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, orgId]);
+
+  const handleStartCall = async (targetUserId: string, kind: "audio" | "video") => {
+    if (!orgId) return;
+
+    // Find or create a DM channel first
+    const { data, error } = await supabase.rpc("open_dm", { _other: targetUserId });
+    if (error || !data) {
+      toast.error("Failed to start call: could not establish a connection channel");
+      return;
+    }
+
+    const thread = data as unknown as { channel_id: string };
+    startCall(thread.channel_id, [targetUserId], kind);
+  };
 
   const filtered = rows.filter(
     (r) =>
@@ -152,11 +170,33 @@ function DirectoryPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs">
-              <span className="rounded-md bg-white/5 px-2 py-0.5 font-mono uppercase tracking-widest text-muted-foreground">
-                {r.category ?? "—"}
-              </span>
-              {r.phone && <span className="font-mono text-muted-foreground">{r.phone}</span>}
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleStartCall(r.id, "audio")}
+                  title="Audio Call"
+                >
+                  <Phone className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleStartCall(r.id, "video")}
+                  title="Video Call"
+                >
+                  <Video className="size-4" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="rounded-md bg-white/5 px-2 py-0.5 font-mono uppercase tracking-widest text-muted-foreground">
+                  {r.category ?? "—"}
+                </span>
+                {r.phone && <span className="font-mono text-muted-foreground">{r.phone}</span>}
+              </div>
             </div>
           </div>
         ))}

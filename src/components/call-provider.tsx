@@ -109,6 +109,33 @@ export function CallProvider({ children }: { children: ReactNode }) {
         {
           event: "UPDATE",
           schema: "public",
+          table: "call_participants",
+        },
+        async (payload) => {
+          const part = payload.new as Database["public"]["Tables"]["call_participants"]["Row"];
+          const activeCallId = activeCallRef.current;
+
+          // If someone declines our outgoing 1-on-1 call, end it
+          if (activeCallId === part.call_id && part.state === "declined") {
+            const { data: participants } = await supabase
+              .from("call_participants")
+              .select("id")
+              .eq("call_id", activeCallId);
+
+            if (participants && participants.length <= 2) {
+              await supabase
+                .from("calls")
+                .update({ status: "ended", ended_at: new Date().toISOString() })
+                .eq("id", activeCallId);
+            }
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
           table: "calls",
         },
         (payload) => {
@@ -136,6 +163,27 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const startCall = useCallback(
     async (channelId: string, recipientIds: string[], kind: "audio" | "video") => {
       if (!user || !orgId) return;
+
+      let targets = [...recipientIds];
+      if (targets.length === 0) {
+        const { data: channel } = await supabase
+          .from("channels")
+          .select("kind")
+          .eq("id", channelId)
+          .single();
+
+        if (channel?.kind === "broadcast") {
+          const { data: members } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("org_id", orgId);
+
+          if (members) {
+            targets = members.map((m) => m.id).filter((id) => id !== user.id);
+          }
+        }
+      }
+
       const { data: call, error } = await supabase
         .from("calls")
         .insert({
@@ -157,7 +205,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           state: "joined",
           joined_at: new Date().toISOString(),
         },
-        ...recipientIds
+        ...targets
           .filter((id) => id !== user.id)
           .map((id) => ({ call_id: call.id, user_id: id, state: "invited" })),
       ];
