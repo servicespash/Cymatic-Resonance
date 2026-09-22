@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,15 @@ import { useDropzone } from "react-dropzone";
 import { Database } from "@/integrations/supabase/types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
-type Attachment = Database["public"]["Tables"]["task_attachments"]["Row"];
-type Activity = Database["public"]["Tables"]["task_activity"]["Row"];
+type Attachment = {
+  id: string;
+  task_id: string;
+  file_url: string;
+  file_name: string;
+  file_type: string;
+  created_at?: string;
+};
+type Activity = { id: string; task_id: string; status: string; created_at: string };
 
 const steps = [
   { id: "open", label: "Open" },
@@ -37,14 +45,12 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
         setTask(taskData);
         setResearch(taskData.description || "");
       }
-      const { data: attData } = await supabase
-        .from("task_attachments")
+      const { data: attData } = await (supabase.from("task_attachments" as any) as any)
         .select("*")
         .eq("task_id", taskId);
       if (attData) setAttachments(attData as Attachment[]);
 
-      const { data: actData } = await supabase
-        .from("task_activity")
+      const { data: actData } = await (supabase.from("task_activity" as any) as any)
         .select("*")
         .eq("task_id", taskId)
         .order("created_at", { ascending: true });
@@ -109,7 +115,10 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
 
       try {
         await supabase.from("tasks").update({ status: nextStatus }).eq("id", taskId);
-        await supabase.from("task_activity").insert({ task_id: taskId, status: nextStatus });
+        await (supabase.from("task_activity" as any) as any).insert({
+          task_id: taskId,
+          status: nextStatus,
+        });
       } catch {
         // Rollback
         setTask(task);
@@ -134,7 +143,7 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
           toast.error(`Upload failed: ${file.name}`);
           continue;
         }
-        await supabase.from("task_attachments").insert({
+        await (supabase.from("task_attachments" as any) as any).insert({
           task_id: taskId,
           file_url: data.path,
           file_name: file.name,
@@ -142,11 +151,10 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
         });
       }
       toast.success("Files uploaded");
-      const { data: attData } = await supabase
-        .from("task_attachments")
+      const { data: attData } = await (supabase.from("task_attachments" as any) as any)
         .select("*")
         .eq("task_id", taskId);
-      if (attData) setAttachments(attData);
+      if (attData) setAttachments(attData as Attachment[]);
     },
     [taskId],
   );
@@ -155,7 +163,7 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
 
   const deleteAttachment = async (id: string, path: string) => {
     await supabase.storage.from("task-attachments").remove([path]);
-    await supabase.from("task_attachments").delete().eq("id", id);
+    await (supabase.from("task_attachments" as any) as any).delete().eq("id", id);
     setAttachments(attachments.filter((a) => a.id !== id));
     toast.success("File deleted");
   };

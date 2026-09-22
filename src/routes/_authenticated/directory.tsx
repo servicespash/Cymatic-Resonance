@@ -31,7 +31,7 @@ type Row = {
 
 function DirectoryPage() {
   const { user } = useAuth();
-  const { startCall } = useCallController();
+  const { openInitiationModal } = useCallController();
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -86,18 +86,18 @@ function DirectoryPage() {
     };
   }, [user, orgId]);
 
-  const handleStartCall = async (targetUserId: string, kind: "audio" | "video") => {
+  const handleInitiate = async (r: Row) => {
     if (!orgId) return;
 
     // Find or create a DM channel first
-    const { data, error } = await supabase.rpc("open_dm", { _other: targetUserId });
+    const { data, error } = await supabase.rpc("open_dm", { _other: r.id });
     if (error || !data) {
       toast.error("Failed to start call: could not establish a connection channel");
       return;
     }
 
     const thread = data as unknown as { channel_id: string };
-    startCall(thread.channel_id, [targetUserId], kind);
+    openInitiationModal(thread.channel_id, [r.id], r.full_name ?? "Member");
   };
 
   const filtered = rows.filter(
@@ -171,26 +171,15 @@ function DirectoryPage() {
               </div>
             </div>
             <div className="mt-3 flex items-center justify-between gap-2">
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0"
-                  onClick={() => handleStartCall(r.id, "audio")}
-                  title="Audio Call"
-                >
-                  <Phone className="size-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0"
-                  onClick={() => handleStartCall(r.id, "video")}
-                  title="Video Call"
-                >
-                  <Video className="size-4" />
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-2 rounded-lg bg-accent/10 hover:bg-accent/20 px-3 transition-all"
+                onClick={() => handleInitiate(r)}
+              >
+                <Phone className="size-3" />
+                <span className="text-[10px] font-medium">Call</span>
+              </Button>
               <div className="flex items-center gap-2 text-[10px]">
                 <span className="rounded-md bg-white/5 px-2 py-0.5 font-mono uppercase tracking-widest text-muted-foreground">
                   {r.category ?? "—"}

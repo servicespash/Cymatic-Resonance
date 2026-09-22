@@ -8,6 +8,8 @@ import { Phone, PhoneOff, Video } from "lucide-react";
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
 import { CallRoom } from "@/components/call-room";
 import { Ctx } from "@/hooks/use-call-controller";
+import { useCallManager } from "@/hooks/use-call-manager";
+import { CallInitiationModal } from "@/components/call-initiation-modal";
 import type { Database } from "@/integrations/supabase/types";
 
 type Sender = { id: string; full_name: string | null };
@@ -18,25 +20,47 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<Record<string, Sender>>({});
   const [incoming, setIncoming] = useState<Call | null>(null);
-  const [active, setActive] = useState<{
-    id: string;
-    kind: "audio" | "video";
-    initiator_id?: string;
-  } | null>(null);
   const ringtone = useRef(createRingtone(localStorage.getItem("cym.ringtone") || "default"));
-  const activeCallRef = useRef<string | null>(null);
   const membersRef = useRef(members);
   membersRef.current = members;
 
-  useEffect(() => {
-    activeCallRef.current = active?.id ?? null;
-  }, [active]);
+  const {
+    activeCall,
+    isJoining,
+    startCall,
+    joinCall,
+    leaveCall,
+    declineCall,
+    setActiveCall,
+  } = useCallManager();
+
+  // Initiation Modal State
+  const [initiationModal, setInitiationModal] = useState<{
+    isOpen: boolean;
+    channelId: string;
+    recipientIds: string[];
+    targetName: string;
+  }>({
+    isOpen: false,
+    channelId: "",
+    recipientIds: [],
+    targetName: "",
+  });
+
+  const openInitiationModal = useCallback(
+    (channelId: string, recipientIds: string[], targetName: string) => {
+      setInitiationModal({
+        isOpen: true,
+        channelId,
+        recipientIds,
+        targetName,
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!user) return;
-    let isMounted = true;
-    console.log("CallProvider: Fetching org/members");
-
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
@@ -44,26 +68,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (!p?.org_id || !isMounted) return;
+      if (!p?.org_id) return;
       setOrgId(p.org_id);
-      console.log("CallProvider: Org found", p.org_id);
 
       const { data: m } = await supabase
         .from("profiles")
         .select("id, full_name")
         .eq("org_id", p.org_id);
 
-      if (!isMounted) return;
       const map: Record<string, Sender> = {};
       for (const s of (m ?? []) as Sender[]) map[s.id] = s;
       setMembers(map);
-      console.log("CallProvider: Members fetched", Object.keys(map).length);
       ensureNotificationPermission();
     })();
-
-    return () => {
-      isMounted = false;
-    };
   }, [user]);
 
   useEffect(() => {
@@ -83,7 +100,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         async (payload) => {
           const part = payload.new as Database["public"]["Tables"]["call_participants"]["Row"];
           if (part.state !== "invited") return;
-          if (activeCallRef.current) return;
+          if (activeCall) return;
 
           const { data: c } = await supabase
             .from("calls")
@@ -109,33 +126,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
         {
           event: "UPDATE",
           schema: "public",
-          table: "call_participants",
-        },
-        async (payload) => {
-          const part = payload.new as Database["public"]["Tables"]["call_participants"]["Row"];
-          const activeCallId = activeCallRef.current;
-
-          // If someone declines our outgoing 1-on-1 call, end it
-          if (activeCallId === part.call_id && part.state === "declined") {
-            const { data: participants } = await supabase
-              .from("call_participants")
-              .select("id")
-              .eq("call_id", activeCallId);
-
-            if (participants && participants.length <= 2) {
-              await supabase
-                .from("calls")
-                .update({ status: "ended", ended_at: new Date().toISOString() })
-                .eq("id", activeCallId);
-            }
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
           table: "calls",
         },
         (payload) => {
@@ -143,11 +133,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
           if (incoming?.id === c.id && (c.status === "ended" || c.status === "declined")) {
             setIncoming(null);
-            ringtoneRef.stop();
-          }
-
-          if (activeCallRef.current === c.id && c.status === "ended") {
-            setActive(null);
             ringtoneRef.stop();
           }
         },
@@ -158,141 +143,46 @@ export function CallProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
       ringtoneRef.stop();
     };
-  }, [user, orgId, incoming]);
-
-  const startCall = useCallback(
-    async (channelId: string, recipientIds: string[], kind: "audio" | "video") => {
-      if (!user || !orgId) return;
-
-      let targets = [...recipientIds];
-      if (targets.length === 0) {
-        const { data: channel } = await supabase
-          .from("channels")
-          .select("kind")
-          .eq("id", channelId)
-          .single();
-
-        if (channel?.kind === "broadcast") {
-          const { data: members } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("org_id", orgId);
-
-          if (members) {
-            targets = members.map((m) => m.id).filter((id) => id !== user.id);
-          }
-        }
-      }
-
-      const { data: call, error } = await supabase
-        .from("calls")
-        .insert({
-          org_id: orgId,
-          channel_id: channelId,
-          initiator_id: user.id,
-          kind,
-          status: "ringing",
-        })
-        .select()
-        .single();
-
-      if (error || !call) return;
-
-      const rows = [
-        {
-          call_id: call.id,
-          user_id: user.id,
-          state: "joined",
-          joined_at: new Date().toISOString(),
-        },
-        ...targets
-          .filter((id) => id !== user.id)
-          .map((id) => ({ call_id: call.id, user_id: id, state: "invited" })),
-      ];
-
-      await supabase
-        .from("call_participants")
-        .insert(rows as Database["public"]["Tables"]["call_participants"]["Insert"][]);
-
-      setActive({ id: call.id, kind, initiator_id: call.initiator_id });
-    },
-    [user, orgId],
-  );
+  }, [user, orgId, incoming, activeCall]);
 
   const accept = useCallback(async () => {
     if (!incoming || !user) return;
     ringtone.current.stop();
-
-    await supabase
-      .from("call_participants")
-      .update({
-        state: "joined",
-        joined_at: new Date().toISOString(),
-      })
-      .eq("call_id", incoming.id)
-      .eq("user_id", user.id);
-
-    await supabase.from("calls").update({ status: "active" }).eq("id", incoming.id);
-    setActive({ id: incoming.id, kind: incoming.kind, initiator_id: incoming.initiator_id });
+    await joinCall(incoming.id);
     setIncoming(null);
-  }, [incoming, user]);
+  }, [incoming, user, joinCall]);
 
   const decline = useCallback(async () => {
     if (!incoming || !user) return;
     ringtone.current.stop();
-
-    await supabase
-      .from("call_participants")
-      .update({ state: "declined" })
-      .eq("call_id", incoming.id)
-      .eq("user_id", user.id);
-
+    await declineCall(incoming.id);
     setIncoming(null);
-  }, [incoming, user]);
-
-  const joinCall = useCallback(
-    async (callId: string, kind: "audio" | "video") => {
-      if (!user) return;
-      await supabase.from("call_participants").upsert(
-        {
-          call_id: callId,
-          user_id: user.id,
-          state: "joined",
-          joined_at: new Date().toISOString(),
-        } as Database["public"]["Tables"]["call_participants"]["Insert"],
-        { onConflict: "call_id,user_id" },
-      );
-      await supabase.from("calls").update({ status: "active" }).eq("id", callId);
-      const { data: call } = await supabase
-        .from("calls")
-        .select("initiator_id")
-        .eq("id", callId)
-        .single();
-      setActive({ id: callId, kind, initiator_id: call?.initiator_id });
-    },
-    [user],
-  );
-
-  const handleLeaveCall = useCallback(async () => {
-    if (!active || !user) return;
-
-    await supabase
-      .from("call_participants")
-      .update({ state: "left" })
-      .eq("call_id", active.id)
-      .eq("user_id", user.id);
-
-    setActive(null);
-  }, [active, user]);
+  }, [incoming, user, declineCall]);
 
   const value = useMemo(
-    () => ({ startCall, joinCall, activeCallId: active?.id ?? null }),
-    [startCall, joinCall, active],
+    () => ({
+      startCall,
+      joinCall: (id: string, kind: "audio" | "video") => joinCall(id),
+      leaveCall,
+      activeCallId: activeCall?.id ?? null,
+      isJoining,
+      openInitiationModal,
+    }),
+    [startCall, joinCall, leaveCall, activeCall, isJoining, openInitiationModal],
   );
 
   return (
     <Ctx.Provider value={value}>
       {children}
+      <CallInitiationModal
+        isOpen={initiationModal.isOpen}
+        onClose={() => setInitiationModal((prev) => ({ ...prev, isOpen: false }))}
+        targetName={initiationModal.targetName}
+        onInitiate={(kind) => {
+          startCall(initiationModal.channelId, initiationModal.recipientIds, kind);
+          setInitiationModal((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
       {incoming && user && (
         <IncomingOverlay
           name={members[incoming.initiator_id]?.full_name ?? "Member"}
@@ -301,16 +191,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
           onDecline={decline}
         />
       )}
-      {active && user && (
+      {activeCall && user && (
         <div className="fixed inset-0 z-[100] pointer-events-none">
           <CallRoom
-            callId={active.id}
+            callId={activeCall.id}
             selfId={user.id}
-            video={active.kind === "video"}
-            kind={active.kind}
+            video={activeCall.kind === "video"}
+            kind={activeCall.kind}
             peers={members}
-            onLeave={handleLeaveCall}
-            initiatorId={active.initiator_id ?? ""}
+            onLeave={leaveCall}
+            initiatorId={activeCall.initiator_id}
           />
         </div>
       )}

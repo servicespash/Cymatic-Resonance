@@ -8,10 +8,10 @@ export function CallPanel({ channelId }: { channelId: string }) {
     <div className="glass-strong flex items-center justify-between rounded-xl border border-white/10 p-3">
       <div className="flex items-center gap-3">
         <div
-          className={`size-3 rounded-full ${state === "connected" ? "bg-green-500 animate-pulse" : "bg-muted"}`}
+          className={`size-3 rounded-full ${state === "active" ? "bg-green-500 animate-pulse" : "bg-muted"}`}
         />
         <span className="text-sm font-medium">
-          {state === "connected" ? "Call Active" : "No Active Call"}
+          {state === "active" ? "Call Active" : "No Active Call"}
         </span>
         <div className="flex items-center gap-1 text-muted-foreground">
           <Users className="size-4" />

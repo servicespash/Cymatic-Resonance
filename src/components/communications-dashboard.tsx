@@ -13,7 +13,7 @@ interface Member {
 
 export const CommunicationsDashboard = () => {
   const [members, setMembers] = useState<Member[]>([]);
-  const { startCall } = useCallController();
+  const { openInitiationModal } = useCallController();
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -23,10 +23,11 @@ export const CommunicationsDashboard = () => {
     fetchMembers();
   }, []);
 
-  const initiateCall = (userId: string, kind: "audio" | "video") => {
-    // Generate a temporary channel ID or use a dedicated one
-    const channelId = `direct-${userId}`;
-    startCall(channelId, [userId], kind);
+  const initiateCall = async (member: Member) => {
+    const { data, error } = await supabase.rpc("open_dm", { _other: member.id });
+    if (error || !data) return;
+    const thread = data as unknown as { channel_id: string };
+    openInitiationModal(thread.channel_id, [member.id], member.full_name ?? "Member");
   };
 
   const getStatusColor = (isOnline: boolean) => {
