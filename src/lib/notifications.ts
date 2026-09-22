@@ -54,7 +54,7 @@ export function createRingtone(type: string = "default") {
       let cancelled = false;
       const playPair = () => {
         if (cancelled || !ctx) return;
-        
+
         let tones = [880, 660];
         if (type === "classic") tones = [440, 330];
         else if (type === "modern") tones = [1000, 750];

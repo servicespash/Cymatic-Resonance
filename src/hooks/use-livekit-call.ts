@@ -2,11 +2,13 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Room, RoomEvent, ConnectionQuality, RemoteParticipant, Track } from "livekit-client";
 import { supabase } from "@/integrations/supabase/client";
 import { CameraManager } from "@/lib/camera-manager";
+import { joinCallChannel, type SignalPayload } from "@/lib/webrtc/signaling";
+import { createPeer } from "@/lib/webrtc/peer";
 
 export type RemotePeer = {
   userId: string;
   stream: MediaStream | null;
-  state: "connected" | "disconnected" | "connecting";
+  state: RTCPeerConnectionState;
   connectionQuality: ConnectionQuality;
 };
 
@@ -36,6 +38,15 @@ export function useLiveKitCall(opts: {
   const micStateRef = useRef(micOn);
   const camStateRef = useRef(camOn);
 
+  const localStreamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
+  // P2P WebRTC Refs
+  const signalingRef = useRef<ReturnType<typeof joinCallChannel> | null>(null);
+  const peerConnections = useRef<Record<string, RTCPeerConnection>>({});
+
   useEffect(() => {
     micStateRef.current = micOn;
   }, [micOn]);
@@ -45,14 +56,6 @@ export function useLiveKitCall(opts: {
   }, [camOn]);
 
   const syncLocalTracks = useCallback(async () => {
-    const isSimulated =
-      typeof window !== "undefined" && localStorage.getItem("cym.media.mode.v1") === "simulated";
-    if (isSimulated) {
-      console.info("[useLiveKitCall] Simulated mode: skipping hardware track sync.");
-      setLocalStream(null);
-      return;
-    }
-
     const room = roomRef.current;
 
     // If room is connected, use LiveKit's participant management
@@ -72,14 +75,15 @@ export function useLiveKitCall(opts: {
           tracks.push(micPub.track.mediaStreamTrack);
         }
 
-        setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
+        const stream = tracks.length > 0 ? new MediaStream(tracks) : null;
+        setLocalStream(stream);
+        return stream;
       } catch (err) {
         console.error("[Cymatic Resonance] Local track sync error:", err);
       }
-      return;
     }
 
-    // Fallback: Direct getUserMedia if no LiveKit connection but we want local feedback
+    // Fallback/Initial: Direct getUserMedia
     if (camStateRef.current || micStateRef.current) {
       try {
         const stream = await CameraManager.requestPermissions(
@@ -87,22 +91,78 @@ export function useLiveKitCall(opts: {
           micStateRef.current,
         );
         setLocalStream(stream);
+        return stream;
       } catch (err) {
-        console.error("[useLiveKitCall] CameraManager fallback failed:", err);
+        console.error("[useLiveKitCall] CameraManager failed:", err);
         setLocalStream(null);
+        return null;
       }
     } else {
       CameraManager.stopStream();
       setLocalStream(null);
+      return null;
     }
   }, []);
+
+  const getOrCreatePeer = useCallback(
+    (userId: string, stream: MediaStream | null) => {
+      if (peerConnections.current[userId]) return peerConnections.current[userId];
+
+      console.log(`[useLiveKitCall] Creating P2P PeerConnection for ${userId}`);
+      const pc = createPeer({
+        onIceCandidate: (c) => {
+          signalingRef.current?.send({ type: "ice", from: selfId!, to: userId, candidate: c });
+        },
+        onRemoteStream: (remoteStream) => {
+          setRemotes((prev) => ({
+            ...prev,
+            [userId]: {
+              ...prev[userId],
+              userId,
+              stream: remoteStream,
+              state: "connected",
+              connectionQuality: ConnectionQuality.Excellent,
+            },
+          }));
+          setIsCallAnswered(true);
+        },
+        onConnectionStateChange: (state) => {
+          console.log(`[useLiveKitCall] P2P state for ${userId}:`, state);
+          if (state === "connected") {
+            setIsCallAnswered(true);
+          }
+          setRemotes((prev) => ({
+            ...prev,
+            [userId]: {
+              ...prev[userId],
+              userId,
+              state:
+                state === "connected"
+                  ? "connected"
+                  : state === "connecting"
+                    ? "connecting"
+                    : "disconnected",
+            },
+          }));
+        },
+      });
+
+      if (stream) {
+        stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      }
+
+      peerConnections.current[userId] = pc;
+      return pc;
+    },
+    [selfId],
+  );
 
   const updateRemotes = useCallback(() => {
     const room = roomRef.current;
     if (!room) return;
 
-    const newRemotes: Record<string, RemotePeer> = {};
     let peerConnected = false;
+    const newRemotes: Record<string, RemotePeer> = {};
 
     room.remoteParticipants.forEach((p: RemoteParticipant) => {
       const tracks: MediaStreamTrack[] = [];
@@ -128,7 +188,7 @@ export function useLiveKitCall(opts: {
       };
     });
 
-    setRemotes(newRemotes);
+    setRemotes((prev) => ({ ...prev, ...newRemotes }));
     if (peerConnected) setIsCallAnswered(true);
   }, []);
 
@@ -137,23 +197,62 @@ export function useLiveKitCall(opts: {
 
     let cancelled = false;
 
+    // 1. Initialize P2P Signaling
+    signalingRef.current = joinCallChannel(callId, selfId, async (sig: SignalPayload) => {
+      if (cancelled) return;
+
+      const currentStream = localStreamRef.current;
+
+      if (sig.type === "hello") {
+        // New participant joined, we are already here, so we send an offer
+        const pc = getOrCreatePeer(sig.from, currentStream);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        signalingRef.current?.send({ type: "offer", from: selfId, to: sig.from, sdp: offer });
+      } else if (sig.type === "offer") {
+        const pc = getOrCreatePeer(sig.from, currentStream);
+        await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        signalingRef.current?.send({ type: "answer", from: selfId, to: sig.from, sdp: answer });
+      } else if (sig.type === "answer") {
+        const pc = peerConnections.current[sig.from];
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        }
+      } else if (sig.type === "ice") {
+        const pc = peerConnections.current[sig.from];
+        if (pc) {
+          await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
+        }
+      } else if (sig.type === "bye") {
+        const pc = peerConnections.current[sig.from];
+        if (pc) {
+          pc.close();
+          delete peerConnections.current[sig.from];
+        }
+        setRemotes((prev) => {
+          const next = { ...prev };
+          delete next[sig.from];
+          return next;
+        });
+      }
+    });
+
+    // 2. Initialize LiveKit (if available)
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
-      publishDefaults: {
-        simulcast: true,
-        videoCodec: "vp8",
-      },
-      videoCaptureDefaults: {
-        resolution: { width: 640, height: 360 },
-      },
+      publishDefaults: { simulcast: true, videoCodec: "vp8" },
+      videoCaptureDefaults: { resolution: { width: 640, height: 360 } },
     });
-
     roomRef.current = room;
 
     const setupCall = async () => {
+      await syncLocalTracks();
+      if (cancelled) return;
+
       try {
-        // Fetch token via Supabase Edge Function
         const { data: sfData, error: sfError } = await supabase.functions.invoke<{
           token?: string;
         }>("livekit-token", {
@@ -161,21 +260,14 @@ export function useLiveKitCall(opts: {
         });
 
         if (sfError || !sfData?.token || !import.meta.env.VITE_LIVEKIT_URL) {
-          console.info(
-            "[Cymatic Resonance Engine] LiveKit cloud bridge unavailable; running in simulated local media mode.",
-          );
-          await syncLocalTracks();
-          setIsCallAnswered(true);
+          console.info("[useLiveKitCall] LiveKit unavailable, continuing with P2P only.");
           return;
         }
 
         const token = sfData.token;
         const url = import.meta.env.VITE_LIVEKIT_URL;
 
-        if (cancelled) return;
-
         await room.connect(url, token);
-
         if (cancelled) {
           await room.disconnect();
           return;
@@ -194,9 +286,6 @@ export function useLiveKitCall(opts: {
           updateRemotes();
           syncLocalTracks();
         });
-        room.on(RoomEvent.TrackMuted, updateRemotes);
-        room.on(RoomEvent.TrackUnmuted, updateRemotes);
-
         room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
           if (!participant || participant === room.localParticipant) {
             setNetworkQuality(quality);
@@ -204,19 +293,8 @@ export function useLiveKitCall(opts: {
             updateRemotes();
           }
         });
-      } catch (err: unknown) {
-        console.info(
-          "[Cymatic Resonance Engine] LiveKit bridge fallback to simulated local mode:",
-          err,
-        );
-        if (!cancelled) {
-          try {
-            await syncLocalTracks();
-            setIsCallAnswered(true);
-          } catch {
-            // ignore fallback track sync error
-          }
-        }
+      } catch (err) {
+        console.warn("[useLiveKitCall] LiveKit connection failed, fallback to P2P:", err);
       }
     };
 
@@ -224,12 +302,15 @@ export function useLiveKitCall(opts: {
 
     return () => {
       cancelled = true;
+      signalingRef.current?.leave();
+      signalingRef.current = null;
+
+      Object.values(peerConnections.current).forEach((pc) => pc.close());
+      peerConnections.current = {};
+
       if (roomRef.current) {
-        // Unpublish tracks explicitly to turn off Android camera/mic indicator LED
         roomRef.current.localParticipant.trackPublications.forEach((pub) => {
-          if (pub.track) {
-            pub.track.stop();
-          }
+          if (pub.track) pub.track.stop();
         });
         roomRef.current.disconnect();
         roomRef.current = null;
@@ -239,7 +320,8 @@ export function useLiveKitCall(opts: {
       setRemotes({});
       setIsCallAnswered(false);
     };
-  }, [enabled, callId, selfId, syncLocalTracks, updateRemotes, isHost, video]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, callId, selfId, isHost, video]);
 
   const toggleMic = useCallback(async () => {
     const next = !micOn;

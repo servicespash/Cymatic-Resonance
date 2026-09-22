@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Check, Send } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Check, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
-type Status = 'assigned' | 'open' | 'in_progress' | 'completed';
+type Status = "assigned" | "open" | "in_progress" | "completed";
 
 interface TaskItemProps {
   task: {
@@ -17,10 +17,10 @@ interface TaskItemProps {
 }
 
 const steps: { id: Status; label: string }[] = [
-  { id: 'assigned', label: 'Assigned' },
-  { id: 'open', label: 'Opened' },
-  { id: 'in_progress', label: 'In Progress' },
-  { id: 'completed', label: 'Done' },
+  { id: "assigned", label: "Assigned" },
+  { id: "open", label: "Opened" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "completed", label: "Done" },
 ];
 
 export const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
@@ -29,12 +29,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const updateStatus = async (newStatus: Status) => {
     setStatus(newStatus);
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id);
+    await supabase.from("tasks").update({ status: newStatus }).eq("id", task.id);
   };
 
   const handleComplete = () => {
     setIsAnimating(true);
-    updateStatus('completed');
+    updateStatus("completed");
     setTimeout(() => setIsAnimating(false), 2000);
   };
 
@@ -45,16 +45,22 @@ export const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
       <div className="space-y-2">
         {steps.map((step, index) => {
-          const isCompleted = steps.findIndex(s => s.id === status) >= index;
+          const isCompleted = steps.findIndex((s) => s.id === status) >= index;
           return (
             <div key={step.id} className="flex items-center gap-3">
-              <div className={cn(
-                "size-5 rounded-full border flex items-center justify-center transition-colors",
-                isCompleted ? "bg-primary border-primary text-primary-foreground" : "border-border"
-              )}>
+              <div
+                className={cn(
+                  "size-5 rounded-full border flex items-center justify-center transition-colors",
+                  isCompleted
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-border",
+                )}
+              >
                 {isCompleted && <Check className="size-3" />}
               </div>
-              <span className={cn("text-sm", isCompleted ? "text-foreground" : "text-muted-foreground")}>
+              <span
+                className={cn("text-sm", isCompleted ? "text-foreground" : "text-muted-foreground")}
+              >
                 {step.label}
               </span>
             </div>
@@ -75,7 +81,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         )}
       </AnimatePresence>
 
-      <Button onClick={handleComplete} disabled={status === 'completed'} className="w-full gap-2">
+      <Button onClick={handleComplete} disabled={status === "completed"} className="w-full gap-2">
         <Send className="size-4" /> Submit Task
       </Button>
     </div>

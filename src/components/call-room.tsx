@@ -148,11 +148,15 @@ function CallRoomInner({
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Call duration clock tracking live execution
+  // Call duration clock tracking live execution - only starts when answered
   useEffect(() => {
+    if (!isCallAnswered) {
+      setDuration(0);
+      return;
+    }
     const t = setInterval(() => setDuration((d) => d + 1), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [isCallAnswered]);
 
   const leave = useCallback(async () => {
     try {
@@ -401,7 +405,16 @@ function CallRoomInner({
                     : "Cymatic Resonance Audio Workspace"}
                 </div>
                 <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                  <span className="text-accent animate-pulse">●</span> live · {mmss(duration)}
+                  {isCallAnswered ? (
+                    <>
+                      <span className="text-accent animate-pulse">●</span> Active · {mmss(duration)}
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-yellow-500 animate-pulse">●</span>{" "}
+                      {isHost ? "Dialing..." : "Ringing..."}
+                    </>
+                  )}
                 </div>
               </div>
             </div>

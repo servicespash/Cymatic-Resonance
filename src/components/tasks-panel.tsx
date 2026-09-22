@@ -252,26 +252,26 @@ export function TasksPanel({
                       key={task.id}
                       className="group relative rounded-xl border border-white/10 bg-black/40 p-3 space-y-2 shadow-sm transition hover:border-white/20"
                     >
-                        <TaskModal 
-                          taskId={task.id}
-                          trigger={
-                            <div className="flex items-start justify-between gap-2 cursor-pointer">
-                              <span className="font-medium text-sm leading-snug">{task.title}</span>
-                              {isAdmin && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    deleteTask(task.id);
-                                  }}
-                                  className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-                                  title="Delete Task"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          }
-                        />
+                      <TaskModal
+                        taskId={task.id}
+                        trigger={
+                          <div className="flex items-start justify-between gap-2 cursor-pointer">
+                            <span className="font-medium text-sm leading-snug">{task.title}</span>
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  deleteTask(task.id);
+                                }}
+                                className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
+                                title="Delete Task"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        }
+                      />
 
                       {/* {task.task_kind && (
                         <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
@@ -293,40 +293,40 @@ export function TasksPanel({
                         )}
                       </div>
 
-                        <div className="flex items-center gap-2 pt-2 border-t border-white/5 w-full">
-                          <input
-                            type="checkbox"
-                            checked={task.status === "completed"}
-                            onChange={(e) => {
-                              updateStatus(task.id, e.target.checked ? "completed" : "in_progress");
-                            }}
-                            className="size-4 rounded border-white/20 bg-black/50 accent-frequency"
-                          />
-                          <span className="text-[10px] text-muted-foreground capitalize">
-                            {task.status.replace("_", " ")}
-                          </span>
+                      <div className="flex items-center gap-2 pt-2 border-t border-white/5 w-full">
+                        <input
+                          type="checkbox"
+                          checked={task.status === "completed"}
+                          onChange={(e) => {
+                            updateStatus(task.id, e.target.checked ? "completed" : "in_progress");
+                          }}
+                          className="size-4 rounded border-white/20 bg-black/50 accent-frequency"
+                        />
+                        <span className="text-[10px] text-muted-foreground capitalize">
+                          {task.status.replace("_", " ")}
+                        </span>
 
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const next = {
-                                open: "in_progress",
-                                in_progress: "completed",
-                                completed: "archived",
-                              };
-                              updateStatus(
-                                task.id,
-                                next[
-                                  task.status as keyof typeof next
-                                ] as Database["public"]["Tables"]["tasks"]["Row"]["status"],
-                              );
-                            }}
-                            className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10 ml-auto"
-                          >
-                            Advance
-                          </Button>
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const next = {
+                              open: "in_progress",
+                              in_progress: "completed",
+                              completed: "archived",
+                            };
+                            updateStatus(
+                              task.id,
+                              next[
+                                task.status as keyof typeof next
+                              ] as Database["public"]["Tables"]["tasks"]["Row"]["status"],
+                            );
+                          }}
+                          className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10 ml-auto"
+                        >
+                          Advance
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}

@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CymaticWave } from "@/components/cymatic-wave";
 import { toast } from "sonner";
 import { Bell, Volume2, Music } from "lucide-react";
+import { useAuth } from "@/lib/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/comms-settings")({
   component: CommunicationsSettingsPage,
@@ -24,13 +26,13 @@ function CommunicationsSettingsPage() {
 
   const saveSettings = async () => {
     const { error } = await supabase.auth.updateUser({
-      data: { ringtone, dialTone }
+      data: { ringtone, dialTone },
     });
-    
+
     if (error) {
-        toast.error("Failed to save settings");
+      toast.error("Failed to save settings");
     } else {
-        toast.success("Settings saved");
+      toast.success("Settings saved");
     }
   };
 
@@ -113,12 +115,12 @@ function CommunicationsSettingsPage() {
             <option value="ring">Ring</option>
           </select>
         </div>
-        
+
         <button
-            onClick={saveSettings}
-            className="w-full bg-frequency text-primary-foreground py-2 rounded-lg font-medium"
+          onClick={saveSettings}
+          className="w-full bg-frequency text-primary-foreground py-2 rounded-lg font-medium"
         >
-            Save Changes
+          Save Changes
         </button>
       </section>
 

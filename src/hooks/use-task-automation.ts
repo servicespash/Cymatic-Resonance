@@ -1,19 +1,19 @@
-import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const useTaskAutomation = (userId: string | undefined) => {
   useEffect(() => {
     if (!userId) return;
 
     const channel = supabase
-      .channel('tasks-automation')
+      .channel("tasks-automation")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'tasks',
+          event: "INSERT",
+          schema: "public",
+          table: "tasks",
           filter: `assignee_id=eq.${userId}`,
         },
         (payload) => {
@@ -21,7 +21,7 @@ export const useTaskAutomation = (userId: string | undefined) => {
           toast.info(`New Task Assigned: ${newTask.title}`, {
             description: newTask.description || "You have a new task to work on.",
           });
-        }
+        },
       )
       .subscribe();
 

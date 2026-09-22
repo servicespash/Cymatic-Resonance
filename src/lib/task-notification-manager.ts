@@ -1,22 +1,22 @@
-import { EventEmitter } from 'events';
-import { supabase } from '@/integrations/supabase/client';
+import { EventEmitter } from "events";
+import { supabase } from "@/integrations/supabase/client";
 
 export const taskEvents = new EventEmitter();
 
 export const initTaskListener = (userId: string) => {
   const channel = supabase
-    .channel('tasks-channel')
+    .channel("tasks-channel")
     .on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'tasks',
+        event: "INSERT",
+        schema: "public",
+        table: "tasks",
         filter: `assigned_to=eq.${userId}`,
       },
       (payload) => {
-        taskEvents.emit('new-task', payload.new);
-      }
+        taskEvents.emit("new-task", payload.new);
+      },
     )
     .subscribe();
 
