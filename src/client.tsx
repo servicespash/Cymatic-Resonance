@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MapProvider } from "./context/map-context";
 import { ErrorBoundary } from "./components/error-boundary";
 import { pingSupabase } from "./lib/supabase-check";
+import { TaskModalProvider } from "./components/task-modal";
 
 // Pre-warm Supabase connection during idle periods to speed up initial auth check
 // Global error handler to catch initialization failures
@@ -66,7 +67,9 @@ if (rootElement) {
   root.render(
     <ErrorBoundary>
       <MapProvider>
-        <RouterProvider router={router} />
+        <TaskModalProvider>
+          <RouterProvider router={router} />
+        </TaskModalProvider>
       </MapProvider>
     </ErrorBoundary>,
   );
