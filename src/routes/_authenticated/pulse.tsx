@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LeavePanel } from "@/components/leave-panel";
 import { ResonanceSessionTimer } from "@/components/resonance-session-timer";
 import { ProfessionalCheckIn } from "@/components/professional-check-in";
-import { CheckInHistory } from "@/components/check-in-history";
+import { CheckInHistory, type LeaveRecord } from "@/components/check-in-history";
 import { DEFAULT_FALLBACK_LOCATION, getDistance, isValidLatLng, safeCoordinates } from "@/lib/geo";
 
 import { ClientOnly } from "@/components/client-only";
@@ -60,6 +60,11 @@ function PulsePage() {
 
   const [today, setToday] = useState<AttRow | null>(null);
   const [history, setHistory] = useState<AttRow[]>([]);
+  const [userLeaves, setUserLeaves] = useState<LeaveRecord[]>([]);
+  const [userProfile, setUserProfile] = useState<{
+    full_name?: string | null;
+    category?: string | null;
+  } | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [locPermission, setLocPermission] = useState<PermissionState | "unknown">("unknown");
@@ -163,16 +168,28 @@ function PulsePage() {
       setStationLocation(DEFAULT_FALLBACK_LOCATION);
     }
 
-    const { data } = await supabase
-      .from("attendance")
-      .select(
-        "id, attendance_date, checked_in_at, checked_out_at, break_started_at, total_break_minutes, is_late, status, note",
-      )
-      .eq("user_id", user.id)
-      .order("attendance_date", { ascending: false })
-      .limit(30);
+    const [{ data }, { data: leavesData }, { data: profData }] = await Promise.all([
+      supabase
+        .from("attendance")
+        .select(
+          "id, attendance_date, checked_in_at, checked_out_at, break_started_at, total_break_minutes, is_late, status, note",
+        )
+        .eq("user_id", user.id)
+        .order("attendance_date", { ascending: false })
+        .limit(90),
+      supabase
+        .from("leave_requests")
+        .select("id, type, start_date, end_date, reason, status")
+        .eq("user_id", user.id)
+        .order("start_date", { ascending: false }),
+      supabase.from("profiles").select("full_name, category").eq("id", user.id).maybeSingle(),
+    ]);
     const rows = (data ?? []) as AttRow[];
     setHistory(rows);
+    setUserLeaves((leavesData ?? []) as LeaveRecord[]);
+    if (profData) {
+      setUserProfile(profData);
+    }
 
     const todayRow = rows.find((r) => r.attendance_date === todayISO());
     setToday(todayRow ?? null);
@@ -550,7 +567,13 @@ function PulsePage() {
         </section>
 
         {/* History */}
-        <CheckInHistory history={history} />
+        <CheckInHistory
+          history={history}
+          leaves={userLeaves}
+          userName={userProfile?.full_name}
+          userCategory={userProfile?.category}
+          userId={user?.id}
+        />
 
         {/* Resonance Focus Session Timer */}
         <section className="animate-fade-up" style={{ animationDelay: "150ms" }}>

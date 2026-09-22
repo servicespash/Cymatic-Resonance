@@ -5,9 +5,20 @@ import { useAuth } from "@/lib/use-auth";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { RegistryExport, ExportRow } from "@/components/registry-export";
 import { useRealData } from "@/hooks/use-real-data";
-import { Search, ArrowUpDown, Trash2 } from "lucide-react";
+import { Search, ArrowUpDown, Trash2, CalendarDays } from "lucide-react";
 import { AddClientDialog } from "@/components/add-client-dialog";
 import { toast } from "sonner";
+import { format, addDays, startOfMonth } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  buildMultiDayExportRows,
+  formatTimeSafe,
+  type LeaveRecordLike,
+  type MemberRecordLike,
+  type AttendanceRecordLike,
+} from "@/lib/export-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,147 +54,265 @@ function ReportingPage() {
   const [loading, setLoading] = useState(true);
   const { clients, members, loading: loadingReal, error: realError } = useRealData();
 
+  const [range, setRange] = useState<DateRange | undefined>({
+    from: addDays(new Date(), -6),
+    to: new Date(),
+  });
+
   const handleDeleteClient = async (id: string) => {
     try {
       const { error } = await supabase.from("clients").delete().eq("id", id);
       if (error) throw error;
       toast.success("Client deleted successfully");
-      // Refresh logic is handled by useRealData if it had a refresh mechanism,
-      // but for now we'll just rely on the user refreshing or add a manual refresh if needed.
-      // Actually, useRealData doesn't auto-refresh on external changes unless we add a refresh function.
       window.location.reload();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "Failed to delete client");
     }
   };
 
+  const preset = (days: number | "month") => {
+    const to = new Date();
+    const from = days === "month" ? startOfMonth(to) : addDays(to, -(days - 1));
+    setRange({ from, to });
+  };
+
   const loadData = useCallback(async () => {
-    if (!user) return;
-    const { data: p } = await supabase.from("profiles").select("org_id").eq("id", user.id).single();
-    if (!p?.org_id) return;
+    if (!user || !range?.from || !range?.to) return;
+    setLoading(true);
+    try {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("org_id")
+        .eq("id", user.id)
+        .single();
+      if (!p?.org_id) {
+        setLoading(false);
+        return;
+      }
 
-    const { data: att } = await supabase
-      .from("attendance")
-      .select("*, profiles(full_name, category)")
-      .eq("org_id", p.org_id)
-      .order("attendance_date", { ascending: false });
+      const fromIso = format(range.from, "yyyy-MM-dd");
+      const toIso = format(range.to, "yyyy-MM-dd");
 
-    if (att) {
-      type AttendanceRow = {
-        checked_in_at: string;
-        checked_out_at: string | null;
-        total_break_minutes: number | null;
-        status: string | null;
-        is_late: boolean | null;
-        note: string | null;
-        profiles?: { full_name: string | null; category: string | null } | null;
-      };
+      const [{ data: memData }, { data: attData }, { data: leavesData }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, category, role").eq("org_id", p.org_id),
+        supabase
+          .from("attendance")
+          .select(
+            "id, user_id, attendance_date, checked_in_at, checked_out_at, break_started_at, total_break_minutes, is_late, status, note",
+          )
+          .eq("org_id", p.org_id)
+          .gte("attendance_date", fromIso)
+          .lte("attendance_date", toIso),
+        supabase
+          .from("leave_requests")
+          .select("*")
+          .eq("org_id", p.org_id)
+          .lte("start_date", toIso)
+          .gte("end_date", fromIso),
+      ]);
 
-      setRows(
-        (att as unknown as AttendanceRow[]).map((r) => {
-          let dur = 0;
-          if (r.checked_out_at) {
-            dur =
-              Math.max(
-                0,
-                Math.floor(
-                  (new Date(r.checked_out_at).getTime() - new Date(r.checked_in_at).getTime()) /
-                    60000,
-                ) - (r.total_break_minutes || 0),
-              ) / 60;
-          }
+      const multiDay = buildMultiDayExportRows({
+        rangeFrom: range.from,
+        rangeTo: range.to,
+        members: (memData ?? []) as MemberRecordLike[],
+        attendance: (attData ?? []) as AttendanceRecordLike[],
+        leaves: (leavesData ?? []) as LeaveRecordLike[],
+        includeAbsent: true,
+      });
 
-          let noteObj: Record<string, unknown> | null = null;
-          if (typeof r.note === "string" && r.note.startsWith("{")) {
-            try {
-              noteObj = JSON.parse(r.note) as Record<string, unknown>;
-            } catch {
-              // ignore malformed telemetry payloads
-            }
-          }
-          const telemetryStatus = (noteObj?.telemetry as { status?: string })?.status || "verified";
-
-          return {
-            name: r.profiles?.full_name || "Unknown",
-            category: r.profiles?.category || "Unknown",
-            checkIn: r.checked_in_at,
-            checkOut: r.checked_out_at,
-            hours: dur,
-            status: r.status,
-            late: r.is_late,
-            telemetry: telemetryStatus,
-          };
-        }),
-      );
+      setRows(multiDay);
+    } catch (err) {
+      console.error("Failed to load reporting records:", err);
+      toast.error("Failed to load records for date range");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [user]);
+  }, [user, range?.from, range?.to]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <h1 className="text-2xl font-display font-bold">Reporting & Registry</h1>
-      <RegistryExport availableRows={rows} />
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-display font-bold">Reporting & Registry</h1>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
+            Administrative Attendance, Break & Leave Ledgers
+          </p>
+        </div>
+      </div>
 
-      <div className="bg-white/5 rounded-xl border border-white/10 p-5 mt-6">
-        <h3 className="font-display font-semibold mb-4">Recent Activity</h3>
+      {/* Date Range Selector & Export Controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="gap-2 bg-white/5 border-white/10 font-mono text-xs hover:bg-white/10"
+            >
+              <CalendarDays className="size-4 text-accent" />
+              {range?.from
+                ? range.to
+                  ? `${format(range.from, "MMM d, yyyy")} → ${format(range.to, "MMM d, yyyy")}`
+                  : format(range.from, "MMM d, yyyy")
+                : "Pick range"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0 pointer-events-auto">
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={setRange}
+              numberOfMonths={2}
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+
+        {[
+          { l: "Today", v: 1 },
+          { l: "7d", v: 7 },
+          { l: "30d", v: 30 },
+        ].map((p) => (
+          <button
+            key={p.l}
+            onClick={() => preset(p.v)}
+            className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+          >
+            {p.l}
+          </button>
+        ))}
+        <button
+          onClick={() => preset("month")}
+          className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+        >
+          Month
+        </button>
+
+        <div className="ml-auto" />
+        <RegistryExport
+          availableRows={rows}
+          rangeFrom={range?.from}
+          rangeTo={range?.to}
+          title="Administrative Attendance & Activity Ledger"
+          subtitle="Check-in, Check-out, Break & Leave Records"
+        />
+      </div>
+
+      {/* Multi-Day Detailed Ledger Table */}
+      <div className="bg-white/5 rounded-xl border border-white/10 p-5 mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-semibold">Ledger Activity Details</h3>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground bg-white/5 px-2.5 py-1 rounded-full">
+            {rows.length} Total Records
+          </span>
+        </div>
+
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading records...</div>
+          <div className="py-12 text-center text-sm text-muted-foreground animate-pulse">
+            Compiling date range records...
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-white/10">
                 <tr>
-                  <th className="pb-3 pr-4">Name</th>
+                  <th className="pb-3 pr-4">Member</th>
                   <th className="pb-3 pr-4">Date</th>
                   <th className="pb-3 pr-4">Check In</th>
                   <th className="pb-3 pr-4">Check Out</th>
+                  <th className="pb-3 pr-4">Break</th>
+                  <th className="pb-3 pr-4">Leave & Reason</th>
                   <th className="pb-3 pr-4">Hours</th>
+                  <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3 pr-4">Telemetry</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
-                {rows.slice(0, 10).map((r, i) => (
-                  <tr key={i}>
-                    <td className="py-3 pr-4 font-medium">{r.name}</td>
+              <tbody className="divide-y divide-white/5 font-sans">
+                {rows.slice(0, 50).map((r, i) => (
+                  <tr key={`${r.date}-${r.name}-${i}`} className="hover:bg-white/[0.02]">
                     <td className="py-3 pr-4">
-                      {r.checkIn ? new Date(r.checkIn).toLocaleDateString() : "-"}
+                      <div className="font-medium text-foreground">{r.name}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        {r.category || "General"}
+                      </div>
                     </td>
-                    <td className="py-3 pr-4">
-                      {r.checkIn
-                        ? new Date(r.checkIn).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                    <td className="py-3 pr-4 font-mono text-xs">{r.date}</td>
+                    <td className="py-3 pr-4 font-mono text-xs">
+                      {r.checkIn ? formatTimeSafe(r.checkIn) : "—"}
                     </td>
-                    <td className="py-3 pr-4">
-                      {r.checkOut
-                        ? new Date(r.checkOut).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                    <td className="py-3 pr-4 font-mono text-xs">
+                      {r.checkOut ? formatTimeSafe(r.checkOut) : r.checkIn ? "In Progress" : "—"}
                     </td>
-                    <td className="py-3 pr-4 font-mono text-accent">{r.hours?.toFixed(2)}h</td>
+                    <td className="py-3 pr-4 font-mono text-xs">
+                      {r.breakDisplay ||
+                        (r.breakDurationMinutes != null && r.breakDurationMinutes > 0
+                          ? `${r.breakDurationMinutes}m`
+                          : r.checkIn
+                            ? "0m"
+                            : "—")}
+                    </td>
+                    <td className="py-3 pr-4 max-w-xs">
+                      {r.leaveType ? (
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 rounded bg-primary/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-primary font-semibold">
+                            {r.leaveType} ({r.leaveStatus || "active"})
+                          </span>
+                          {r.leaveReason && (
+                            <p
+                              className="text-xs italic text-muted-foreground truncate"
+                              title={r.leaveReason}
+                            >
+                              "{r.leaveReason}"
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 font-mono text-accent">
+                      {r.hours != null && r.hours > 0 ? `${r.hours.toFixed(2)}h` : "—"}
+                    </td>
                     <td className="py-3 pr-4">
                       <span
-                        className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded border ${
-                          r.telemetry === "verified"
-                            ? "border-green-400/30 text-green-400"
-                            : r.telemetry === "external"
-                              ? "border-amber-400/30 text-amber-400"
-                              : "border-red-400/30 text-red-400"
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${
+                          r.status.toLowerCase().includes("leave")
+                            ? "bg-primary/20 text-primary"
+                            : r.status === "present"
+                              ? "bg-accent/15 text-accent"
+                              : r.status === "absent"
+                                ? "bg-white/5 text-muted-foreground"
+                                : "bg-amber-500/15 text-amber-400"
                         }`}
                       >
-                        {r.telemetry}
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span
+                        className={`text-[9px] uppercase font-mono tracking-widest px-2 py-0.5 rounded border ${
+                          (r.telemetry || "").toLowerCase() === "verified"
+                            ? "border-green-400/30 text-green-400"
+                            : (r.telemetry || "").toLowerCase() === "external"
+                              ? "border-amber-400/30 text-amber-400"
+                              : "border-white/10 text-muted-foreground"
+                        }`}
+                      >
+                        {r.telemetry || "N/A"}
                       </span>
                     </td>
                   </tr>
                 ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                      No records found for the selected date range.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

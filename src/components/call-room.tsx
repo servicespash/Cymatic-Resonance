@@ -58,7 +58,11 @@ export function CallRoom({
 
   if (!hasPermission) {
     return (
-      <PermissionGate onGranted={() => setHasPermission(true)} videoRequired={kind === "video"} />
+      <PermissionGate
+        onGranted={() => setHasPermission(true)}
+        onCancel={onLeave}
+        videoRequired={kind === "video"}
+      />
     );
   }
 

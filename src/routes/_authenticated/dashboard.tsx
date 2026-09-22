@@ -27,11 +27,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format, differenceInMinutes, addDays, startOfMonth, startOfDay } from "date-fns";
+import {
+  format,
+  differenceInMinutes,
+  differenceInDays,
+  addDays,
+  startOfMonth,
+  startOfDay,
+} from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { RequireWorkspace } from "@/components/require-workspace";
 import { toast } from "sonner";
 import { RegistryExport } from "@/components/registry-export";
+import { buildMultiDayExportRows, formatTimeSafe } from "@/lib/export-utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: () => (
@@ -54,9 +62,11 @@ type Att = {
   attendance_date: string;
   checked_in_at: string;
   checked_out_at: string | null;
+  break_started_at?: string | null;
   total_break_minutes: number;
   is_late: boolean;
   status: string;
+  note?: string | null;
 };
 type Leave = {
   id: string;
@@ -139,7 +149,7 @@ function DashboardContent() {
           supabase
             .from("attendance")
             .select(
-              "id, user_id, attendance_date, checked_in_at, checked_out_at, total_break_minutes, is_late, status",
+              "id, user_id, attendance_date, checked_in_at, checked_out_at, break_started_at, total_break_minutes, is_late, status, note",
             )
             .eq("org_id", p.org_id)
             .gte("attendance_date", fromIso)
@@ -148,7 +158,8 @@ function DashboardContent() {
             .from("leave_requests")
             .select("*")
             .eq("org_id", p.org_id)
-            .eq("status", "pending"),
+            .lte("start_date", toIso)
+            .gte("end_date", fromIso),
         ]);
         console.log(
           "DashboardPage: Fetch complete, members:",
@@ -271,6 +282,21 @@ function DashboardContent() {
     }
   };
 
+  const pendingLeaves = useMemo(() => leaves.filter((l) => l.status === "pending"), [leaves]);
+
+  const multiDayExportRows = useMemo(() => {
+    if (!range?.from || !range?.to || !members.length) return [];
+    return buildMultiDayExportRows({
+      rangeFrom: range.from,
+      rangeTo: range.to,
+      members,
+      attendance: att,
+      leaves,
+      selectedUserIds: selectedIds.size > 0 ? selectedIds : undefined,
+      includeAbsent: true,
+    });
+  }, [range, members, att, leaves, selectedIds]);
+
   const logDownload = async (
     format: "csv" | "pdf" | "excel",
     from: Date | undefined,
@@ -308,36 +334,58 @@ function DashboardContent() {
     if (!range?.from || !range?.to) return;
 
     const isSelectedMode = selectedIds.size > 0;
-    const exportData = isSelectedMode
-      ? filteredSorted.filter((r) => selectedIds.has(r.id))
-      : filteredSorted;
+    const exportData = multiDayExportRows;
 
     if (exportData.length === 0) {
-      toast.error("No data available to export.");
+      toast.error("No data available to export for the selected date range.");
       return;
     }
 
-    const header = ["Name", "Category", "Check-in", "Check-out", "Hours", "Status", "Late"];
+    const header = [
+      "Date",
+      "Member Name",
+      "Category / Role",
+      "Status",
+      "Check-in Time",
+      "Check-out Time",
+      "Break Time",
+      "Leave Type",
+      "Leave Reason",
+      "Leave Status",
+      "Work Hours",
+      "Late Arrival",
+      "Telemetry Status",
+    ];
+
     const lines = [
       header,
       ...exportData.map((r) => [
-        r.name,
-        r.category,
-        r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "",
-        r.checkOut ? new Date(r.checkOut).toLocaleTimeString() : "",
-        r.hours != null ? r.hours.toFixed(2) : "",
+        r.date,
+        r.name || "—",
+        r.category || "—",
         r.status,
+        r.checkIn ? formatTimeSafe(r.checkIn) : "—",
+        r.checkOut ? formatTimeSafe(r.checkOut) : r.checkIn ? "In Progress" : "—",
+        r.breakDisplay ||
+          (r.breakDurationMinutes != null ? `${r.breakDurationMinutes}m` : r.checkIn ? "0m" : "—"),
+        r.leaveType || "—",
+        r.leaveReason || "—",
+        r.leaveStatus || "—",
+        r.hours != null ? r.hours.toFixed(2) : "—",
         r.late ? "yes" : "no",
+        (r.telemetry || "VERIFIED").toUpperCase(),
       ]),
     ];
-    const csv = lines
-      .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const csv =
+      "\uFEFF" +
+      lines
+        .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+        .join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pulse_${toISO(range.from)}_${toISO(range.to)}.csv`;
+    a.download = `attendance_ledger_${toISO(range.from)}_to_${toISO(range.to)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -349,13 +397,17 @@ function DashboardContent() {
       exportData.length,
       isSelectedMode ? "selected" : "all",
     );
-    toast.success(`Exported ${exportData.length} row(s) to CSV successfully.`);
+    toast.success(
+      `Exported ${exportData.length} records across ${differenceInDays(range.to, range.from) + 1} day(s) to CSV.`,
+    );
   };
 
   const decideLeave = async (id: string, approve: boolean) => {
     const { error } = await supabase.rpc("decide_leave", { _id: id, _approved: approve });
     if (error) return toast.error(error.message);
-    setLeaves((l) => l.filter((x) => x.id !== id));
+    setLeaves((l) =>
+      l.map((x) => (x.id === id ? { ...x, status: approve ? "approved" : "denied" } : x)),
+    );
     toast.success(approve ? "Leave approved" : "Leave denied");
   };
 
@@ -419,12 +471,8 @@ function DashboardContent() {
         </button>
         <div className="ml-auto" />
         <RegistryExport
-          selectedCount={selectedIds.size}
-          availableRows={
-            selectedIds.size > 0
-              ? filteredSorted.filter((r) => selectedIds.has(r.id))
-              : filteredSorted
-          }
+          selectedCount={selectedIds.size > 0 ? multiDayExportRows.length : 0}
+          availableRows={multiDayExportRows}
           rangeFrom={range?.from}
           rangeTo={range?.to}
           onExportLogged={async (
@@ -450,10 +498,13 @@ function DashboardContent() {
       </div>
 
       {/* Pending leave */}
-      {leaves.length > 0 && (
-        <Panel title="Pending time-off requests" subtitle={`${leaves.length} awaiting decision`}>
+      {pendingLeaves.length > 0 && (
+        <Panel
+          title="Pending time-off requests"
+          subtitle={`${pendingLeaves.length} awaiting decision`}
+        >
           <div className="divide-y divide-white/5">
-            {leaves.map((lv) => {
+            {pendingLeaves.map((lv) => {
               const m = members.find((x) => x.id === lv.user_id);
               return (
                 <div key={lv.id} className="flex items-center justify-between py-3">

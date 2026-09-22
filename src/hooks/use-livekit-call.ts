@@ -234,6 +234,7 @@ export function useLiveKitCall(opts: {
         roomRef.current.disconnect();
         roomRef.current = null;
       }
+      CameraManager.stopStream();
       setLocalStream(null);
       setRemotes({});
       setIsCallAnswered(false);
