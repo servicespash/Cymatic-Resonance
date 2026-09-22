@@ -23,7 +23,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     kind: "audio" | "video";
     initiator_id?: string;
   } | null>(null);
-  const ringtone = useRef(createRingtone());
+  const ringtone = useRef(createRingtone(localStorage.getItem("cym.ringtone") || "default"));
   const activeCallRef = useRef<string | null>(null);
   const membersRef = useRef(members);
   membersRef.current = members;

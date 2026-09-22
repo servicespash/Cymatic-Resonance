@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, User as UserIcon } from "lucide-react";
-import { useTaskModal } from "@/components/task-modal";
+import { TaskModal } from "@/components/task-modal";
 import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 import { Database } from "@/types/schema.types";
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -20,7 +20,7 @@ export function TasksPanel({
   isAdmin: boolean;
   members: { id: string; full_name: string | null }[];
 }) {
-  const { openTask } = useTaskModal();
+  // ... rest of component
   const cacheKey = `tasks:${orgId}:${isAdmin ? "all" : userId}`;
   const [tasks, setTasks] = useState<Task[]>(() => readCache<Task[]>(cacheKey) ?? []);
   const [title, setTitle] = useState("");
@@ -252,24 +252,26 @@ export function TasksPanel({
                       key={task.id}
                       className="group relative rounded-xl border border-white/10 bg-black/40 p-3 space-y-2 shadow-sm transition hover:border-white/20"
                     >
-                      <div 
-                        className="flex items-start justify-between gap-2 cursor-pointer"
-                        onClick={() => openTask(task.id)}
-                      >
-                      <span className="font-medium text-sm leading-snug">{task.title}</span>
-                      {isAdmin && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            deleteTask(task.id);
-                          }}
-                          className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-                          title="Delete Task"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      )}
-                    </div>
+                        <TaskModal 
+                          taskId={task.id}
+                          trigger={
+                            <div className="flex items-start justify-between gap-2 cursor-pointer">
+                              <span className="font-medium text-sm leading-snug">{task.title}</span>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    deleteTask(task.id);
+                                  }}
+                                  className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
+                                  title="Delete Task"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          }
+                        />
 
                       {/* {task.task_kind && (
                         <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">

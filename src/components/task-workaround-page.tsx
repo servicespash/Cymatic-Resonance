@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, Trash2, Download, ChevronRight } from 'lucide-react';
+import { Check, Trash2, Download, ChevronRight, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Progress } from "@/components/ui/progress";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { useDropzone } from 'react-dropzone';
 
 const steps = [
   { id: 'open', label: 'Open' },
@@ -18,6 +21,7 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
   const [task, setTask] = useState<any>(null);
   const [research, setResearch] = useState('');
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
 
   useEffect(() => {
     if (!taskId) return;
@@ -29,27 +33,31 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
       }
       const { data: attData } = await supabase.from('task_attachments').select('*').eq('task_id', taskId);
       if (attData) setAttachments(attData);
+      
+      const { data: actData } = await supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: true });
+      if (actData) setActivity(actData);
     };
     fetchData();
 
-    // Realtime subscription
-    const channel = supabase
-      .channel(`task-updates-${taskId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, (payload) => {
+    // Realtime subscription for task and activity
+    const taskChannel = supabase.channel(`task-${taskId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `id=eq.${taskId}` }, (payload) => {
         setTask(payload.new);
         setResearch(payload.new.task_notes || '');
-      })
-      .subscribe();
+    }).subscribe();
+    
+    const activityChannel = supabase.channel(`activity-${taskId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_activity', filter: `task_id=eq.${taskId}` }, (payload) => {
+        setActivity(prev => [...prev, payload.new]);
+    }).subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(taskChannel); supabase.removeChannel(activityChannel); };
   }, [taskId]);
 
   const advanceStatus = async () => {
     const currentIndex = steps.findIndex(s => s.id === task.status);
     if (currentIndex < steps.length - 1) {
       const nextStatus = steps[currentIndex + 1].id;
-      const { error } = await supabase.from('tasks').update({ status: nextStatus }).eq('id', taskId);
-      if (error) toast.error('Failed to update status');
+      await supabase.from('tasks').update({ status: nextStatus }).eq('id', taskId);
+      await supabase.from('task_activity').insert({ task_id: taskId, status: nextStatus });
     }
   };
 
@@ -59,22 +67,34 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
     else toast.error('Failed to save notes');
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const { data, error } = await supabase.storage.from('task-attachments').upload(`${taskId}/${file.name}`, file);
-    if (error) { toast.error('Upload failed'); return; }
-    await supabase.from('task_attachments').insert({ task_id: taskId, file_url: data.path, file_name: file.name, file_type: file.type });
-    toast.success('File uploaded');
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    for (const file of acceptedFiles) {
+        const { data, error } = await supabase.storage.from('task-attachments').upload(`${taskId}/${file.name}`, file);
+        if (error) { toast.error(`Upload failed: ${file.name}`); continue; }
+        await supabase.from('task_attachments').insert({ task_id: taskId, file_url: data.path, file_name: file.name, file_type: file.type });
+    }
+    toast.success('Files uploaded');
     const { data: attData } = await supabase.from('task_attachments').select('*').eq('task_id', taskId);
     if (attData) setAttachments(attData);
-  };
+  }, [taskId]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
   const deleteAttachment = async (id: string, path: string) => {
     await supabase.storage.from('task-attachments').remove([path]);
     await supabase.from('task_attachments').delete().eq('id', id);
     setAttachments(attachments.filter(a => a.id !== id));
     toast.success('File deleted');
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    doc.text(`Task Report: ${task.title}`, 10, 10);
+    doc.text(`Status: ${task.status}`, 10, 20);
+    doc.text(`Notes:`, 10, 30);
+    doc.text(research, 10, 40);
+    (doc as any).autoTable({ head: [['File Name']], body: attachments.map(a => [a.file_name]), startY: 70 });
+    doc.save(`${task.title}_report.pdf`);
   };
 
   if (!task) return <div>Loading...</div>;
@@ -112,6 +132,13 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
       )}
 
       <div className="space-y-4">
+        <h2 className="text-lg">Activity Timeline</h2>
+        <ul className="space-y-2">
+            {activity.map(act => <li key={act.id} className="text-xs">{act.status} at {new Date(act.created_at).toLocaleString()}</li>)}
+        </ul>
+      </div>
+
+      <div className="space-y-4">
         <h2 className="text-lg">Research / Notes</h2>
         <Textarea value={research} onChange={(e) => setResearch(e.target.value)} placeholder="Do your research and notes here..." className="h-64" />
         <Button onClick={saveNotes}>Save Progress</Button>
@@ -119,7 +146,11 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
 
       <div className="border p-4 rounded space-y-4">
         <h2 className="text-lg">Attachments</h2>
-        <input type="file" onChange={handleFileUpload} />
+        <div {...getRootProps()} className={cn("border-2 border-dashed p-6 text-center cursor-pointer", isDragActive ? "border-primary" : "border-border")}>
+            <input {...getInputProps()} />
+            <Upload className="mx-auto size-8 mb-2 text-muted-foreground" />
+            <p>Drag & drop files here, or click to select</p>
+        </div>
         <ul className="space-y-2">
           {attachments.map(att => (
             <li key={att.id} className="flex items-center justify-between p-2 bg-secondary rounded">
@@ -132,6 +163,8 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
           ))}
         </ul>
       </div>
+      
+      <Button onClick={generatePDF} className="w-full">Download Report</Button>
     </div>
   );
 };

@@ -25,6 +25,10 @@ export function createPeer(events: PeerEvents): RTCPeerConnection {
   };
 
   pc.onconnectionstatechange = () => {
+    console.info(`[WebRTC] Peer Connection State Change: ${pc.connectionState}`);
+    if (pc.connectionState === 'failed') {
+        console.error("[WebRTC] Peer Connection Failed! Check STUN/TURN server connectivity.");
+    }
     events.onConnectionStateChange?.(pc.connectionState);
   };
 

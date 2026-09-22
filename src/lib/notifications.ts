@@ -34,7 +34,7 @@ export function notify(title: string, opts: NotificationOptions & { onClick?: ()
 }
 
 // Soft 2-tone ringtone via WebAudio — loops for ~60 seconds.
-export function createRingtone() {
+export function createRingtone(type: string = "default") {
   let ctx: AudioContext | null = null;
   let stopFn: (() => void) | null = null;
   let timeoutId: number | null = null;
@@ -54,7 +54,11 @@ export function createRingtone() {
       let cancelled = false;
       const playPair = () => {
         if (cancelled || !ctx) return;
-        const tones = [880, 660];
+        
+        let tones = [880, 660];
+        if (type === "classic") tones = [440, 330];
+        else if (type === "modern") tones = [1000, 750];
+
         tones.forEach((freq, i) => {
           const osc = ctx!.createOscillator();
           const g = ctx!.createGain();
