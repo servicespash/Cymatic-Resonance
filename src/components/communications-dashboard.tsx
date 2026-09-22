@@ -13,7 +13,7 @@ interface Member {
 
 export const CommunicationsDashboard = () => {
   const [members, setMembers] = useState<Member[]>([]);
-  const { openInitiationModal } = useCallController();
+  const { startCall } = useCallController();
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -23,11 +23,10 @@ export const CommunicationsDashboard = () => {
     fetchMembers();
   }, []);
 
-  const initiateCall = async (member: Member) => {
-    const { data, error } = await supabase.rpc("open_dm", { _other: member.id });
-    if (error || !data) return;
-    const thread = data as unknown as { channel_id: string };
-    openInitiationModal(thread.channel_id, [member.id], member.full_name ?? "Member");
+  const initiateCall = (userId: string, kind: "audio" | "video") => {
+    // Generate a temporary channel ID or use a dedicated one
+    const channelId = `direct-${userId}`;
+    startCall(channelId, [userId], kind);
   };
 
   const getStatusColor = (isOnline: boolean) => {
@@ -41,7 +40,7 @@ export const CommunicationsDashboard = () => {
         {members.map((member) => (
           <div
             key={member.id}
-            className="flex items-center justify-between p-3 border rounded-lg bg-card"
+            className="flex flex-wrap items-center justify-between gap-3 p-3 border rounded-lg bg-card"
           >
             <div className="flex items-center gap-3">
               <div className={cn("size-3 rounded-full", getStatusColor(member.is_online))} />
