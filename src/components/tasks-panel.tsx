@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Plus, Trash2, Calendar, User as UserIcon, ArrowRight, ArrowLeft } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 import { Database } from "@/types/schema.types";
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -250,18 +251,23 @@ export function TasksPanel({
                       key={task.id}
                       className="group relative rounded-xl border border-white/10 bg-black/40 p-3 space-y-2 shadow-sm transition hover:border-white/20"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-medium text-sm leading-snug">{task.title}</span>
-                        {isAdmin && (
-                          <button
-                            onClick={() => deleteTask(task.id)}
-                            className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-                            title="Delete Task"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        )}
-                      </div>
+                      <Link to="/tasks/$taskId" params={{ taskId: task.id }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium text-sm leading-snug">{task.title}</span>
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                deleteTask(task.id);
+                              }}
+                              className="text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
+                              title="Delete Task"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </Link>
 
                       {/* {task.task_kind && (
                         <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
@@ -283,34 +289,19 @@ export function TasksPanel({
                         )}
                       </div>
 
-                      {/* Status movement controls */}
-                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                        {col.key !== "open" ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const prev = {
-                                in_progress: "open",
-                                completed: "in_progress",
-                                archived: "completed",
-                              };
-                              updateStatus(
-                                task.id,
-                                prev[
-                                  col.key as keyof typeof prev
-                                ] as Database["public"]["Tables"]["tasks"]["Row"]["status"],
-                              );
+                        <div className="flex items-center gap-2 pt-2 border-t border-white/5 w-full">
+                          <input
+                            type="checkbox"
+                            checked={task.status === "completed"}
+                            onChange={(e) => {
+                              updateStatus(task.id, e.target.checked ? "completed" : "in_progress");
                             }}
-                            className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10"
-                          >
-                            <ArrowLeft className="size-3 mr-1" /> Back
-                          </Button>
-                        ) : (
-                          <div />
-                        )}
+                            className="size-4 rounded border-white/20 bg-black/50 accent-frequency"
+                          />
+                          <span className="text-[10px] text-muted-foreground capitalize">
+                            {task.status.replace("_", " ")}
+                          </span>
 
-                        {col.key !== "archived" ? (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -323,17 +314,15 @@ export function TasksPanel({
                               updateStatus(
                                 task.id,
                                 next[
-                                  col.key as keyof typeof next
+                                  task.status as keyof typeof next
                                 ] as Database["public"]["Tables"]["tasks"]["Row"]["status"],
                               );
                             }}
                             className="h-7 px-2 text-[10px] bg-white/5 hover:bg-white/10 ml-auto"
                           >
-                            {col.key === "completed" ? "Archive" : "Advance"}{" "}
-                            <ArrowRight className="size-3 ml-1" />
+                            Advance
                           </Button>
-                        ) : null}
-                      </div>
+                        </div>
                     </div>
                   );
                 })}

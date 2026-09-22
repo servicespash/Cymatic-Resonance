@@ -8,7 +8,7 @@ async function apply() {
   await client.connect();
 
   const sql = fs.readFileSync(
-    "supabase/migrations/20260903070000_add_missing_rls_policies.sql",
+    "supabase/migrations/20260922054500_add_updated_at_to_tasks.sql",
     "utf8",
   );
 
