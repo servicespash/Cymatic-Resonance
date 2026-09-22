@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { LiveKitTransport } from "./livekit-transport";
-import { subscribeToCallSignaling } from "@/lib/call-signaling";
+import { joinCallChannel } from "@/lib/webrtc/signaling";
+import { createPeer, getLocalMedia } from "@/lib/webrtc/peer";
+import { playDialTone } from "@/lib/notifications";
 
 export type CallState = "idle" | "dialing" | "ringing" | "active" | "error";
 
@@ -11,26 +13,24 @@ export function useCallManager(channelId: string | null) {
   const [state, setState] = useState<CallState>("idle");
   const [participants, setParticipants] = useState<string[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const signalingRef = useRef<ReturnType<typeof subscribeToCallSignaling> | null>(null);
+  
+  const signaling = useRef<ReturnType<typeof joinCallChannel> | null>(null);
+  const peer = useRef<RTCPeerConnection | null>(null);
+  const localStream = useRef<MediaStream | null>(null);
+  const stopDialTone = useRef<() => void>(() => {});
 
-  // High-end: Inject transport
   const transport = useMemo(() => new LiveKitTransport(), []);
 
   useEffect(() => {
     transport.onParticipantsChange(setParticipants);
-    // Add listener for active call
-    transport.onStateChange((newState) => {
-        if (newState === 'connected') setState('active');
-        else if (newState === 'connecting') setState('dialing');
-    });
   }, [transport]);
 
   const joinCall = useCallback(async () => {
     if (!channelId || !user) return;
     setState("dialing");
+    stopDialTone.current = playDialTone();
 
     try {
-      // Find an active call on this channel, otherwise start one.
       const { data: existing } = await supabase
         .from("calls")
         .select("id, status")
@@ -41,45 +41,46 @@ export function useCallManager(channelId: string | null) {
         .maybeSingle();
 
       let callId = existing?.id ?? null;
-      
-      if (existing?.status === 'ringing') setState('ringing');
-
       if (!callId) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("org_id")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (!profile?.org_id) throw new Error("No workspace found");
-
-        const { data: created, error: createError } = await supabase
-          .from("calls")
-          .insert({
-            channel_id: channelId,
-            org_id: profile.org_id,
-            initiator_id: user.id,
-            kind: "audio",
-            status: "ringing"
-          })
-          .select("id")
-          .single();
-        if (createError) throw createError;
-        callId = created.id;
-        setState("ringing");
+        const { data: created } = await supabase.from("calls").insert({
+            channel_id: channelId, initiator_id: user.id, kind: "audio", status: "ringing"
+        }).select("id").single();
+        callId = created!.id;
       }
-
-      const { error } = await supabase.rpc("join_call", { _call_id: callId });
-      if (error) throw error;
-
       setRoomId(callId);
-      
-      // Initialize signaling for P2P fallback
-      signalingRef.current = subscribeToCallSignaling(callId, (signal) => {
-          console.log("[Call Manager] Received signal:", signal);
-          if (signal.type === 'ringing') setState('ringing');
-      });
-      await signalingRef.current.sendSignal("ringing", user.id);
 
+      // P2P Handshake Setup
+      localStream.current = await getLocalMedia(false);
+      peer.current = createPeer({
+        onIceCandidate: (c) => signaling.current?.send({ type: "ice", from: user.id, to: "remote", candidate: c }),
+        onRemoteStream: (stream) => console.log("Received remote stream:", stream),
+        onConnectionStateChange: (s) => {
+            console.log("Connection state:", s);
+            if (s === 'connected') {
+                stopDialTone.current();
+                setState('active');
+            }
+        }
+      });
+      localStream.current.getTracks().forEach(t => peer.current!.addTrack(t, localStream.current!));
+
+      signaling.current = joinCallChannel(callId, user.id, async (sig) => {
+        if (sig.type === "hello") {
+            const offer = await peer.current!.createOffer();
+            await peer.current!.setLocalDescription(offer);
+            signaling.current!.send({ type: "offer", from: user.id, to: sig.from, sdp: offer });
+        } else if (sig.type === "offer") {
+            await peer.current!.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+            const answer = await peer.current!.createAnswer();
+            await peer.current!.setLocalDescription(answer);
+            signaling.current!.send({ type: "answer", from: user.id, to: sig.from, sdp: answer });
+        } else if (sig.type === "answer") {
+            await peer.current!.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        } else if (sig.type === "ice") {
+            await peer.current!.addIceCandidate(new RTCIceCandidate(sig.candidate));
+        }
+      });
+      
       await transport.connect(callId, user.id);
       
     } catch (err) {
@@ -90,25 +91,14 @@ export function useCallManager(channelId: string | null) {
 
   const leaveCall = useCallback(async () => {
     if (!roomId || !user) return;
-
-    try {
-      if (signalingRef.current) {
-          await signalingRef.current.sendSignal("hangup", user.id);
-          signalingRef.current.unsubscribe();
-          signalingRef.current = null;
-      }
-      await supabase
-        .from("call_participants")
-        .update({ state: "left", left_at: new Date().toISOString() })
-        .eq("call_id", roomId)
-        .eq("user_id", user.id);
-
-      await transport.disconnect();
-      setRoomId(null);
-      setState("idle");
-    } catch (err) {
-      console.error("Failed to leave call:", err);
-    }
+    
+    localStream.current?.getTracks().forEach(t => t.stop());
+    peer.current?.close();
+    await signaling.current?.leave();
+    await transport.disconnect();
+    
+    setRoomId(null);
+    setState("idle");
   }, [roomId, user, transport]);
 
   return { state, participants, joinCall, leaveCall };
