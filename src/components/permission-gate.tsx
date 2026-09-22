@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { AlertCircle, Camera, Mic, Settings, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, Camera, Mic, Settings, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CameraManager } from "@/lib/camera-manager";
 
 interface PermissionGateProps {
   onGranted: () => void;
@@ -81,29 +82,18 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
           "Permission request is taking longer than expected. You might need to check your system settings or another app using the camera.",
         );
       }
-    }, 8000);
+    }, 10000);
 
     try {
       const info = await runDiagnostics();
 
       if (!info.secureContext) {
-        throw new DOMException(
-          "This page is not served over HTTPS, so the browser blocks camera and microphone access.",
-          "SecurityError",
-        );
-      }
-      if (!info.hasMediaDevices) {
-        throw new DOMException("This browser does not expose media devices.", "NotSupportedError");
+        setErrorMessage("Secure context (HTTPS) is required for camera access.");
+        return;
       }
 
-      const constraints: MediaStreamConstraints = {
-        audio: true,
-        video: videoRequired ? { width: { ideal: 640 }, height: { ideal: 360 } } : false,
-      };
-
-      console.info("[PermissionGate] Requesting getUserMedia...", constraints);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.info("[PermissionGate] getUserMedia success.");
+      const stream = await CameraManager.requestPermissions(videoRequired, true);
+      console.info("[PermissionGate] CameraManager success.");
 
       setPreviewStream(stream);
       setStatus("verified");
@@ -114,29 +104,13 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
         // ignore
       }
     } catch (err: unknown) {
-      console.info("[PermissionGate] Media hardware permission skipped or denied:", err);
+      console.info("[PermissionGate] Media hardware failure:", err);
       setStatus("denied");
-      if (err instanceof DOMException) {
-        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          setErrorMessage(
-            "Access was blocked. Tap the padlock in your browser's address bar, set Camera and Microphone to Allow, then retry.",
-          );
-        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-          setErrorMessage("No camera or microphone hardware found on this device.");
-        } else if (err.name === "NotReadableError") {
-          setErrorMessage(
-            "Another app is already using the camera or microphone. Close it and retry.",
-          );
-        } else if (err.name === "AbortError") {
-          setErrorMessage(
-            "The request was aborted. Please check if your hardware is connected properly.",
-          );
-        } else {
-          setErrorMessage(err.message || "Failed to access media hardware.");
-        }
-      } else {
-        setErrorMessage("Media access restricted. Use audio-only or simulated mode to proceed.");
-      }
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to access media hardware. Please check your settings.";
+      setErrorMessage(msg);
     } finally {
       clearTimeout(timeoutId);
       setChecking(false);
@@ -271,6 +245,7 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
           <button
             type="button"
             onClick={() => {
+              CameraManager.stopStream();
               try {
                 localStorage.removeItem(MANUAL_KEY);
               } catch {
@@ -279,9 +254,10 @@ export function PermissionGate({ onGranted, videoRequired = true }: PermissionGa
               stopPreview();
               void checkPermissions();
             }}
-            className="text-[10px] text-muted-foreground underline underline-offset-2"
+            className="text-[10px] text-muted-foreground underline underline-offset-2 flex items-center gap-1 mx-auto mt-2 hover:text-foreground transition-colors"
           >
-            Reset saved choice and ask again
+            <RefreshCw className="size-2.5" />
+            Reset & Retry Hardware Detection
           </button>
         </div>
       </div>

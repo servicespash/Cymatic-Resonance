@@ -57,18 +57,11 @@ export const useMessages = (channelId: string | null) => {
           filter: `channel_id=eq.${channelId}`,
         },
         (payload) => {
-          const updatedMsg = payload.new as Msg & { deleted_at?: string | null };
-          // If message was soft-deleted, remove it from the list
-          if (updatedMsg.deleted_at) {
-            queryClient.setQueryData(["messages", channelId], (old: Msg[] | undefined) =>
-              old ? old.filter((m) => m.id !== updatedMsg.id) : [],
-            );
-          } else {
-            // Otherwise update the message in place
-            queryClient.setQueryData(["messages", channelId], (old: Msg[] | undefined) =>
-              old ? old.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)) : old,
-            );
-          }
+          const updatedMsg = payload.new as Msg;
+          // Standard update logic: update the message in place
+          queryClient.setQueryData(["messages", channelId], (old: Msg[] | undefined) =>
+            old ? old.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)) : old,
+          );
         },
       )
       .subscribe();
@@ -92,7 +85,6 @@ export const useMessages = (channelId: string | null) => {
         )
         .eq("channel_id", channelId)
         .eq("org_id", orgId)
-        .is("deleted_at", null)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data as unknown as (Msg & {
@@ -112,6 +104,11 @@ export const useDeleteMessage = () => {
   return useMutation({
     mutationFn: async ({ messageId, channelId }: { messageId: string; channelId: string }) => {
       if (!orgId) throw new Error("Could not determine organization");
+      // Enforce foreign key constraints: delete child attachments & reactions first
+      await supabase.from("message_reactions").delete().eq("message_id", messageId);
+      await supabase.from("message_attachments").delete().eq("message_id", messageId);
+
+      // Permanent hard delete of message
       const { error } = await supabase
         .from("messages")
         .delete()
@@ -137,45 +134,7 @@ export const useDeleteMessage = () => {
       toast.error(`Failed to delete message: ${err.message}`);
     },
     onSuccess: () => {
-      toast.success("Message deleted");
-    },
-  });
-};
-
-export const useSoftDeleteMessage = () => {
-  const queryClient = useQueryClient();
-  const context = useContext(CommsContext);
-  const orgId = context.activeChannel?.org_id;
-
-  return useMutation({
-    mutationFn: async ({ messageId, channelId }: { messageId: string; channelId: string }) => {
-      if (!orgId) throw new Error("Could not determine organization");
-      const { error } = await supabase
-        .from("messages")
-        .update({ deleted_at: new Date().toISOString() } as { deleted_at: string })
-        .eq("id", messageId)
-        .eq("org_id", orgId);
-      if (error) throw error;
-      return { messageId, channelId };
-    },
-    onMutate: async ({ messageId, channelId }) => {
-      await queryClient.cancelQueries({ queryKey: ["messages", channelId] });
-      const previousMessages = queryClient.getQueryData<Msg[]>(["messages", channelId]);
-
-      queryClient.setQueryData(["messages", channelId], (old: Msg[] | undefined) =>
-        old ? old.filter((m) => m.id !== messageId) : [],
-      );
-
-      return { previousMessages };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousMessages) {
-        queryClient.setQueryData(["messages", variables.channelId], context.previousMessages);
-      }
-      toast.error(`Failed to delete message: ${err.message}`);
-    },
-    onSuccess: () => {
-      toast.success("Message moved to bin");
+      toast.success("Message permanently deleted");
     },
   });
 };
@@ -188,6 +147,12 @@ export const useBatchDeleteMessages = () => {
   return useMutation({
     mutationFn: async ({ messageIds, channelId }: { messageIds: string[]; channelId: string }) => {
       if (!orgId) throw new Error("Could not determine organization");
+      // Enforce foreign key constraints: delete child attachments & reactions first
+      if (messageIds.length > 0) {
+        await supabase.from("message_reactions").delete().in("message_id", messageIds);
+        await supabase.from("message_attachments").delete().in("message_id", messageIds);
+      }
+
       const { error } = await supabase
         .from("messages")
         .delete()

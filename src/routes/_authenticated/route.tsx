@@ -19,23 +19,24 @@ export const Route = createFileRoute("/_authenticated")({
       return { user: null };
     }
 
-    // Use getSession for client-side routing checks to prevent network failures
-    // from triggering infinite signout loops. The token is stored locally.
-    // Real validation happens via RLS on subsequent data requests.
-    const { data, error } = await supabase.auth.getSession();
-    console.log("[_authenticated/route] getSession result:", {
-      hasSession: !!data.session,
-      error: error?.message,
+    let session = (await supabase.auth.getSession()).data.session;
+    if (!session) {
+      // Small grace period for in-flight token persist
+      await new Promise((r) => setTimeout(r, 150));
+      session = (await supabase.auth.getSession()).data.session;
+    }
+
+    console.log("[_authenticated/route] getSession check:", {
+      hasSession: !!session,
+      user: session?.user?.email,
     });
 
-    if (error || !data.session) {
-      console.warn("[_authenticated/route] Redirecting to /auth", error);
-      // If the session is truly invalid/missing, clear it to break infinite loops
-      await supabase.auth.signOut().catch(() => {});
+    if (!session) {
+      console.warn("[_authenticated/route] No active session. Redirecting to /auth");
       throw redirect({ to: "/auth" });
     }
 
-    return { user: data.session.user };
+    return { user: session.user };
   },
   component: () => (
     <CallProvider>

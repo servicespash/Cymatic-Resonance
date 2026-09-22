@@ -597,13 +597,46 @@ function Tile({
   isHandRaised: boolean;
   compact?: boolean;
 }) {
-  const ref = useRef<HTMLVideoElement>(null);
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [, setTrackVersion] = useState(0);
+
+  // Re-render when tracks are added or removed to ensure the video element reflects hardware state
   useEffect(() => {
-    if (ref.current && stream) ref.current.srcObject = stream;
+    if (!stream) return;
+    const handleTrackChange = () => setTrackVersion((v) => v + 1);
+    stream.addEventListener("addtrack", handleTrackChange);
+    stream.addEventListener("removetrack", handleTrackChange);
+    return () => {
+      stream.removeEventListener("addtrack", handleTrackChange);
+      stream.removeEventListener("removetrack", handleTrackChange);
+    };
+  }, [stream]);
+
+  const setVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      ref.current = el;
+      if (el && stream) {
+        if (el.srcObject !== stream) {
+          el.srcObject = stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [stream],
+  );
+
+  useEffect(() => {
+    if (ref.current && stream) {
+      if (ref.current.srcObject !== stream) {
+        ref.current.srcObject = stream;
+      }
+      ref.current.play().catch(() => {});
+    }
   }, [stream]);
 
   const hasVideo =
-    video && stream && stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
+    video &&
+    Boolean(stream && stream.getVideoTracks().some((t) => t.enabled && t.readyState !== "ended"));
 
   return (
     <div
@@ -617,7 +650,7 @@ function Tile({
     >
       {hasVideo ? (
         <video
-          ref={ref}
+          ref={setVideoRef}
           autoPlay
           playsInline
           muted={isSelf}

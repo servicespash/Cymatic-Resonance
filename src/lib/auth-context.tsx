@@ -12,72 +12,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    let subscription: { unsubscribe: () => void } | null = null;
 
-    console.log("[Auth] State transition: -> initializing");
+    console.log("[Auth] Initializing authentication listener and session check...");
 
-    async function initAuth() {
-      try {
-        // Fallback timeout
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Auth initialization timed out")), 30000),
-        );
+    // 1. Immediately subscribe to onAuthStateChange so no login/logout events are missed
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log(`[Auth] onAuthStateChange event: ${event}`, newSession?.user?.email ?? "no user");
+      if (isMounted) {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        setLoading(false);
+      }
+    });
 
-        const { data, error } = (await Promise.race([sessionPromise, timeoutPromise])) as Awaited<
-          ReturnType<typeof supabase.auth.getSession>
-        >;
-
+    // 2. Fetch current session immediately
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
         if (error) {
           console.error("[Auth] getSession error:", error);
-        } else {
-          if (isMounted) {
-            const hasSession = !!data.session;
-            console.log(
-              `[Auth] State transition: initializing -> ${hasSession ? "authenticated" : "unauthenticated"} (Initial)`,
-            );
-            setSession(data.session);
-            setUser(data.session?.user ?? null);
-          }
+        } else if (isMounted && data?.session) {
+          console.log("[Auth] Initial session found:", data.session.user?.email);
+          setSession(data.session);
+          setUser(data.session.user);
         }
-      } catch (err) {
-        console.error("[Auth] initialization catch error:", err);
-      } finally {
+      })
+      .catch((err) => {
+        console.error("[Auth] getSession unexpected error:", err);
+      })
+      .finally(() => {
         if (isMounted) {
           setLoading(false);
-          // Subscribe only after initial check is done
-          const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
-            console.log(`[Auth] onAuthStateChange event: ${event}`);
-            if (isMounted) {
-              setSession((prevSession) => {
-                // Prevent unneeded re-renders on same access token
-                if (prevSession?.access_token === newSession?.access_token) return prevSession;
-
-                // Presence tracking deferred until schema updated
-
-                return newSession;
-              });
-              setUser((prevUser) => {
-                // Prevent unneeded re-renders on same user ID
-                if (prevUser?.id === newSession?.user?.id) return prevUser;
-                const hasSession = !!newSession?.user;
-                console.log(
-                  `[Auth] State transition: -> ${hasSession ? "authenticated" : "unauthenticated"} (Event: ${event})`,
-                );
-                return newSession?.user ?? null;
-              });
-            }
-          });
-          subscription = data.subscription;
         }
-      }
-    }
+      });
 
-    initAuth();
+    // 3. Fallback safety timer to guarantee loading is never stuck
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setLoading((current) => {
+          if (current) {
+            console.warn("[Auth] Safety timeout: resolving loading state.");
+            return false;
+          }
+          return false;
+        });
+      }
+    }, 2500);
 
     return () => {
       isMounted = false;
-      subscription?.unsubscribe();
+      clearTimeout(safetyTimer);
+      authListener?.subscription?.unsubscribe();
     };
   }, []);
 

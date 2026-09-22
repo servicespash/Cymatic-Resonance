@@ -7,9 +7,9 @@ pages_build_output_dir = "dist"
 # VITE_SUPABASE_PUBLISHABLE_KEY spellings if you prefer setting them in the
 # Cloudflare Pages dashboard instead.
 [vars]
-VITE_SUPABASE_URL = "https://amoopevwutclqkyimpsx.supabase.co"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtb29wZXZ3dXRjbHFreWltcHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTI5MzcsImV4cCI6MjA5MzY2ODkzN30.oMOWSV0fFM8XMIXd1twFS_gMdyDEPPNmG9msIh-WMeE"
-VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtb29wZXZ3dXRjbHFreWltcHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTI5MzcsImV4cCI6MjA5MzY2ODkzN30.oMOWSV0fFM8XMIXd1twFS_gMdyDEPPNmG9msIh-WMeE"
+VITE_SUPABASE_URL = "https://umsgecaeozngdejwvcsu.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVtc2dlY2Flb3puZ2Rland2Y3N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTg4OTIsImV4cCI6MjA5NzYzNDg5Mn0.Zbp6Db69rSBI2egkPt6Puk0vTScVek7wF47HUT02-sQ"
+VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVtc2dlY2Flb3puZ2Rland2Y3N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTg4OTIsImV4cCI6MjA5NzYzNDg5Mn0.Zbp6Db69rSBI2egkPt6Puk0vTScVek7wF47HUT02-sQ"
 
 # Optional: set VITE_LIVEKIT_URL (wss://...) when a LiveKit cloud project is in use.
 # Without it, calls automatically use the direct peer-to-peer engine.

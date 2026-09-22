@@ -137,17 +137,28 @@ function AuthPage() {
     setBusy(true);
     console.log("[auth.tsx] handleSignIn initiated");
     try {
+      const email = String(fd.get("email")).trim();
+      const password = String(fd.get("password"));
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: String(fd.get("email")),
-        password: String(fd.get("password")),
+        email,
+        password,
       });
       if (error) throw error;
       if (!data.session) {
         setEmailConfirmation(true);
         return;
       }
-      console.log("[auth.tsx] handleSignIn success");
+      console.log("[auth.tsx] handleSignIn success:", data.session.user?.email);
       toast.success("Resonance established");
+
+      // Navigate immediately upon confirmed session
+      navigatedRef.current = true;
+      const next = getQuery().get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) {
+        window.location.href = next;
+      } else {
+        navigate({ to: "/pulse" });
+      }
     } catch (error: unknown) {
       console.error("[auth.tsx] handleSignIn error", error);
       toast.error(error instanceof Error ? error.message : String(error));

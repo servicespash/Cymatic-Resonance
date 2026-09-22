@@ -100,6 +100,8 @@ export function useMessageSender(
   const deleteMessage = useCallback(
     async (msgId: string) => {
       if (!orgId) return;
+      await supabase.from("message_reactions").delete().eq("message_id", msgId);
+      await supabase.from("message_attachments").delete().eq("message_id", msgId);
       await supabase.from("messages").delete().eq("id", msgId).eq("org_id", orgId);
     },
     [orgId],

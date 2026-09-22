@@ -8,7 +8,6 @@ export type Msg = {
   sender_id: string;
   body: string;
   created_at: string;
-  deleted_at?: string | null;
 };
 export type Sender = { id: string; full_name: string | null; role: string };
 export type Thread = {

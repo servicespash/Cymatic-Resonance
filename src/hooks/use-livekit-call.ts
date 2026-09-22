@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Room, RoomEvent, ConnectionQuality, RemoteParticipant, Track } from "livekit-client";
 import { supabase } from "@/integrations/supabase/client";
+import { CameraManager } from "@/lib/camera-manager";
 
 export type RemotePeer = {
   userId: string;
@@ -81,18 +82,17 @@ export function useLiveKitCall(opts: {
     // Fallback: Direct getUserMedia if no LiveKit connection but we want local feedback
     if (camStateRef.current || micStateRef.current) {
       try {
-        const constraints = {
-          video: camStateRef.current ? { width: { ideal: 640 }, height: { ideal: 360 } } : false,
-          audio: micStateRef.current,
-        };
-        console.info("[useLiveKitCall] Direct getUserMedia fallback:", constraints);
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await CameraManager.requestPermissions(
+          camStateRef.current,
+          micStateRef.current,
+        );
         setLocalStream(stream);
       } catch (err) {
-        console.error("[useLiveKitCall] Direct fallback failed:", err);
+        console.error("[useLiveKitCall] CameraManager fallback failed:", err);
         setLocalStream(null);
       }
     } else {
+      CameraManager.stopStream();
       setLocalStream(null);
     }
   }, []);
@@ -247,8 +247,8 @@ export function useLiveKitCall(opts: {
 
     if (roomRef.current && roomRef.current.state === "connected") {
       await roomRef.current.localParticipant.setMicrophoneEnabled(next);
-      await syncLocalTracks();
     }
+    await syncLocalTracks();
   }, [micOn, syncLocalTracks]);
 
   const toggleCam = useCallback(async () => {
@@ -259,19 +259,12 @@ export function useLiveKitCall(opts: {
     if (roomRef.current && roomRef.current.state === "connected") {
       const room = roomRef.current;
       if (next) {
-        // Turning on camera
         await room.localParticipant.setCameraEnabled(true);
-        // Apply facingMode/torch
-        const track = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-        if (track && "setDeviceId" in track.mediaStreamTrack) {
-          // This needs proper LiveKit API usage for facingMode
-          // For now, simulating via track constraints if possible
-        }
       } else {
         await room.localParticipant.setCameraEnabled(false);
       }
-      await syncLocalTracks();
     }
+    await syncLocalTracks();
   }, [camOn, syncLocalTracks]);
 
   const flipCamera = useCallback(async () => {

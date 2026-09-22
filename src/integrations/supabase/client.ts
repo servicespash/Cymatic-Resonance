@@ -22,6 +22,43 @@ const createDummyProxy = (path: string[] = []): unknown => {
 
 const dummyClient = createDummyProxy() as SupabaseClient<Database>;
 
+// Memory storage fallback for partitioned iframes where localStorage access may be restricted
+const memoryStorage = new Map<string, string>();
+
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const val = window.localStorage.getItem(key);
+        if (val !== null) return val;
+      }
+    } catch (e) {
+      console.warn("[Supabase Storage] localStorage.getItem access warning:", e);
+    }
+    return memoryStorage.get(key) ?? null;
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, value);
+      }
+    } catch (e) {
+      console.warn("[Supabase Storage] localStorage.setItem access warning:", e);
+    }
+    memoryStorage.set(key, value);
+  },
+  removeItem: (key: string): void => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(key);
+      }
+    } catch (e) {
+      console.warn("[Supabase Storage] localStorage.removeItem access warning:", e);
+    }
+    memoryStorage.delete(key);
+  },
+};
+
 function createSupabaseClient(): SupabaseClient<Database> {
   const SUPABASE_URL = getSupabaseUrl();
   const SUPABASE_ANON_KEY = getSupabaseAnonKey();
@@ -35,9 +72,10 @@ function createSupabaseClient(): SupabaseClient<Database> {
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-      storage: typeof window !== "undefined" ? window.localStorage : undefined,
+      storage: safeStorage,
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
     },
   });
 }

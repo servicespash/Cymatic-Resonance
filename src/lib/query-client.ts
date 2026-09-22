@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { readCache, writeCache } from "./offline-cache";
 
 const PERSIST_KEY = "react-query";
-const PERSIST_PREFIXES = ["messages", "tasks", "call-history"];
+const PERSIST_PREFIXES = ["tasks", "call-history"];
 
 type PersistedEntry = { key: unknown[]; data: unknown; at: number };
 
@@ -36,12 +36,21 @@ export function createAppQueryClient() {
 
   if (typeof window === "undefined") return queryClient;
 
-  // Hydrate from the last snapshot.
+  // Hydrate only allowed entries from the last snapshot, purging unpermitted ones.
   const saved = readCache<PersistedEntry[]>(PERSIST_KEY) ?? [];
   const now = Date.now();
+  const validEntries: PersistedEntry[] = [];
+
   for (const entry of saved) {
     if (now - entry.at > MAX_AGE) continue;
+    if (!shouldPersist(entry.key)) continue;
     queryClient.setQueryData(entry.key, entry.data);
+    validEntries.push(entry);
+  }
+
+  // If stale or unallowed entries existed (like deleted/unpersisted messages), sanitize the cache
+  if (saved.length > 0 && validEntries.length !== saved.length) {
+    writeCache(PERSIST_KEY, validEntries);
   }
 
   let timer: ReturnType<typeof setTimeout> | null = null;

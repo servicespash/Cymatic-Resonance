@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { useComms } from "@/lib/use-comms";
@@ -103,6 +104,7 @@ function CommsPage() {
     () => activeMessages.map((m) => m.id).join(","),
     [activeMessages],
   );
+  const queryClient = useQueryClient();
   const deleteMessageMutation = useDeleteMessage();
   const setActive = setActiveChannel;
 
@@ -366,6 +368,24 @@ function CommsPage() {
       .on(
         "postgres_changes",
         {
+          event: "DELETE",
+          schema: "public",
+          table: "channels",
+          filter: `org_id=eq.${orgId}`,
+        },
+        (p) => {
+          const deletedId = p.old?.id;
+          if (deletedId) {
+            setChannelsStable((prev) => prev.filter((c) => c.id !== deletedId));
+            if (activeRef.current?.id === deletedId) {
+              setActiveChannelStable(null);
+            }
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "INSERT",
           schema: "public",
           table: "direct_threads",
@@ -377,6 +397,49 @@ function CommsPage() {
             if (prev.some((t) => t.id === newThread.id)) return prev;
             return [newThread, ...prev];
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "direct_threads",
+          filter: `org_id=eq.${orgId}`,
+        },
+        (p) => {
+          const deletedThreadId = p.old?.id;
+          const deletedChannelId = p.old?.channel_id;
+          if (deletedThreadId || deletedChannelId) {
+            setThreadsStable((prev) =>
+              prev.filter((t) => t.id !== deletedThreadId && t.channel_id !== deletedChannelId),
+            );
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "messages",
+          filter: `org_id=eq.${orgId}`,
+        },
+        (p) => {
+          const deletedMsgId = p.old?.id;
+          if (deletedMsgId) {
+            setLastMessageByChannelStable((prev) => {
+              const updated = { ...prev };
+              let changed = false;
+              for (const [cid, m] of Object.entries(updated)) {
+                if (m.id === deletedMsgId) {
+                  delete updated[cid];
+                  changed = true;
+                }
+              }
+              return changed ? updated : prev;
+            });
+          }
         },
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (p) => {
@@ -394,6 +457,7 @@ function CommsPage() {
     orgId,
     user,
     markChannelAsRead,
+    setActiveChannelStable,
     setLastMessageByChannelStable,
     setReactionsStable,
     setUnreadCountsStable,
@@ -435,18 +499,88 @@ function CommsPage() {
   const handleDeleteChat = async (channelId: string) => {
     if (!user) return;
     try {
-      // Hard delete messages first
-      await supabase.from("messages").delete().eq("channel_id", channelId);
+      // 1. Fetch message IDs in this channel to enforce foreign keys on child tables
+      const { data: channelMsgs } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("channel_id", channelId);
 
-      const isDm = channels.find((c) => c.id === channelId)?.kind === "dm";
-      if (isDm) {
-        await supabase.from("direct_threads").delete().eq("channel_id", channelId);
+      const msgIds = (channelMsgs ?? []).map((m) => m.id);
+      if (msgIds.length > 0) {
+        // Enforce foreign key constraints by deleting child reactions & attachments first
+        await supabase.from("message_reactions").delete().in("message_id", msgIds);
+        await supabase.from("message_attachments").delete().in("message_id", msgIds);
+        await supabase.from("messages").delete().eq("channel_id", channelId);
       }
 
-      // Hard delete channel
+      // 2. Delete message reads referencing this channel
+      await supabase.from("message_reads").delete().eq("channel_id", channelId);
+
+      // 3. Delete calls & participants for this channel
+      const { data: calls } = await supabase.from("calls").select("id").eq("channel_id", channelId);
+      if (calls && calls.length > 0) {
+        const callIds = calls.map((c) => c.id);
+        await supabase.from("call_participants").delete().in("call_id", callIds);
+        await supabase.from("calls").delete().eq("channel_id", channelId);
+      }
+
+      // 4. Delete direct thread if DM
+      await supabase.from("direct_threads").delete().eq("channel_id", channelId);
+
+      // 5. Delete channel itself
       await supabase.from("channels").delete().eq("id", channelId);
 
+      // 6. Update local React states immediately
       setChannels((prev) => prev.filter((c) => c.id !== channelId));
+      setThreads((prev) => prev.filter((t) => t.channel_id !== channelId));
+      setLastMessageByChannel((prev) => {
+        const copy = { ...prev };
+        delete copy[channelId];
+        return copy;
+      });
+      setUnreadCounts((prev) => {
+        const copy = { ...prev };
+        delete copy[channelId];
+        return copy;
+      });
+      setReads((prev) => {
+        const copy = { ...prev };
+        delete copy[channelId];
+        return copy;
+      });
+
+      // 7. Clear TanStack query cache for this channel's messages
+      queryClient.removeQueries({ queryKey: ["messages", channelId] });
+
+      // 8. Scrub local offline-cache workspace snapshot so it cannot re-hydrate
+      const cached = readCache<{
+        channels?: Channel[];
+        threads?: Thread[];
+        lastMessageByChannel?: Record<string, Msg>;
+        reads?: Record<string, string>;
+      }>(`workspace:${user.id}`);
+      if (cached) {
+        writeCache(`workspace:${user.id}`, {
+          ...cached,
+          channels: (cached.channels || []).filter((c) => c.id !== channelId),
+          threads: (cached.threads || []).filter((t) => t.channel_id !== channelId),
+          lastMessageByChannel: Object.fromEntries(
+            Object.entries(cached.lastMessageByChannel || {}).filter(([cid]) => cid !== channelId),
+          ),
+          reads: Object.fromEntries(
+            Object.entries(cached.reads || {}).filter(([cid]) => cid !== channelId),
+          ),
+        });
+      }
+
+      // 9. Remove from localStorage last channel pointer if active
+      if (
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("cym.lastChannel") === channelId
+      ) {
+        window.localStorage.removeItem("cym.lastChannel");
+      }
+
       if (active?.id === channelId) setActive(null);
       toast.success("Chat and conversation deleted permanently");
     } catch (err: unknown) {
@@ -455,9 +589,42 @@ function CommsPage() {
   };
 
   const handleDeleteMessage = async (msgId: string) => {
-    if (!active) return;
-    // Admins or owners can delete. We'll use hard delete for now.
-    deleteMessageMutation.mutate({ messageId: msgId, channelId: active.id });
+    if (!active || !user) return;
+    deleteMessageMutation.mutate(
+      { messageId: msgId, channelId: active.id },
+      {
+        onSuccess: async () => {
+          // If this message was the last message displayed in sidebar, update it
+          if (lastMessageByChannel[active.id]?.id === msgId) {
+            const { data: latest } = await supabase
+              .from("messages")
+              .select("*")
+              .eq("channel_id", active.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            setLastMessageByChannel((prev) => {
+              const copy = { ...prev };
+              if (latest) copy[active.id] = latest as Msg;
+              else delete copy[active.id];
+              return copy;
+            });
+
+            // Update workspace cache in localStorage so it doesn't re-hydrate the deleted message
+            const cached = readCache<{ lastMessageByChannel?: Record<string, Msg> }>(
+              `workspace:${user.id}`,
+            );
+            if (cached?.lastMessageByChannel) {
+              const nextLast = { ...cached.lastMessageByChannel };
+              if (latest) nextLast[active.id] = latest as Msg;
+              else delete nextLast[active.id];
+              writeCache(`workspace:${user.id}`, { ...cached, lastMessageByChannel: nextLast });
+            }
+          }
+        },
+      },
+    );
   };
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {

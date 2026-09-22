@@ -17,6 +17,8 @@ const env = {
 } as Record<string, string | undefined>;
 
 export function getSupabaseUrl(): string | undefined {
+  if (env.VITE_SUPABASE_URL) return env.VITE_SUPABASE_URL;
+
   if (typeof window !== "undefined") {
     const win = window as unknown as Record<string, unknown>;
     if (win.__SUPABASE_URL__) return String(win.__SUPABASE_URL__);
@@ -27,10 +29,13 @@ export function getSupabaseUrl(): string | undefined {
       // ignore storage errors
     }
   }
-  return env.VITE_SUPABASE_URL || undefined;
+  return undefined;
 }
 
 export function getSupabaseAnonKey(): string | undefined {
+  const builtinKey = env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (builtinKey) return builtinKey;
+
   if (typeof window !== "undefined") {
     const win = window as unknown as Record<string, unknown>;
     if (win.__SUPABASE_ANON_KEY__) return String(win.__SUPABASE_ANON_KEY__);
@@ -41,8 +46,7 @@ export function getSupabaseAnonKey(): string | undefined {
       // ignore storage errors
     }
   }
-  // Accept either naming convention for the public (anon/publishable) key.
-  return env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || undefined;
+  return undefined;
 }
 
 export function getMissingSupabaseEnv(): string[] {
