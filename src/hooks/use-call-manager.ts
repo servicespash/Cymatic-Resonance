@@ -1,240 +1,135 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
-import { toast } from "sonner";
-import type { Database } from "@/integrations/supabase/types";
+import { LiveKitTransport } from "./livekit-transport";
+import { joinCallChannel } from "@/lib/webrtc/signaling";
+import { createPeer, getLocalMedia } from "@/lib/webrtc/peer";
+import { playDialTone } from "@/lib/notifications";
+import { Database } from "@/integrations/supabase/types";
 
-type Call = Database["public"]["Tables"]["calls"]["Row"];
-type ParticipantState = Database["public"]["Enums"]["participant_state"];
+export type CallState = "idle" | "dialing" | "ringing" | "active" | "error";
 
-export interface CallManager {
-  activeCall: Call | null;
-  participants: any[];
-  isHost: boolean;
-  isJoining: boolean;
-  startCall: (channelId: string, recipientIds: string[], kind: "audio" | "video") => Promise<void>;
-  joinCall: (callId: string) => Promise<void>;
-  leaveCall: () => Promise<void>;
-  declineCall: (callId: string) => Promise<void>;
-}
+export type CallSessionMemberInsert =
+  Database["public"]["Tables"]["call_participants"]["Insert"] & {
+    joined_at?: string | null;
+  };
 
-export function useCallManager() {
+export type CallSessionMemberUpdate =
+  Database["public"]["Tables"]["call_participants"]["Update"] & {
+    joined_at?: string | null;
+  };
+
+export type CallSessionMemberOperation = CallSessionMemberInsert | CallSessionMemberUpdate;
+
+export function useCallManager(channelId: string | null) {
   const { user } = useAuth();
-  const [activeCall, setActiveCall] = useState<Call | null>(null);
-  const [participants, setParticipants] = useState<any[]>([]);
-  const [isJoining, setIsJoining] = useState(false);
-  const activeCallRef = useRef<Call | null>(null);
+  const [state, setState] = useState<CallState>("idle");
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [roomId, setRoomId] = useState<string | null>(null);
+
+  const signaling = useRef<ReturnType<typeof joinCallChannel> | null>(null);
+  const peer = useRef<RTCPeerConnection | null>(null);
+  const localStream = useRef<MediaStream | null>(null);
+  const stopDialTone = useRef<() => void>(() => {});
+
+  const transport = useMemo(() => new LiveKitTransport(), []);
 
   useEffect(() => {
-    activeCallRef.current = activeCall;
-  }, [activeCall]);
+    transport.onParticipantsChange(setParticipants);
+  }, [transport]);
 
-  const isHost = activeCall?.initiator_id === user?.id;
-
-  // Cleanup/Termination logic
-  const terminateCall = useCallback(async (callId: string) => {
-    await supabase
-      .from("calls")
-      .update({ status: "ended", ended_at: new Date().toISOString() })
-      .eq("id", callId);
-    setActiveCall(null);
-  }, []);
-
-  const leaveCall = useCallback(async () => {
-    if (!activeCall || !user) return;
-    const callId = activeCall.id;
-    const initiatorId = activeCall.initiator_id;
+  const joinCall = useCallback(async () => {
+    if (!channelId || !user) return;
+    setState("dialing");
+    stopDialTone.current = playDialTone();
 
     try {
-      await supabase
-        .from("call_participants")
-        .update({ state: "left", left_at: new Date().toISOString() })
-        .eq("call_id", callId)
-        .eq("user_id", user.id);
+      const { data: existing } = await supabase
+        .from("calls")
+        .select("id, status")
+        .eq("channel_id", channelId)
+        .in("status", ["ringing", "active"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const { data: allParticipants } = await supabase
-        .from("call_participants")
-        .select("user_id, state")
-        .eq("call_id", callId);
-
-      const joinedCount = allParticipants?.filter((p) => p.state === "joined").length ?? 0;
-      const totalParticipants = allParticipants?.length ?? 0;
-
-      // Forced Exit: If host leaves, end for everyone
-      if (user.id === initiatorId) {
-        await terminateCall(callId);
-        return;
-      }
-
-      // If it's a 1-on-1 and I leave, end it
-      if (totalParticipants <= 2) {
-        await terminateCall(callId);
-        return;
-      }
-
-      // If I'm the last one, end it
-      if (joinedCount === 0) {
-        await terminateCall(callId);
-      }
-    } catch (err) {
-      console.error("Error leaving call:", err);
-    } finally {
-      setActiveCall(null);
-    }
-  }, [activeCall, user, terminateCall]);
-
-  // Listen for external terminations (e.g. host left)
-  useEffect(() => {
-    if (!activeCall?.id) return;
-
-    const channel = supabase
-      .channel(`call-manager-${activeCall.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "calls",
-          filter: `id=eq.${activeCall.id}`,
-        },
-        (payload) => {
-          const updatedCall = payload.new as Call;
-          if (updatedCall.status === "ended") {
-            setActiveCall(null);
-            toast.info("Call ended");
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "call_participants",
-          filter: `call_id=eq.${activeCall.id}`,
-        },
-        async () => {
-          const { data } = await supabase
-            .from("call_participants")
-            .select("*")
-            .eq("call_id", activeCall.id);
-          if (data) setParticipants(data);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeCall?.id]);
-
-  const startCall = useCallback(
-    async (channelId: string, recipientIds: string[], kind: "audio" | "video") => {
-      if (!user) return;
-      setIsJoining(true);
-      try {
+      let callId = existing?.id ?? null;
+      if (!callId) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("org_id")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
+        if (!profile?.org_id) throw new Error("No workspace found");
 
-        if (!profile?.org_id) throw new Error("No organization found");
-
-        const { data: call, error: callError } = await supabase
+        const { data: created } = await supabase
           .from("calls")
           .insert({
             channel_id: channelId,
             org_id: profile.org_id,
             initiator_id: user.id,
-            kind,
+            kind: "audio",
             status: "ringing",
           })
-          .select()
+          .select("id")
           .single();
-
-        if (callError || !call) throw callError;
-
-        const rows = [
-          {
-            call_id: call.id,
-            user_id: user.id,
-            state: "joined",
-            joined_at: new Date().toISOString(),
-          },
-          ...recipientIds.map((id) => ({
-            call_id: call.id,
-            user_id: id,
-            state: "invited",
-          })),
-        ];
-
-        await supabase.from("call_participants").insert(rows);
-        setActiveCall(call);
-      } catch (err) {
-        console.error("Failed to start call:", err);
-        toast.error("Failed to initiate call");
-      } finally {
-        setIsJoining(false);
+        callId = created!.id;
       }
-    },
-    [user],
-  );
+      setRoomId(callId);
 
-  const joinCall = useCallback(
-    async (callId: string) => {
-      if (!user) return;
-      setIsJoining(true);
-      try {
-        await supabase.from("call_participants").upsert(
-          {
-            call_id: callId,
-            user_id: user.id,
-            state: "joined",
-            joined_at: new Date().toISOString(),
-          },
-          { onConflict: "call_id,user_id" },
-        );
-
-        const { data: call } = await supabase.from("calls").select("*").eq("id", callId).single();
-
-        if (call) {
-          if (call.status === "ringing") {
-            await supabase.from("calls").update({ status: "active" }).eq("id", callId);
+      // P2P Handshake Setup
+      localStream.current = await getLocalMedia(false);
+      peer.current = createPeer({
+        onIceCandidate: (c) =>
+          signaling.current?.send({ type: "ice", from: user.id, to: "remote", candidate: c }),
+        onRemoteStream: (stream) => console.log("Received remote stream:", stream),
+        onConnectionStateChange: (s) => {
+          console.log("Connection state:", s);
+          if (s === "connected") {
+            stopDialTone.current();
+            setState("active");
           }
-          setActiveCall(call);
+        },
+      });
+      localStream.current
+        .getTracks()
+        .forEach((t) => peer.current!.addTrack(t, localStream.current!));
+
+      signaling.current = joinCallChannel(callId, user.id, async (sig) => {
+        if (sig.type === "hello") {
+          const offer = await peer.current!.createOffer();
+          await peer.current!.setLocalDescription(offer);
+          signaling.current!.send({ type: "offer", from: user.id, to: sig.from, sdp: offer });
+        } else if (sig.type === "offer") {
+          await peer.current!.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+          const answer = await peer.current!.createAnswer();
+          await peer.current!.setLocalDescription(answer);
+          signaling.current!.send({ type: "answer", from: user.id, to: sig.from, sdp: answer });
+        } else if (sig.type === "answer") {
+          await peer.current!.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        } else if (sig.type === "ice") {
+          await peer.current!.addIceCandidate(new RTCIceCandidate(sig.candidate));
         }
-      } catch (err) {
-        console.error("Failed to join call:", err);
-        toast.error("Failed to join call");
-      } finally {
-        setIsJoining(false);
-      }
-    },
-    [user],
-  );
+      });
 
-  const declineCall = useCallback(
-    async (callId: string) => {
-      if (!user) return;
-      await supabase
-        .from("call_participants")
-        .update({ state: "declined" })
-        .eq("call_id", callId)
-        .eq("user_id", user.id);
-    },
-    [user],
-  );
+      await transport.connect(callId, user.id);
+    } catch (err) {
+      console.error("Failed to join call:", err);
+      setState("error");
+    }
+  }, [channelId, user, transport]);
 
-  return {
-    activeCall,
-    participants,
-    isHost,
-    isJoining,
-    startCall,
-    joinCall,
-    leaveCall,
-    declineCall,
-    setActiveCall,
-  };
+  const leaveCall = useCallback(async () => {
+    if (!roomId || !user) return;
+
+    localStream.current?.getTracks().forEach((t) => t.stop());
+    peer.current?.close();
+    await signaling.current?.leave();
+    await transport.disconnect();
+
+    setRoomId(null);
+    setState("idle");
+  }, [roomId, user, transport]);
+
+  return { state, participants, joinCall, leaveCall };
 }
