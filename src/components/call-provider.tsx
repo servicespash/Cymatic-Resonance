@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
+import { showPushNotification } from "@/lib/push-notifications";
 import { CallRoom } from "@/components/call-room";
 import { Ctx } from "@/hooks/use-call-controller";
 import type { Database } from "@/integrations/supabase/types";
@@ -102,6 +103,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
           ringtoneRef.start();
           const who = membersRef.current[c.initiator_id]?.full_name ?? "Someone";
           notify(`Incoming ${c.kind} call`, {
+            body: `${who} is calling`,
+            tag: `call-${c.id}`,
+            requireInteraction: true,
+          });
+          showPushNotification(`Incoming ${c.kind} call`, {
             body: `${who} is calling`,
             tag: `call-${c.id}`,
             requireInteraction: true,

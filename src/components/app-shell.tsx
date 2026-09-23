@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UpdateHeaderButton } from "@/components/update-header-button";
 import { UpdateNotificationManager } from "@/components/update-notification-manager";
+import { NotificationDropdown } from "@/components/notification-dropdown";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import { Footer } from "@/components/footer";
 import { LegalViewer, LegalTab } from "@/components/legal-viewer";
@@ -205,6 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </div>
             <UpdateHeaderButton />
+            <NotificationDropdown />
             <ThemeToggle />
           </div>
         </header>
