@@ -21,6 +21,7 @@ import {
 import { InvitePanel } from "@/components/invite-panel";
 import { BrandPanel } from "@/components/brand-panel";
 import { AdminMapMatrix } from "@/components/admin-map-matrix";
+import { NotificationPreferences } from "@/components/notification-preferences";
 
 type OrgLocation = { lat: number; lng: number; radius: number };
 
@@ -458,6 +459,9 @@ function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {/* Notification Preferences */}
+      <NotificationPreferences />
 
       {/* Danger zone */}
       {isAdmin && org && (

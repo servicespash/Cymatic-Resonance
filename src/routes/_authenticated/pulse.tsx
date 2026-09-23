@@ -15,6 +15,7 @@ import { CheckInHistory, type LeaveRecord } from "@/components/check-in-history"
 import { DEFAULT_FALLBACK_LOCATION, getDistance, isValidLatLng, safeCoordinates } from "@/lib/geo";
 
 import { ClientOnly } from "@/components/client-only";
+import { sendSecureEmail } from "@/lib/email";
 
 export const Route = createFileRoute("/_authenticated/pulse")({
   component: () => (
@@ -346,6 +347,17 @@ function PulsePage() {
         tasksCount: count || 0,
       });
       setShowGreeting(true);
+
+      if (user?.email) {
+        sendSecureEmail({
+          to: user.email,
+          subject: `Pulse Check-In Recorded: ${status.toUpperCase()}`,
+          message: `Your resonance pulse check-in was successfully logged with status '${status}' and variance ${Math.round(variance)}m from station perimeter.`,
+          actionUrl: `${window.location.origin}/pulse`,
+          actionText: "View Pulse Matrix",
+          category: "pulse",
+        });
+      }
     } catch (e: unknown) {
       const err = e as { message?: string };
       toast.error(err.message || "Check-in failed");

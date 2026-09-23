@@ -9,6 +9,7 @@ import { createRingtone, ensureNotificationPermission, notify } from "@/lib/noti
 import { CallRoom } from "@/components/call-room";
 import { Ctx } from "@/hooks/use-call-controller";
 import type { Database } from "@/integrations/supabase/types";
+import { PingSystem } from "@/lib/ping-system";
 
 type Sender = { id: string; full_name: string | null };
 type Call = Database["public"]["Tables"]["calls"]["Row"];
@@ -37,6 +38,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     console.log("CallProvider: Fetching org/members");
 
+    PingSystem.start(user.id);
+
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
@@ -63,6 +66,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMounted = false;
+      PingSystem.stop();
     };
   }, [user]);
 

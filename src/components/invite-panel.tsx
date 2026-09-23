@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ClientOnly } from "./client-only";
+import { sendSecureEmail } from "@/lib/email";
 
 type Invite = {
   id: string;
@@ -44,11 +45,31 @@ export function InvitePanel() {
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Invite created — copy the link", { description: email });
+
+    const invite = data as Invite;
+    const inviteUrl = `${window.location.origin}/auth?invite=${invite.token}`;
+
+    // Send email via Resend secure gateway from Latif@resonance.cymatichub.xyz
+    const resendResult = await sendSecureEmail({
+      to: invite.email,
+      subject: "You've been invited to join Cymatic Resonance",
+      message: `You have been invited to join the organization as a ${invite.role}. Click the button below to accept your invitation.`,
+      actionUrl: inviteUrl,
+      actionText: "Accept Invitation",
+      category: "invites",
+    });
+    if (resendResult.success) {
+      toast.success("Invite sent via Resend (Latif@resonance.cymatichub.xyz)", {
+        description: invite.email,
+      });
+    } else {
+      toast.success("Invite created — copy the link", { description: invite.email });
+    }
+
     setEmail("");
     setCategory("");
-    setList((l) => [data as Invite, ...l]);
-    copyLink((data as Invite).token);
+    setList((l) => [invite, ...l]);
+    copyLink(invite.token);
   };
 
   const copyLink = (token: string) => {

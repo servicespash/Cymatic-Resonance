@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Plus, Trash2, Calendar, User as UserIcon } from "lucide-react";
 import { TaskModal } from "@/components/task-modal";
 import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 import { Database } from "@/types/schema.types";
+import { sendSecureEmail } from "@/lib/email";
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 export function TasksPanel({
@@ -100,6 +102,26 @@ export function TasksPanel({
       setCreating(false);
       fetchTasks();
       toast.success("Task assigned successfully");
+
+      if (assignedTo) {
+        supabase
+          .from("profiles" as any)
+          .select("email, full_name")
+          .eq("id", assignedTo)
+          .maybeSingle()
+          .then(({ data: assignee }: { data: any }) => {
+            if (assignee?.email) {
+              sendSecureEmail({
+                to: assignee.email,
+                subject: `New Task Assigned: ${title.trim()}`,
+                message: `You have been assigned a new task: "${title.trim()}" in Cymatic Resonance workspace.`,
+                actionUrl: `${window.location.origin}/comms`,
+                actionText: "View Tasks",
+                category: "tasks",
+              });
+            }
+          });
+      }
     }
   };
 
