@@ -46,7 +46,7 @@ export const CommunicationsDashboard = () => {
               <div className={cn("size-3 rounded-full", getStatusColor(member.is_online))} />
               <span>{member.full_name || "Unknown"}</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-center gap-2">
               <Button size="sm" variant="ghost" onClick={() => initiateCall(member.id, "audio")}>
                 <Phone className="size-4 mr-2" /> Call
               </Button>
