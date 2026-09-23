@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Bell, Mail, Zap, CheckCircle2 } from "lucide-react";
+import { Bell, Mail, Zap, CheckCircle2, Phone, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { triggerVibration } from "@/lib/vibration";
 
@@ -12,6 +12,8 @@ type Preferences = {
   email_notifications: boolean;
   task_alerts: boolean;
   pulse_alerts: boolean;
+  call_alerts: boolean;
+  message_alerts: boolean;
 };
 
 export function NotificationPreferences() {
@@ -20,6 +22,8 @@ export function NotificationPreferences() {
     email_notifications: true,
     task_alerts: true,
     pulse_alerts: true,
+    call_alerts: true,
+    message_alerts: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,7 +31,7 @@ export function NotificationPreferences() {
   const fetchPrefs = useCallback(async () => {
     if (!user) return;
     const { data, error } = await (supabase.from("user_preferences" as any) as any)
-      .select("email_notifications, task_alerts, pulse_alerts")
+      .select("email_notifications, task_alerts, pulse_alerts, call_alerts, message_alerts")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -36,6 +40,8 @@ export function NotificationPreferences() {
         email_notifications: data.email_notifications ?? true,
         task_alerts: data.task_alerts ?? true,
         pulse_alerts: data.pulse_alerts ?? true,
+        call_alerts: data.call_alerts ?? true,
+        message_alerts: data.message_alerts ?? true,
       });
     } else if (!error) {
       // Upsert default preferences if none exist
@@ -44,6 +50,8 @@ export function NotificationPreferences() {
         email_notifications: true,
         task_alerts: true,
         pulse_alerts: true,
+        call_alerts: true,
+        message_alerts: true,
       });
     }
     setLoading(false);
@@ -137,6 +145,38 @@ export function NotificationPreferences() {
           <Switch
             checked={prefs.pulse_alerts}
             onCheckedChange={(val) => updatePref("pulse_alerts", val)}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Phone className="size-4 text-indigo-400" /> Call Notifications
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Receive missed call alerts and incoming call invitations when offline.
+            </p>
+          </div>
+          <Switch
+            checked={prefs.call_alerts}
+            onCheckedChange={(val) => updatePref("call_alerts", val)}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="size-4 text-emerald-400" /> Message Notifications
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Receive email digests for direct messages and unread chat mentions.
+            </p>
+          </div>
+          <Switch
+            checked={prefs.message_alerts}
+            onCheckedChange={(val) => updatePref("message_alerts", val)}
             disabled={saving}
           />
         </div>

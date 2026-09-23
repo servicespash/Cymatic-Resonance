@@ -8,7 +8,7 @@ export type EmailPayload = {
   message: string;
   actionUrl?: string;
   actionText?: string;
-  category?: "invites" | "tasks" | "pulse" | "general";
+  category?: "invites" | "tasks" | "pulse" | "calls" | "messages" | "general";
 };
 
 /**
@@ -27,7 +27,7 @@ export async function sendSecureEmail(payload: EmailPayload) {
 
     if (profile?.id) {
       const { data: prefs } = await (supabase.from("user_preferences" as any) as any)
-        .select("email_notifications, task_alerts, pulse_alerts")
+        .select("email_notifications, task_alerts, pulse_alerts, call_alerts, message_alerts")
         .eq("user_id", profile.id)
         .maybeSingle();
 
@@ -41,6 +41,12 @@ export async function sendSecureEmail(payload: EmailPayload) {
         }
         if (payload.category === "pulse" && prefs.pulse_alerts === false) {
           return { success: false, reason: "pulse_alerts_disabled" };
+        }
+        if (payload.category === "calls" && prefs.call_alerts === false) {
+          return { success: false, reason: "call_alerts_disabled" };
+        }
+        if (payload.category === "messages" && prefs.message_alerts === false) {
+          return { success: false, reason: "message_alerts_disabled" };
         }
       }
     }
