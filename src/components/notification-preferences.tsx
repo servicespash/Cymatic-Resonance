@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Bell, Mail, Zap, CheckCircle2 } from "lucide-react";
+import { Bell, Mail, Zap, CheckCircle2, Phone, Smartphone } from "lucide-react";
+import { SoundPicker } from "@/components/sound-picker";
 import { toast } from "sonner";
 import { triggerVibration } from "@/lib/vibration";
 
@@ -12,6 +13,8 @@ type Preferences = {
   email_notifications: boolean;
   task_alerts: boolean;
   pulse_alerts: boolean;
+  call_ringtone: string;
+  vibration_alerts: boolean;
 };
 
 export function NotificationPreferences() {
@@ -20,14 +23,16 @@ export function NotificationPreferences() {
     email_notifications: true,
     task_alerts: true,
     pulse_alerts: true,
+    call_ringtone: "default",
+    vibration_alerts: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const fetchPrefs = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await (supabase.from("user_preferences" as any) as any)
-      .select("email_notifications, task_alerts, pulse_alerts")
+    const { data } = await (supabase.from("user_preferences" as any) as any)
+      .select("email_notifications, task_alerts, pulse_alerts, call_ringtone, vibration_alerts")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -36,14 +41,8 @@ export function NotificationPreferences() {
         email_notifications: data.email_notifications ?? true,
         task_alerts: data.task_alerts ?? true,
         pulse_alerts: data.pulse_alerts ?? true,
-      });
-    } else if (!error) {
-      // Upsert default preferences if none exist
-      await (supabase.from("user_preferences" as any) as any).upsert({
-        user_id: user.id,
-        email_notifications: true,
-        task_alerts: true,
-        pulse_alerts: true,
+        call_ringtone: data.call_ringtone ?? "default",
+        vibration_alerts: data.vibration_alerts ?? true,
       });
     }
     setLoading(false);
@@ -139,6 +138,29 @@ export function NotificationPreferences() {
             onCheckedChange={(val) => updatePref("pulse_alerts", val)}
             disabled={saving}
           />
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Smartphone className="size-4 text-accent" /> Vibration Alerts
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Enable vibration for incoming calls and notifications.
+            </p>
+          </div>
+          <Switch
+            checked={prefs.vibration_alerts}
+            onCheckedChange={(val) => updatePref("vibration_alerts", val)}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-4">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Phone className="size-4 text-accent" /> Call Ringtone
+          </Label>
+          <SoundPicker onSelect={(id) => updatePref("call_ringtone", id)} />
         </div>
       </div>
     </section>

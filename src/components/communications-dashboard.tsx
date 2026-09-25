@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Phone, Video } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Phone, Video, PhoneIncoming, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCallController } from "@/hooks/use-call-controller";
+import { CallHistoryDropdown } from "@/components/call-history-dropdown";
 
 interface Member {
   id: string;
@@ -13,6 +20,7 @@ interface Member {
 
 export const CommunicationsDashboard = () => {
   const [members, setMembers] = useState<Member[]>([]);
+  const [callHistoryOpen, setCallHistoryOpen] = useState(false);
   const { startCall } = useCallController();
 
   useEffect(() => {
@@ -24,7 +32,6 @@ export const CommunicationsDashboard = () => {
   }, []);
 
   const initiateCall = (userId: string, kind: "audio" | "video") => {
-    // Generate a temporary channel ID or use a dedicated one
     const channelId = `direct-${userId}`;
     startCall(channelId, [userId], kind);
   };
@@ -35,7 +42,15 @@ export const CommunicationsDashboard = () => {
 
   return (
     <div className="p-6 space-y-4 text-foreground">
-      <h2 className="text-xl font-bold">Team</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold">Team</h2>
+        <Button variant="outline" size="sm" onClick={() => setCallHistoryOpen(!callHistoryOpen)}>
+          <History className="size-4 mr-2" /> Call History
+        </Button>
+      </div>
+
+      {callHistoryOpen && <CallHistoryDropdown onClose={() => setCallHistoryOpen(false)} />}
+
       <div className="grid gap-2">
         {members.map((member) => (
           <div
@@ -47,12 +62,21 @@ export const CommunicationsDashboard = () => {
               <span>{member.full_name || "Unknown"}</span>
             </div>
             <div className="flex items-center justify-center gap-2">
-              <Button size="sm" variant="ghost" onClick={() => initiateCall(member.id, "audio")}>
-                <Phone className="size-4 mr-2" /> Call
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => initiateCall(member.id, "video")}>
-                <Video className="size-4 mr-2" /> Video
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <PhoneIncoming className="size-4 mr-2" /> Call
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => initiateCall(member.id, "audio")}>
+                    <Phone className="size-4 mr-2" /> Audio Call
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => initiateCall(member.id, "video")}>
+                    <Video className="size-4 mr-2" /> Video Call
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         ))}

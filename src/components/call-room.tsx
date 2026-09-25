@@ -140,6 +140,7 @@ function CallRoomInner({
 
   const [duration, setDuration] = useState(0);
   const [minimized, setMinimized] = useState(false);
+  const [selectedPeerId, setSelectedPeerId] = useState<string | null>(null);
   const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
   const [bursts, setBursts] = useState<FloatingReaction[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
@@ -447,21 +448,37 @@ function CallRoomInner({
             </div>
           </header>
 
-          {/* Main Stream Matrix Display - Stretched wide to support expanded layout design */}
-          <div
-            className={`grid flex-1 gap-4 p-6 w-full max-w-[1800px] mx-auto ${gridCols(all.length)}`}
-          >
-            {all.map((p) => (
+          {/* Main Stream Layout - Featured View */}
+          <div className="flex flex-1 flex-col p-4 gap-4 overflow-hidden">
+            <div className="flex-1 min-h-0 bg-black rounded-2xl overflow-hidden relative">
               <Tile
-                key={p.userId}
-                stream={p.stream}
-                name={peers[p.userId]?.full_name ?? (p.isSelf ? "You" : "Execution Member")}
-                isSelf={p.isSelf}
-                state={p.state}
+                stream={
+                  all.find((p) => p.userId === (selectedPeerId || all[0].userId))?.stream || null
+                }
+                name={peers[selectedPeerId || all[0].userId]?.full_name || "Featured"}
+                isSelf={false}
+                state="connected"
                 video={video}
-                isHandRaised={!!raisedHands[p.userId]}
+                isHandRaised={!!raisedHands[selectedPeerId || all[0].userId]}
               />
-            ))}
+            </div>
+
+            <div className="h-32 flex gap-4 overflow-x-auto pb-2">
+              {all.map((p) => (
+                <div key={p.userId} className="w-32 flex-shrink-0">
+                  <Tile
+                    stream={p.stream}
+                    name={peers[p.userId]?.full_name ?? (p.isSelf ? "You" : "Execution Member")}
+                    isSelf={p.isSelf}
+                    state={p.state}
+                    video={video}
+                    isHandRaised={!!raisedHands[p.userId]}
+                    compact
+                    onClick={() => setSelectedPeerId(p.userId)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Bottom Kinetic Command Layer */}
@@ -605,80 +622,33 @@ function CallRoomInner({
   );
 }
 
-function gridCols(n: number) {
-  if (n <= 1) return "grid-cols-1";
-  if (n === 2) return "grid-cols-1 md:grid-cols-2";
-  if (n <= 4) return "grid-cols-2";
-  return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
-}
-
-function Tile({
-  stream,
-  name,
-  isSelf,
-  state,
-  video,
-  isHandRaised,
-  compact,
-}: {
+interface TileProps {
   stream: MediaStream | null;
   name: string;
   isSelf: boolean;
-  state: RTCPeerConnectionState;
+  state: string;
   video: boolean;
   isHandRaised: boolean;
   compact?: boolean;
-}) {
-  const ref = useRef<HTMLVideoElement | null>(null);
-  const [, setTrackVersion] = useState(0);
+  onClick?: () => void;
+}
 
-  // Re-render when tracks are added or removed to ensure the video element reflects hardware state
-  useEffect(() => {
-    if (!stream) return;
-    const handleTrackChange = () => setTrackVersion((v) => v + 1);
-    stream.addEventListener("addtrack", handleTrackChange);
-    stream.addEventListener("removetrack", handleTrackChange);
-    return () => {
-      stream.removeEventListener("addtrack", handleTrackChange);
-      stream.removeEventListener("removetrack", handleTrackChange);
-    };
-  }, [stream]);
-
-  const setVideoRef = useCallback(
-    (el: HTMLVideoElement | null) => {
-      ref.current = el;
-      if (el && stream) {
-        if (el.srcObject !== stream) {
-          el.srcObject = stream;
-        }
-        el.play().catch(() => {});
-      }
-    },
-    [stream],
-  );
-
-  useEffect(() => {
-    if (ref.current && stream) {
-      if (ref.current.srcObject !== stream) {
-        ref.current.srcObject = stream;
-      }
-      ref.current.play().catch(() => {});
-    }
-  }, [stream]);
-
-  const hasVideo =
-    video &&
-    Boolean(stream && stream.getVideoTracks().some((t) => t.enabled && t.readyState !== "ended"));
+function Tile({ stream, name, isSelf, state, video, isHandRaised, compact, onClick }: TileProps) {
+  const hasVideo = !!stream && video;
+  const setVideoRef = (el: HTMLVideoElement | null) => {
+    if (el && stream) el.srcObject = stream;
+  };
 
   return (
     <div
+      onClick={onClick}
       className={`relative overflow-hidden bg-card transition-all duration-300 ring-2 ${
         compact
           ? "rounded-xl ring-1 ring-white/15 size-full"
           : isHandRaised
             ? "rounded-2xl ring-amber-500 shadow-xl shadow-amber-500/10 scale-[1.01] animate-pulse-glow"
             : "rounded-2xl ring-white/10"
-      }`}
+      } ${onClick ? "cursor-pointer" : ""}`}
     >
       {hasVideo ? (
         <video
@@ -694,7 +664,9 @@ function Tile({
         />
       ) : (
         <div
-          className={`grid size-full place-items-center bg-gradient-to-br from-primary/20 to-accent/10 ${compact ? "min-h-0 py-4" : "min-h-[240px]"}`}
+          className={`grid size-full place-items-center bg-gradient-to-br from-primary/20 to-accent/10 ${
+            compact ? "min-h-0 py-4" : "min-h-[240px]"
+          }`}
         >
           <div
             className={`grid place-items-center rounded-full bg-frequency font-bold text-primary-foreground resonance-glow transition-transform ${
@@ -705,7 +677,7 @@ function Tile({
                   : "size-24 text-3xl"
             }`}
           >
-            {name.charAt(0).toUpperCase()}
+            {name?.charAt(0).toUpperCase()}
           </div>
           {stream && !video && (
             <audio

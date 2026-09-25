@@ -1,7 +1,13 @@
-import { Phone, Video, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Phone, Video, Mic, MicOff, Volume2, VolumeX, PhoneIncoming } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Slider } from "@/components/ui/slider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface CallControlsProps {
   onStartAudioCall: () => void;
@@ -29,12 +35,10 @@ export const CallControls = ({
 
   const toggleSpeaker = () => {
     setIsSpeakerOn(!isSpeakerOn);
-    // Implementation depends on actual HTMLAudioElement management
   };
 
   const handleVolumeChange = (value: number[]) => {
     setVolume(value[0]);
-    // Implementation depends on actual HTMLAudioElement management
   };
 
   return (
@@ -49,24 +53,26 @@ export const CallControls = ({
         <Slider value={[volume]} onValueChange={handleVolumeChange} max={100} step={1} />
       </div>
 
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onStartAudioCall}
-        disabled={disabled}
-        className="bg-white/5 border-white/10 text-xs gap-1.5 hover:bg-white/10 transition"
-      >
-        <Phone className="size-3.5 text-frequency" /> Call
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onStartVideoCall}
-        disabled={disabled}
-        className="bg-white/5 border-white/10 text-xs gap-1.5 hover:bg-white/10 transition"
-      >
-        <Video className="size-3.5 text-accent" /> Video
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            className="bg-white/5 border-white/10 text-xs gap-1.5 hover:bg-white/10 transition"
+          >
+            <PhoneIncoming className="size-3.5 text-frequency" /> Call
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onStartAudioCall}>
+            <Phone className="size-4 mr-2" /> Audio Call
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onStartVideoCall}>
+            <Video className="size-4 mr-2" /> Video Call
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

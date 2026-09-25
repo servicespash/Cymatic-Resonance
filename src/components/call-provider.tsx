@@ -7,8 +7,10 @@ import { useAuth } from "@/lib/use-auth";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { createRingtone, ensureNotificationPermission, notify } from "@/lib/notifications";
 import { showPushNotification } from "@/lib/push-notifications";
+import { toast } from "sonner";
 import { CallRoom } from "@/components/call-room";
 import { Ctx } from "@/hooks/use-call-controller";
+import { useCallNotifications } from "@/hooks/use-call-notifications";
 import type { Database } from "@/integrations/supabase/types";
 import { PingSystem } from "@/lib/ping-system";
 
@@ -26,6 +28,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
     initiator_id?: string;
   } | null>(null);
   const ringtone = useRef(createRingtone(localStorage.getItem("cym.ringtone") || "default"));
+  const ringtoneRef = ringtone.current;
+
+  useCallNotifications(incoming, ringtoneRef);
+
   const activeCallRef = useRef<string | null>(null);
   const membersRef = useRef(members);
   membersRef.current = members;
@@ -37,7 +43,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     let isMounted = true;
-    console.log("CallProvider: Fetching org/members");
 
     PingSystem.start(user.id);
 
@@ -50,7 +55,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       if (!p?.org_id || !isMounted) return;
       setOrgId(p.org_id);
-      console.log("CallProvider: Org found", p.org_id);
 
       const { data: m } = await supabase
         .from("profiles")
@@ -61,7 +65,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const map: Record<string, Sender> = {};
       for (const s of (m ?? []) as Sender[]) map[s.id] = s;
       setMembers(map);
-      console.log("CallProvider: Members fetched", Object.keys(map).length);
       ensureNotificationPermission();
     })();
 
@@ -72,8 +75,30 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    if (!incoming || !user) return;
+
+    const timeout = setTimeout(async () => {
+      // Check if still ringing
+      const { data: c } = await supabase
+        .from("calls")
+        .select("status")
+        .eq("id", incoming.id)
+        .single();
+
+      if (c?.status === "ringing") {
+        // Update call status to missed_call
+        await supabase.from("calls").update({ status: "missed_call" }).eq("id", incoming.id);
+
+        setIncoming(null);
+        toast.info("Missed call");
+      }
+    }, 60000); // 60 seconds
+
+    return () => clearTimeout(timeout);
+  }, [incoming, user]);
+
+  useEffect(() => {
     if (!user || !orgId) return;
-    const ringtoneRef = ringtone.current;
 
     const channel = supabase
       .channel(`org-calls-${orgId}-${user.id}`)
@@ -168,7 +193,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
       ringtoneRef.stop();
     };
-  }, [user, orgId, incoming]);
+  }, [user, orgId, incoming, ringtoneRef]);
 
   const startCall = useCallback(
     async (
