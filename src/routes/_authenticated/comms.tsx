@@ -19,7 +19,12 @@ import {
   MessageSquarePlus,
   Mic,
   Settings,
+  History,
+  PhoneIncoming,
+  Phone,
+  Video,
 } from "lucide-react";
+import { CallHistoryDropdown } from "@/components/call-history-dropdown";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
@@ -30,9 +35,14 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
-import { CallControls } from "@/components/call-controls";
-import { CallHistoryPanel } from "@/components/call-history";
 import { TasksPanel } from "@/components/tasks-panel";
 import { RecordAudioMessage, RecordedAudio } from "@/components/record-audio-message";
 import { CymaticWave } from "@/components/cymatic-wave";
@@ -109,6 +119,7 @@ function CommsPage() {
   const setActive = setActiveChannel;
 
   const [newDmOpen, setNewDmOpen] = useState(false);
+  const [callHistoryOpen, setCallHistoryOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -731,6 +742,13 @@ function CommsPage() {
             <div className="mb-4 flex items-center justify-between">
               <h1 className="font-display text-2xl font-bold tracking-tight">Chats</h1>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCallHistoryOpen(!callHistoryOpen)}
+                  className="rounded-lg p-2 hover:bg-white/5"
+                  aria-label="Call History"
+                >
+                  <History className="h-5 w-5" />
+                </button>
                 <Link
                   to="/comms-settings"
                   className="rounded-lg p-2 hover:bg-white/5"
@@ -848,6 +866,8 @@ function CommsPage() {
             </div>
           </div>
 
+          {callHistoryOpen && <CallHistoryDropdown onClose={() => setCallHistoryOpen(false)} />}
+
           {/* Dynamic Chat Items with Unread Badges */}
           <nav className="flex-1 overflow-y-auto p-2 space-y-1">
             {filtered.map((c) => (
@@ -876,8 +896,6 @@ function CommsPage() {
               </div>
             ))}
           </nav>
-
-          <CallHistoryPanel />
         </aside>
 
         {/* Main Active Chat View */}
@@ -891,16 +909,41 @@ function CommsPage() {
                   </button>
                   <h2 className="font-semibold">{activeTitle}</h2>
                 </div>
-                <CallControls
-                  onStartAudioCall={() => {
-                    const recipientId = active.kind === "dm" && activeOther ? activeOther.id : "";
-                    callController.startCall(active.id, recipientId ? [recipientId] : [], "audio");
-                  }}
-                  onStartVideoCall={() => {
-                    const recipientId = active.kind === "dm" && activeOther ? activeOther.id : "";
-                    callController.startCall(active.id, recipientId ? [recipientId] : [], "video");
-                  }}
-                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <PhoneIncoming className="size-4 mr-2" /> Call
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const recipientId =
+                          active.kind === "dm" && activeOther ? activeOther.id : "";
+                        callController.startCall(
+                          active.id,
+                          recipientId ? [recipientId] : [],
+                          "audio",
+                        );
+                      }}
+                    >
+                      <Phone className="size-4 mr-2" /> Audio Call
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const recipientId =
+                          active.kind === "dm" && activeOther ? activeOther.id : "";
+                        callController.startCall(
+                          active.id,
+                          recipientId ? [recipientId] : [],
+                          "video",
+                        );
+                      }}
+                    >
+                      <Video className="size-4 mr-2" /> Video Call
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </header>
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">

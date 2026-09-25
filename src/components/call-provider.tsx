@@ -86,8 +86,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (c?.status === "ringing") {
-        // Update call status to missed_call
-        await supabase.from("calls").update({ status: "missed_call" }).eq("id", incoming.id);
+        // Update call status to missed
+        await supabase.from("calls").update({ status: "missed" }).eq("id", incoming.id);
 
         setIncoming(null);
         toast.info("Missed call");

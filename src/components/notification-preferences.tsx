@@ -52,7 +52,7 @@ export function NotificationPreferences() {
     fetchPrefs();
   }, [fetchPrefs]);
 
-  const updatePref = async (key: keyof Preferences, value: boolean) => {
+  const updatePref = async (key: keyof Preferences, value: boolean | string) => {
     if (!user) return;
     const updated = { ...prefs, [key]: value };
     setPrefs(updated);

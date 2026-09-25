@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageItem, Msg } from "./message-item";
-import { Paperclip, Mic, Send } from "lucide-react";
+import { Paperclip, Mic, Send, Phone, Video, PhoneIncoming } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { useCallController } from "@/hooks/use-call-controller";
 
 interface ChatPanelProps {
   channelId: string;
@@ -14,9 +22,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [body, setBody] = useState("");
   const [activeReactionPicker, setActiveReactionPicker] = useState<string | null>(null);
+  const { startCall } = useCallController();
+
+  const initiateCall = (kind: "audio" | "video") => {
+    // Assuming channelId follows a convention, e.g., "direct-{userId}"
+    const userId = channelId.replace("direct-", "");
+    startCall(channelId, [userId], kind);
+  };
 
   const fetchMessages = useCallback(async () => {
-    // Fetch messages, attachments, and reactions (simplified for brevity)
     const { data, error } = await supabase
       .from("messages")
       .select("id, channel_id, sender_id, body, created_at, profiles(full_name)")
@@ -77,11 +91,26 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) 
   }, [channelId, fetchMessages]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] bg-black/5 rounded-xl border border-white/5 p-4">
-      <div className="sticky top-0 z-10 bg-black/40 backdrop-blur-md p-2 rounded-lg mb-4 border border-white/5">
+    <div className="flex flex-col h-full bg-black/5 rounded-xl border border-white/5 overflow-hidden">
+      <div className="sticky top-0 z-10 bg-black/40 backdrop-blur-md p-3 rounded-lg border-b border-white/5 flex justify-between items-center shrink-0">
         <h3 className="font-semibold text-sm">Channel: {channelId}</h3>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost">
+              <PhoneIncoming className="size-4 mr-2" /> Call
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => initiateCall("audio")}>
+              <Phone className="size-4 mr-2" /> Audio Call
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => initiateCall("video")}>
+              <Video className="size-4 mr-2" /> Video Call
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+      <div className="flex-1 overflow-y-auto space-y-2 p-4">
         {messages.map((m) => (
           <MessageItem
             key={m.id}
@@ -98,7 +127,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) 
           />
         ))}
       </div>
-      <div className="mt-auto flex items-center gap-2 border-t border-white/10 pt-3 bg-card/50 backdrop-blur-sm p-2 rounded-lg">
+      <div className="flex items-center gap-2 border-t border-white/10 p-3 bg-card/50 backdrop-blur-sm shrink-0">
         <button className="text-muted-foreground hover:text-white" title="Attach file">
           <Paperclip className="size-5" />
         </button>

@@ -11,7 +11,6 @@ import {
   Menu,
   ShieldCheck,
   BarChart3,
-  History,
 } from "lucide-react";
 import { usePresenceTracker } from "@/hooks/use-presence-tracker";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +19,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { UpdateHeaderButton } from "@/components/update-header-button";
 import { UpdateNotificationManager } from "@/components/update-notification-manager";
 import { NotificationDropdown } from "@/components/notification-dropdown";
-import { CallHistoryDropdown } from "@/components/call-history-dropdown";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import { Footer } from "@/components/footer";
 import { LegalViewer, LegalTab } from "@/components/legal-viewer";
@@ -56,7 +54,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
   const [open, setOpen] = useState(false);
-  const [callHistoryOpen, setCallHistoryOpen] = useState(false);
   const [legalView, setLegalView] = useState<LegalTab | null>(null);
   const path = useRouterState({ select: (s) => s.location.pathname });
 
