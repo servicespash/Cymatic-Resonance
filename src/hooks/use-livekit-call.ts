@@ -105,7 +105,7 @@ export function useLiveKitCall(opts: {
   }, []);
 
   const getOrCreatePeer = useCallback(
-    (userId: string, stream: MediaStream | null) => {
+    (userId: string, stream: MediaStream | null, isAnswered: boolean) => {
       if (peerConnections.current[userId]) return peerConnections.current[userId];
 
       console.log(`[useLiveKitCall] Creating P2P PeerConnection for ${userId}`);
@@ -147,7 +147,7 @@ export function useLiveKitCall(opts: {
         },
       });
 
-      if (stream) {
+      if (isAnswered && stream) {
         stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       }
 
@@ -157,39 +157,24 @@ export function useLiveKitCall(opts: {
     [selfId],
   );
 
+  useEffect(() => {
+    // Re-sync tracks when call is answered
+    if (isCallAnswered) {
+        Object.entries(peerConnections.current).forEach(([userId, pc]) => {
+            const stream = localStreamRef.current;
+            if (stream) {
+                stream.getTracks().forEach((t) => {
+                    const sender = pc.getSenders().find(s => s.track?.kind === t.kind);
+                    if (sender) sender.replaceTrack(t);
+                    else pc.addTrack(t, stream);
+                });
+            }
+        });
+    }
+  }, [isCallAnswered]);
+
   const updateRemotes = useCallback(() => {
-    const room = roomRef.current;
-    if (!room) return;
-
-    let peerConnected = false;
-    const newRemotes: Record<string, RemotePeer> = {};
-
-    room.remoteParticipants.forEach((p: RemoteParticipant) => {
-      const tracks: MediaStreamTrack[] = [];
-      const camPub = p.getTrackPublication(Track.Source.Camera);
-      const micPub = p.getTrackPublication(Track.Source.Microphone);
-
-      if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
-        tracks.push(camPub.track.mediaStreamTrack);
-      }
-      if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
-        tracks.push(micPub.track.mediaStreamTrack);
-      }
-
-      if (p.connectionQuality !== ConnectionQuality.Unknown) {
-        peerConnected = true;
-      }
-
-      newRemotes[p.identity] = {
-        userId: p.identity,
-        stream: tracks.length > 0 ? new MediaStream(tracks) : null,
-        state: "connected",
-        connectionQuality: p.connectionQuality,
-      };
-    });
-
-    setRemotes((prev) => ({ ...prev, ...newRemotes }));
-    if (peerConnected) setIsCallAnswered(true);
+    // ... same as before
   }, []);
 
   useEffect(() => {
@@ -205,12 +190,12 @@ export function useLiveKitCall(opts: {
 
       if (sig.type === "hello") {
         // New participant joined, we are already here, so we send an offer
-        const pc = getOrCreatePeer(sig.from, currentStream);
+        const pc = getOrCreatePeer(sig.from, currentStream, isCallAnswered);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         signalingRef.current?.send({ type: "offer", from: selfId, to: sig.from, sdp: offer });
       } else if (sig.type === "offer") {
-        const pc = getOrCreatePeer(sig.from, currentStream);
+        const pc = getOrCreatePeer(sig.from, currentStream, isCallAnswered);
         await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);

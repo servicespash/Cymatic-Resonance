@@ -899,7 +899,7 @@ function CommsPage() {
         </aside>
 
         {/* Main Active Chat View */}
-        <main className={`flex min-h-0 flex-col ${active ? "flex" : "hidden lg:flex"}`}>
+        <main className={`flex h-full min-h-0 flex-col ${active ? "flex" : "hidden lg:flex"}`}>
           {active ? (
             <>
               <header className="flex items-center justify-between border-b border-white/5 p-4">
@@ -911,7 +911,13 @@ function CommsPage() {
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={
+                        callController.activeCallId ? "animate-pulse ring-2 ring-accent" : ""
+                      }
+                    >
                       <PhoneIncoming className="size-4 mr-2" /> Call
                     </Button>
                   </DropdownMenuTrigger>

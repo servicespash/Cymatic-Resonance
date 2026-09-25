@@ -66,7 +66,8 @@ export function NotificationPreferences() {
 
     setSaving(false);
     if (error) {
-      toast.error("Failed to save preferences");
+      console.error("Preferences save error:", error);
+      toast.error(`Failed to save preferences: ${error.message}`);
       return;
     }
     triggerVibration();

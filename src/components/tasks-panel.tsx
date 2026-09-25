@@ -35,13 +35,12 @@ export function TasksPanel({
   // ... (inside TasksPanel component)
 
   const fetchTasks = useCallback(async () => {
-    let query = supabase.from("tasks").select("*").eq("org_id", orgId);
-    if (!isAdmin) {
-      query = query.eq("assigned_to", userId);
-    }
-    const { data, error } = await query;
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("assigned_to", userId);
     if (error) {
-      // Offline or backend hiccup: keep showing the last known tasks.
       console.warn("Tasks fetch failed, using cached list:", error.message);
       return;
     }
@@ -49,7 +48,7 @@ export function TasksPanel({
       setTasks(data as unknown as Task[]);
       writeCache(cacheKey, data as unknown as Task[]);
     }
-  }, [orgId, userId, isAdmin, cacheKey]);
+  }, [orgId, userId, cacheKey]);
 
   useEffect(() => {
     const cached = readCache<Task[]>(cacheKey);

@@ -185,6 +185,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
             setActive(null);
             ringtoneRef.stop();
           }
+
+          if (c.status === "active") {
+            supabase
+              .from("call_participants")
+              .select("id")
+              .eq("call_id", c.id)
+              .eq("user_id", user?.id ?? "")
+              .maybeSingle()
+              .then(({ data: participant }) => {
+                if (participant) {
+                  setActive({ id: c.id, kind: c.kind, initiator_id: c.initiator_id });
+                }
+              });
+          }
         },
       )
       .subscribe();
@@ -255,8 +269,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         {
           call_id: call.id,
           user_id: user.id,
-          state: "joined",
-          joined_at: new Date().toISOString(),
+          state: "invited",
+          joined_at: null,
         },
         ...targets
           .filter((id) => id !== user.id)
@@ -266,8 +280,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       await supabase
         .from("call_participants")
         .insert(rows as Database["public"]["Tables"]["call_participants"]["Insert"][]);
-
-      setActive({ id: call.id, kind, initiator_id: call.initiator_id });
     },
     [user, orgId],
   );
