@@ -1901,7 +1901,7 @@ export type Database = {
           p_feature_key: string;
         };
         Returns: string;
-      }
+      },
       pulse_checkin: {
         Args: { _note?: string }
         Returns: {
