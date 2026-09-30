@@ -128,7 +128,6 @@ cross join (
   values
     ('unlimited_members'),
     ('command_center'),
-    ('group_calls'),
     ('attendance_exports'),
     ('attendance_analytics'),
     ('continuous_attendance_tracking'),
