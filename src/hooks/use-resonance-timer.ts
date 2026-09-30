@@ -45,7 +45,12 @@ export interface UseResonanceTimerOptions {
 }
 
 export function useResonanceTimer(options: UseResonanceTimerOptions = {}) {
-  const { initialDurationSeconds = 25 * 60, onComplete, onTick } = options;
+  const {
+    initialDurationSeconds = 25 * 60,
+    onComplete,
+    onTick,
+    autoStart = false,
+  } = options;
 
   // Hydration safety flag: initial render is always deterministic
   const [isMounted, setIsMounted] = useState(false);
@@ -68,6 +73,12 @@ export function useResonanceTimer(options: UseResonanceTimerOptions = {}) {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isMounted && autoStart && status === "idle") {
+      setStatus("running");
+    }
+  }, [autoStart, isMounted, status]);
 
   // Interval execution
   useEffect(() => {
