@@ -160,16 +160,16 @@ export function useLiveKitCall(opts: {
   useEffect(() => {
     // Re-sync tracks when call is answered
     if (isCallAnswered) {
-        Object.entries(peerConnections.current).forEach(([, pc]) => {
-            const stream = localStreamRef.current;
-            if (stream) {
-                stream.getTracks().forEach((t) => {
-                    const sender = pc.getSenders().find(s => s.track?.kind === t.kind);
-                    if (sender) sender.replaceTrack(t);
-                    else pc.addTrack(t, stream);
-                });
-            }
-        });
+      Object.entries(peerConnections.current).forEach(([, pc]) => {
+        const stream = localStreamRef.current;
+        if (stream) {
+          stream.getTracks().forEach((t) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === t.kind);
+            if (sender) sender.replaceTrack(t);
+            else pc.addTrack(t, stream);
+          });
+        }
+      });
     }
   }, [isCallAnswered]);
 
