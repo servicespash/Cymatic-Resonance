@@ -152,7 +152,7 @@ export interface LocationEvidenceContract {
   isInsideGeofence: boolean;
 }
 
-export const DOMAIN_INVARIANTS = [
+export const DOMAIN_INVARIANTS: readonly string[] = [
   "Identity is authoritative in Supabase Auth.",
   "Membership and entitlements are authoritative in PostgreSQL/server authorization.",
   "Persistent state is authoritative in PostgreSQL.",
@@ -163,5 +163,5 @@ export const DOMAIN_INVARIANTS = [
   "Entitlement checks are enforced server-side; UI visibility is not authorization.",
   "Call state, signaling state, media state, and UI state are separate concerns.",
   "Operational events are append-only evidence; derived status may be recomputed from them.",
-] as const;
+];
 
