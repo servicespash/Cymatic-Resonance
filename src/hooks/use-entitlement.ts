@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import type { EntitlementFeature } from "@/lib/entitlements/catalog";
+import {
+  ENTITLEMENT_FEATURES,
+  planIncludes,
+  type EntitlementFeature,
+} from "@/lib/entitlements/catalog";
+import type { EntitlementPlan } from "@/lib/domain/contracts";
 import { supabase } from "@/integrations/supabase/client";
 
 export type ServiceControlStatus =
@@ -13,6 +18,7 @@ export interface EntitlementState {
   enabled: boolean;
   status: ServiceControlStatus;
   reason: string | null;
+  plan: EntitlementPlan;
 }
 
 export function useEntitlement(
@@ -24,6 +30,7 @@ export function useEntitlement(
     enabled: false,
     status: "DISABLED",
     reason: null,
+    plan: "FREE",
   });
 
   useEffect(() => {
@@ -36,45 +43,81 @@ export function useEntitlement(
           enabled: false,
           status: "DISABLED",
           reason: "No organization selected.",
+          plan: "FREE",
         });
         return;
       }
 
-      const { data, error } = await supabase
-        .from("service_controls")
-        .select("status")
-        .eq("organization_id", organizationId)
-        .eq("feature_key", featureKey)
-        .maybeSingle();
+      const [effectiveResult, controlResult] = await Promise.all([
+        supabase.rpc("get_effective_entitlement", {
+          _organization_id: organizationId,
+        }),
+        supabase
+          .from("service_controls")
+          .select("status, source")
+          .eq("organization_id", organizationId)
+          .eq("feature_key", featureKey)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) return;
 
-      if (error) {
+      if (effectiveResult.error || controlResult.error) {
         setState({
           loading: false,
           enabled: false,
           status: "DISABLED",
           reason: "Entitlement status unavailable.",
+          plan: "FREE",
         });
         return;
       }
 
-      const status =
-        (data?.status as ServiceControlStatus | undefined) ??
-        "COMING_SOON";
+      const effective = effectiveResult.data?.[0];
+      const plan = (effective?.effective_plan as EntitlementPlan | undefined) ?? "FREE";
+      const definition = ENTITLEMENT_FEATURES.find((item) => item.key === featureKey);
+      const status = (controlResult.data?.status as ServiceControlStatus | undefined) ?? null;
 
+      if (!definition) {
+        setState({
+          loading: false,
+          enabled: false,
+          status: "DISABLED",
+          reason: "Unknown entitlement.",
+          plan,
+        });
+        return;
+      }
+
+      if (status === "DISABLED") {
+        setState({
+          loading: false,
+          enabled: false,
+          status,
+          reason: "This capability is currently disabled.",
+          plan,
+        });
+        return;
+      }
+
+      if (definition.availability === "coming_soon") {
+        setState({
+          loading: false,
+          enabled: false,
+          status: "COMING_SOON",
+          reason: "This capability is coming soon.",
+          plan,
+        });
+        return;
+      }
+
+      const included = planIncludes(plan, definition);
       setState({
         loading: false,
-        enabled: status === "ENABLED",
-        status,
-        reason:
-          status === "COMING_SOON"
-            ? "This capability is coming soon."
-            : status === "REVENUE_REQUIRED"
-              ? "A paid subscription is required."
-              : status === "DISABLED"
-                ? "This capability is currently disabled."
-                : null,
+        enabled: included,
+        status: included ? "ENABLED" : "REVENUE_REQUIRED",
+        reason: included ? null : "This capability is not included in the current plan.",
+        plan,
       });
     };
 
