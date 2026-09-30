@@ -160,7 +160,7 @@ export function useLiveKitCall(opts: {
   useEffect(() => {
     // Re-sync tracks when call is answered
     if (isCallAnswered) {
-        Object.entries(peerConnections.current).forEach(([userId, pc]) => {
+        Object.entries(peerConnections.current).forEach(([, pc]) => {
             const stream = localStreamRef.current;
             if (stream) {
                 stream.getTracks().forEach((t) => {
