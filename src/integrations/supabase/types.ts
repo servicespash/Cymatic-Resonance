@@ -14,6 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
+      payment_intents: {
+        Row: {
+          id: string;
+          organization_id: string;
+          provider: string;
+          transaction_reference: string;
+          feature_key: string;
+          target_plan: string;
+          currency: string;
+          amount_minor: number;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          provider: string;
+          transaction_reference: string;
+          feature_key: string;
+          target_plan: string;
+          currency: string;
+          amount_minor: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          provider?: string;
+          transaction_reference?: string;
+          feature_key?: string;
+          target_plan?: string;
+          currency?: string;
+          amount_minor?: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      }
+      revenue_ledger: {
+        Row: {
+          id: string;
+          organization_id: string;
+          provider: string;
+          provider_reference: string;
+          transaction_reference: string;
+          currency: string;
+          gross_amount_minor: number;
+          provider_fee_minor: number;
+          infrastructure_reserve_minor: number;
+          net_revenue_minor: number;
+          target_plan: string;
+          feature_key: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          settled_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          provider: string;
+          provider_reference: string;
+          transaction_reference: string;
+          currency: string;
+          gross_amount_minor: number;
+          provider_fee_minor?: number;
+          infrastructure_reserve_minor?: number;
+          net_revenue_minor?: number;
+          target_plan: string;
+          feature_key: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          settled_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          provider?: string;
+          provider_reference?: string;
+          transaction_reference?: string;
+          currency?: string;
+          gross_amount_minor?: number;
+          provider_fee_minor?: number;
+          infrastructure_reserve_minor?: number;
+          net_revenue_minor?: number;
+          target_plan?: string;
+          feature_key?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          settled_at?: string | null;
+        };
+        Relationships: [];
+      }
+      service_controls: {
+        Row: {
+          id: string;
+          organization_id: string;
+          feature_key: string;
+          status: string;
+          source: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          feature_key: string;
+          status: string;
+          source?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          feature_key?: string;
+          status?: string;
+          source?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      }
+      system_usage_metrics: {
+        Row: {
+          id: string;
+          organization_id: string | null;
+          metric_key: string;
+          metric_value: number;
+          unit: string;
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id?: string | null;
+          metric_key: string;
+          metric_value: number;
+          unit: string;
+          recorded_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string | null;
+          metric_key?: string;
+          metric_value?: number;
+          unit?: string;
+          recorded_at?: string;
+        };
+        Relationships: [];
+      },
       attendance: {
         Row: {
           attendance_date: string
@@ -1733,7 +1886,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      pulse_checkin: {
+      settle_verified_payment: {
+        Args: {
+          p_organization_id: string;
+          p_provider: string;
+          p_provider_reference: string;
+          p_transaction_reference: string;
+          p_currency: string;
+          p_gross_amount_minor: number;
+          p_provider_fee_minor: number;
+          p_infrastructure_reserve_minor: number;
+          p_net_revenue_minor: number;
+          p_target_plan: string;
+          p_feature_key: string;
+        };
+        Returns: string;
+      }
+,      pulse_checkin: {
         Args: { _note?: string }
         Returns: {
           attendance_date: string
