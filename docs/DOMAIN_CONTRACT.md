@@ -19,15 +19,15 @@ The current production database already provides organizations, profiles, channe
 |---|---|---|
 | Organization | PostgreSQL + Auth | Existing |
 | Membership | PostgreSQL | Existing, but represented partly through profiles/groups |
-| Entitlements | PostgreSQL/server authorization | Contract required |
-| Room | PostgreSQL | Contract required |
-| Room membership | PostgreSQL | Contract required |
-| Presence | Supabase Realtime | Contract required |
-| Meeting | PostgreSQL + LiveKit | Contract required |
+| Entitlements | PostgreSQL/server authorization | Implemented; runtime enforcement pending |
+| Room | PostgreSQL | Implemented; runtime adapter pending |
+| Room membership | PostgreSQL | Implemented; runtime adapter pending |
+| Presence | Supabase Realtime | Contract defined; intentionally ephemeral, no durable presence table |
+| Meeting | PostgreSQL + LiveKit | Implemented; runtime lifecycle pending |
 | Call | PostgreSQL + LiveKit | Existing base; state model must be hardened |
-| Attendance session | PostgreSQL | Contract required |
-| Attendance event | PostgreSQL append-only evidence | Contract required |
-| Location evidence | PostgreSQL | Contract required |
+| Attendance session | PostgreSQL | Implemented; session and participant state now separated |
+| Attendance event | PostgreSQL append-only evidence | Implemented; transition enforcement pending |
+| Location evidence | PostgreSQL | Implemented; validation pipeline pending |
 | Notification delivery | Server-side lifecycle | Existing base; delivery architecture incomplete |
 
 ## Non-negotiable boundaries
@@ -70,3 +70,17 @@ Do not delete or repurpose existing attendance, calls, channels, or groups table
 4. Add repository/domain adapters.
 5. Replace ad-hoc runtime state objects with these contracts.
 6. Run type-check, lint, tests, and database advisors.
+
+## Supabase Preview gate
+
+Supabase Preview is a disposable development database created from the production migration history. It is not a replacement for production and it does not carry production data. Its purpose in this roadmap is to let us apply and verify a schema/RLS migration against an isolated database before the production database is changed.
+
+The GitHub check may legitimately show **Supabase Preview skipped** when the branch has no associated Supabase development branch. That is not a database-health signal. For application-only commits, the skip is acceptable. For a commit that changes supabase/migrations, RLS, functions, triggers, or realtime configuration, the intended gate is:
+
+1. Create or associate a Supabase development branch.
+2. Apply the repository migrations there.
+3. Run schema, RLS, type-generation, and targeted authorization checks.
+4. Run the application CI against the resulting contract.
+5. Only after those checks pass, apply/merge the migration to production.
+
+The current production project is healthy and the latest Phase 2 migrations are present in the migration history. We therefore do not need to create a Preview branch merely to fix the current frontend lint failure. We will use the Preview gate before the next production schema change.
