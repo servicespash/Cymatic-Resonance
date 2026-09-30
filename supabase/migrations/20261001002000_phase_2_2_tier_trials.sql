@@ -163,7 +163,7 @@ as $$
     ) = 'FREE' then 5
     when (
       select effective_plan from public.get_effective_entitlement(_organization_id)
-    ) = 'SILVER' then 8
+    ) = 'SILVER' then 15
     when (
       select effective_plan from public.get_effective_entitlement(_organization_id)
     ) = 'GOLD' then 25
@@ -184,4 +184,4 @@ comment on column public.organizations.trial_expires_at is
 comment on function public.get_effective_entitlement(uuid) is
   'Authoritative effective tier. Active trial temporarily overrides the base plan; expired trials automatically resolve to the base plan.';
 comment on function public.get_call_participant_limit(uuid, text) is
-  'Authoritative server call-capacity policy. Free tier is capped at five participants for both audio and video.';
+  'Authoritative server call-capacity policy. Free tier is capped at five participants and Silver at fifteen participants for both audio and video.';
