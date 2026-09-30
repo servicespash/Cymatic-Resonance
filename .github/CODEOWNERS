@@ -1,0 +1,13 @@
+* @servicespash
+
+# Production-critical application paths
+/src/ @servicespash
+/supabase/ @servicespash
+/docs/ @servicespash
+/.github/ @servicespash
+
+# Root governance and security documents
+/CODEOWNERS @servicespash
+/CONTRIBUTING.md @servicespash
+/SECURITY.md @servicespash
+/README.md @servicespash
