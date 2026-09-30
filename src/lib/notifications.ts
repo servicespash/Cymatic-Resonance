@@ -48,8 +48,7 @@ export function createRingtone(type: string = "default") {
           .webkitAudioContext
       )();
       void ctx.resume();
-      void ctx.resume();
-    const gain = ctx.createGain();
+      const gain = ctx.createGain();
       gain.gain.value = 0.2;
       gain.connect(ctx.destination);
 
