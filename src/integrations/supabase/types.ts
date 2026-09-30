@@ -1886,6 +1886,29 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_effective_entitlement: {
+        Args: { _organization_id: string };
+        Returns: {
+          effective_plan: string;
+          base_plan: string;
+          trial_active: boolean;
+          trial_plan: string | null;
+          trial_expires_at: string | null;
+        }[];
+      };
+      start_entitlement_trial: {
+        Args: { _plan: string; _duration_days: number };
+        Returns: {
+          effective_plan: string;
+          trial_plan: string;
+          trial_started_at: string;
+          trial_expires_at: string;
+        }[];
+      };
+      get_call_participant_limit: {
+        Args: { _organization_id: string; _mode: string };
+        Returns: number;
+      };
       settle_verified_payment: {
         Args: {
           p_organization_id: string;
