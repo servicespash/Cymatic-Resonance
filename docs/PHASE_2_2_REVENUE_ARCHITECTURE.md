@@ -123,7 +123,7 @@ Free is not a communication-free tier.
 
 - Direct audio/video communication remains available.
 - Group audio/video calls are capped at 5 participants.
-- Silver defaults to 8 participants.
+- Silver defaults to 15 participants.
 - Gold defaults to 25 participants.
 - Premium / Custom defaults to 100 participants and can later be institution-configured.
 
@@ -142,3 +142,37 @@ A Free institution may redeem exactly one Silver or Gold trial.
 - A successful paid settlement can convert the workspace to the permanent paid tier and clear the temporary trial fields while retaining `has_used_trial = true`.
 
 Trial state is therefore an entitlement overlay, not a replacement for the organization's persistent subscription plan.
+
+
+## Tier-specific UI and settings contract
+
+Tier selection is not only a price label. The product surface must project the effective entitlement into the relevant controls, settings, quotas, and operational views.
+
+- Free exposes only Free-authorized controls.
+- Silver exposes Silver-authorized controls and a 15-participant audio/video capacity.
+- Gold exposes Gold-authorized controls, higher call capacity, advanced attendance/map policy controls, and execution analytics.
+- Premium / Custom exposes institution-specific controls and quotas returned by server configuration.
+
+A capability that is not authorized must not merely be hidden in one component. The server guard remains authoritative, while the UI explains the reason and presents the upgrade matrix where appropriate.
+
+### Map capability progression
+
+Map functionality is tier-aware but must not fabricate location data.
+
+Free provides basic attendance/presence visualization.
+
+Silver may expose expanded attendance history and operational map views.
+
+Gold may expose advanced geofence policy configuration and richer institutional map controls.
+
+Premium / Custom may expose institution-defined map policies and boundary configuration.
+
+Interactive boundary drawing is a future Gold/Custom capability and belongs after the core attendance/map authorization model is hardened. The client drawing gesture is configuration input only; the server persists and validates the resulting geometry.
+
+### Capacity downgrade behavior
+
+If an institution's effective entitlement decreases while a realtime session is already active, existing participants are not forcibly removed solely because the limit changed.
+
+The server refuses new admissions above the current limit. The active UI displays a collapsible tier matrix explaining the current capacity and available upgrade paths.
+
+Presence sockets and established media sessions remain independent from the upgrade panel lifecycle.
