@@ -22,7 +22,7 @@ export type EntitlementFeature =
   | "custom_entitlements"
   | "api_access";
 
-export type FeatureAvailability = "available" | "planned";
+export type FeatureAvailability = "available" | "coming_soon" | "revenue_required";
 
 export interface EntitlementFeatureDefinition {
   key: EntitlementFeature;
@@ -39,7 +39,7 @@ const available = (key: EntitlementFeature, label: string, description: string, 
 });
 
 const planned = (key: EntitlementFeature, label: string, description: string, custom: boolean): EntitlementFeatureDefinition => ({
-  key, label, description, free: false, paid: false, custom, availability: "planned",
+  key, label, description, free: false, paid: false, custom, availability: "coming_soon",
 });
 
 export const ENTITLEMENT_FEATURES: readonly EntitlementFeatureDefinition[] = [
@@ -51,17 +51,17 @@ export const ENTITLEMENT_FEATURES: readonly EntitlementFeatureDefinition[] = [
   available("reactions", "Message reactions", "Realtime reactions on supported messages.", true, true, true),
   available("tasks", "Tasks", "Assigned task visibility and operational tracking.", true, true, true),
   available("member_directory", "Member directory", "Workspace member and role directory.", true, true, true),
-  available("unlimited_members", "Unlimited members", "Remove the free workspace member ceiling.", false, true, true),
-  available("command_center", "Command Center", "Administrative attendance and workspace oversight.", false, true, true),
-  available("group_calls", "Group audio/video calls", "Production communication rooms and group calls.", false, true, true),
-  available("attendance_exports", "Attendance exports", "Export operational attendance records.", false, true, true),
-  available("attendance_analytics", "Attendance analytics", "Extended attendance reporting and analysis.", false, true, true),
-  available("continuous_attendance_tracking", "Continuous attendance tracking", "Session-based location evidence and geofence transitions.", false, true, true),
-  available("advanced_notifications", "Advanced notifications", "Expanded operational notification capabilities.", false, true, true),
-  available("custom_attendance_policies", "Custom attendance policies", "Institution-specific tracking, grace, and geofence policies.", false, false, true),
+  { ...available("unlimited_members", "Unlimited members", "Remove the free workspace member ceiling.", false, true, true), availability: "revenue_required" },
+  { ...available("command_center", "Command Center", "Administrative attendance and workspace oversight.", false, true, true), availability: "revenue_required" },
+  { ...available("group_calls", "Group audio/video calls", "Production communication rooms and group calls.", false, true, true), availability: "revenue_required" },
+  { ...available("attendance_exports", "Attendance exports", "Export operational attendance records.", false, true, true), availability: "revenue_required" },
+  { ...available("attendance_analytics", "Attendance analytics", "Extended attendance reporting and analysis.", false, true, true), availability: "revenue_required" },
+  { ...available("continuous_attendance_tracking", "Continuous attendance tracking", "Session-based location evidence and geofence transitions.", false, true, true), availability: "revenue_required" },
+  { ...available("advanced_notifications", "Advanced notifications", "Expanded operational notification capabilities.", false, true, true), availability: "revenue_required" },
+  { ...available("custom_attendance_policies", "Custom attendance policies", "Institution-specific tracking, grace, and geofence policies.", false, false, true), availability: "revenue_required" },
   planned("audit_logs", "Audit logs", "Administrative audit trail for security-sensitive actions.", true),
   planned("sso_saml", "SSO / SAML", "Institution-managed single sign-on.", true),
-  available("custom_entitlements", "Custom entitlements", "Institution-specific capability and quota configuration.", false, false, true),
+  { ...available("custom_entitlements", "Custom entitlements", "Institution-specific capability and quota configuration.", false, false, true), availability: "revenue_required" },
   planned("api_access", "API access", "Controlled institution API integration surface.", true),
 ];
 
