@@ -86,6 +86,7 @@ alter table public.system_usage_metrics enable row level security;
 
 revoke all on public.payment_intents from anon, authenticated;
 revoke all on public.revenue_ledger from anon, authenticated;
+grant select on public.revenue_ledger to authenticated;
 revoke all on public.system_usage_metrics from anon, authenticated;
 
 grant select on public.service_controls to authenticated;
@@ -237,6 +238,9 @@ $$;
 revoke execute on function public.settle_verified_payment(
   uuid, text, text, text, text, bigint, bigint, bigint, bigint, text, text
 ) from public, anon, authenticated;
+grant execute on function public.settle_verified_payment(
+  uuid, text, text, text, text, bigint, bigint, bigint, bigint, text, text
+) to service_role;
 
 comment on table public.payment_intents is
   'Server-created payment intents. No client may insert, update, or delete payment intents.';
