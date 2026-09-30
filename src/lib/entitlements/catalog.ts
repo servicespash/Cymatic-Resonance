@@ -137,7 +137,7 @@ export const PLAN_RANK: Record<EntitlementPlan, number> = {
 
 export const CALL_LIMITS: Record<EntitlementPlan, { audio: number; video: number }> = {
   FREE: { audio: 5, video: 5 },
-  SILVER: { audio: 8, video: 8 },
+  SILVER: { audio: 15, video: 15 },
   GOLD: { audio: 25, video: 25 },
   CUSTOM_INSTITUTION: { audio: 100, video: 100 },
 };
