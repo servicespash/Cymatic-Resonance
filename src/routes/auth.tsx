@@ -593,6 +593,8 @@ function AuthPage() {
                               placeholder="Director"
                             />
                           </div>
+                          <EntitlementPlanSelector value={requestedPlan} onChange={setRequestedPlan} />
+                          <input type="hidden" name="requested_plan" value={requestedPlan} />
                           <Field id="ad-email" label="Email" name="email" type="email" required />
                           <Field
                             id="ad-pw"
