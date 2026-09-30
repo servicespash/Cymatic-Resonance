@@ -564,6 +564,50 @@ export type Database = {
           },
         ]
       }
+      entitlement_upgrade_requests: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          organization_id: string
+          requested_by: string
+          requested_plan: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          organization_id: string
+          requested_by: string
+          requested_plan: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          organization_id?: string
+          requested_by?: string
+          requested_plan?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_upgrade_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -1084,6 +1128,7 @@ export type Database = {
           longitude: number | null
           name: string
           org_type: string
+          plan: string
           radius_meters: number | null
           timezone: string
           updated_at: string
@@ -1100,6 +1145,7 @@ export type Database = {
           longitude?: number | null
           name: string
           org_type?: string
+          plan?: string
           radius_meters?: number | null
           timezone?: string
           updated_at?: string
@@ -1116,6 +1162,7 @@ export type Database = {
           longitude?: number | null
           name?: string
           org_type?: string
+          plan?: string
           radius_meters?: number | null
           timezone?: string
           updated_at?: string
