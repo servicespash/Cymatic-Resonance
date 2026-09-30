@@ -54,9 +54,9 @@ returns table (
 )
 language sql
 stable
-security definer
+security invoker
 set search_path = ''
-as $$
+as $
   select
     case
       when o.trial_plan is not null
@@ -154,7 +154,7 @@ create or replace function public.get_call_participant_limit(
 returns integer
 language sql
 stable
-security definer
+security invoker
 set search_path = ''
 as $$
   select case
