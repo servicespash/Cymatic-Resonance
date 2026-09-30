@@ -5,7 +5,8 @@
  * independent of UI state and generated Supabase table types.
  */
 
-export type EntitlementPlan = "FREE" | "PAID" | "CUSTOM_INSTITUTION";
+export type EntitlementPlan = "FREE" | "SILVER" | "GOLD" | "CUSTOM_INSTITUTION";
+export type TrialPlan = Exclude<EntitlementPlan, "FREE">;
 export type OrganizationRole = "OWNER" | "ADMIN" | "MODERATOR" | "MEMBER";
 export type RoomKind = "GENERAL" | "CLASS" | "TEAM" | "PRIVATE";
 export type PresenceState =
@@ -62,12 +63,14 @@ export interface OrganizationContract {
   timezone: string;
   createdBy: string;
 }
+
 export interface MembershipContract {
   organizationId: string;
   userId: string;
   role: OrganizationRole;
   active: boolean;
 }
+
 export interface EntitlementContract {
   organizationId: string;
   userId?: string;
@@ -76,6 +79,16 @@ export interface EntitlementContract {
   enabled: boolean;
   limit?: number | null;
 }
+
+export interface EntitlementTrialContract {
+  organizationId: string;
+  plan: TrialPlan;
+  startedAt: string;
+  expiresAt: string;
+  hasUsedTrial: boolean;
+  active: boolean;
+}
+
 export interface RoomContract {
   id: string;
   organizationId: string;
@@ -83,12 +96,14 @@ export interface RoomContract {
   kind: RoomKind;
   archivedAt?: string | null;
 }
+
 export interface RoomMemberContract {
   roomId: string;
   userId: string;
   role: OrganizationRole | "ROOM_MEMBER";
   active: boolean;
 }
+
 export interface PresenceContract {
   organizationId: string;
   roomId: string;
@@ -96,6 +111,7 @@ export interface PresenceContract {
   state: PresenceState;
   observedAt: string;
 }
+
 export interface MeetingContract {
   id: string;
   roomId: string;
@@ -105,6 +121,7 @@ export interface MeetingContract {
   startedAt?: string | null;
   endedAt?: string | null;
 }
+
 export interface CallContract {
   id: string;
   organizationId: string;
@@ -114,6 +131,7 @@ export interface CallContract {
   startedAt: string;
   endedAt?: string | null;
 }
+
 export interface AttendanceSessionContract {
   id: string;
   organizationId: string;
@@ -128,6 +146,7 @@ export interface AttendanceSessionContract {
   graceSeconds: number;
   trackingRequired: boolean;
 }
+
 export interface AttendanceParticipantContract {
   sessionId: string;
   userId: string;
@@ -144,6 +163,7 @@ export interface AttendanceEventContract {
   serverRecordedAt: string;
   source: "DEVICE" | "SERVER" | "ADMIN" | "SYSTEM";
 }
+
 export interface LocationEvidenceContract {
   id: string;
   sessionId: string;
@@ -168,4 +188,6 @@ export const DOMAIN_INVARIANTS: readonly string[] = [
   "Entitlement checks are enforced server-side; UI visibility is not authorization.",
   "Call state, signaling state, media state, and UI state are separate concerns.",
   "Operational events are append-only evidence; derived status may be recomputed from them.",
+  "Trial state is server-timestamped and never authorized from client wall-clock time.",
+  "Trial expiration downgrades feature authorization without terminating independent presence state.",
 ];
