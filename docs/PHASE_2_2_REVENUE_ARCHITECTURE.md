@@ -102,3 +102,43 @@ Do not enable the live gateway until all of the following are verified:
 - billing reconciliation is observable;
 - infrastructure reserve policy is documented;
 - the Free tier works without any payment dependency.
+
+
+## Four-tier entitlement contract
+
+The commercial tier model is:
+
+| Tier | Price | Institutional capability |
+| --- | --- | --- |
+| Free | $0 | Core attendance, presence, messaging, and audio/video calls up to 5 participants |
+| Silver | ~$15 | Enhanced presence, live execution channels, small-group execution sync |
+| Gold | ~$40 | Full institutional registers, unlimited presence tracking, execution charts, higher-capacity calls |
+| Premium / Custom | Custom | Institution-specific infrastructure, meeting quotas, signaling, and SLA controls |
+
+The displayed prices are product configuration, not payment-provider truth. Actual billing amounts will be introduced only when the payment layer is activated.
+
+### Call capacity
+
+Free is not a communication-free tier.
+
+- Direct audio/video communication remains available.
+- Group audio/video calls are capped at 5 participants.
+- Silver defaults to 8 participants.
+- Gold defaults to 25 participants.
+- Premium / Custom defaults to 100 participants and can later be institution-configured.
+
+The authoritative limit is checked server-side. UI counters are informational only.
+
+### One-time trial
+
+A Free institution may redeem exactly one Silver or Gold trial.
+
+- Trial duration is server-created and configurable from 1 to 30 days.
+- The default product duration is 7 days.
+- `has_used_trial` never resets after expiry.
+- PostgreSQL `now()` determines expiration.
+- Expired trials resolve automatically to the base Free plan.
+- Presence sockets are independent of entitlement state and are not forcibly disconnected by trial expiry.
+- A successful paid settlement can convert the workspace to the permanent paid tier and clear the temporary trial fields while retaining `has_used_trial = true`.
+
+Trial state is therefore an entitlement overlay, not a replacement for the organization's persistent subscription plan.
