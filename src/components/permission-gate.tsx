@@ -122,8 +122,6 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
 
       setPreviewStream(stream);
       setStatus("verified");
-
-
     } catch (err: unknown) {
       console.info("[PermissionGate] Media hardware failure:", err);
       setStatus("denied");
@@ -292,7 +290,6 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
                 )}
                 {checking ? "Requesting hardware..." : "Grant hardware permissions"}
               </Button>
-
             </>
           )}
 
