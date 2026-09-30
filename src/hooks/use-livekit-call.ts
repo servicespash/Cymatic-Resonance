@@ -174,7 +174,38 @@ export function useLiveKitCall(opts: {
   }, [isCallAnswered]);
 
   const updateRemotes = useCallback(() => {
-    // ... same as before
+    const room = roomRef.current;
+    if (!room) return;
+
+    let peerConnected = false;
+    const newRemotes: Record<string, RemotePeer> = {};
+
+    room.remoteParticipants.forEach((p: RemoteParticipant) => {
+      const tracks: MediaStreamTrack[] = [];
+      const camPub = p.getTrackPublication(Track.Source.Camera);
+      const micPub = p.getTrackPublication(Track.Source.Microphone);
+
+      if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
+        tracks.push(camPub.track.mediaStreamTrack);
+      }
+      if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
+        tracks.push(micPub.track.mediaStreamTrack);
+      }
+
+      if (p.connectionQuality !== ConnectionQuality.Unknown) {
+        peerConnected = true;
+      }
+
+      newRemotes[p.identity] = {
+        userId: p.identity,
+        stream: tracks.length > 0 ? new MediaStream(tracks) : null,
+        state: "connected",
+        connectionQuality: p.connectionQuality,
+      };
+    });
+
+    setRemotes((prev) => ({ ...prev, ...newRemotes }));
+    if (peerConnected) setIsCallAnswered(true);
   }, []);
 
   useEffect(() => {
