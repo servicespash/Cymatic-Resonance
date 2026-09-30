@@ -1282,6 +1282,10 @@ export type Database = {
           name: string
           org_type: string
           plan: string
+          has_used_trial: boolean
+          trial_plan: string | null
+          trial_started_at: string | null
+          trial_expires_at: string | null
           radius_meters: number | null
           timezone: string
           updated_at: string
@@ -1299,6 +1303,10 @@ export type Database = {
           name: string
           org_type?: string
           plan?: string
+          has_used_trial?: boolean
+          trial_plan?: string | null
+          trial_started_at?: string | null
+          trial_expires_at?: string | null
           radius_meters?: number | null
           timezone?: string
           updated_at?: string
