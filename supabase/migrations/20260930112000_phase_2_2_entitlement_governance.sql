@@ -104,3 +104,67 @@ comment on table public.entitlement_upgrade_requests is
   'Governed requests to move an organization from FREE to PAID or CUSTOM_INSTITUTION. Requests never grant access by themselves.';
 comment on column public.organizations.plan is
   'Authoritative organization entitlement plan. Client code must never mutate this value directly.';
+
+create or replace function public.resolve_entitlement_upgrade_request(
+  _request_id uuid,
+  _approved boolean
+)
+returns public.organizations
+language plpgsql
+security invoker
+as $$
+declare
+  request_row public.entitlement_upgrade_requests%rowtype;
+  organization_row public.organizations%rowtype;
+begin
+  if not (select is_org_admin()) then
+    raise exception 'organization administrator privileges are required';
+  end if;
+
+  select *
+  into request_row
+  from public.entitlement_upgrade_requests
+  where id = _request_id
+    and organization_id = (select current_org_id())
+  for update;
+
+  if not found then
+    raise exception 'upgrade request not found';
+  end if;
+
+  if request_row.status <> 'PENDING' then
+    raise exception 'upgrade request is no longer pending';
+  end if;
+
+  if _approved then
+    update public.organizations
+    set plan = request_row.requested_plan,
+        updated_at = now()
+    where id = request_row.organization_id
+    returning * into organization_row;
+
+    update public.entitlement_upgrade_requests
+    set status = 'APPROVED',
+        reviewed_at = now(),
+        reviewed_by = (select auth.uid())
+    where id = request_row.id;
+  else
+    update public.entitlement_upgrade_requests
+    set status = 'DECLINED',
+        reviewed_at = now(),
+        reviewed_by = (select auth.uid())
+    where id = request_row.id;
+
+    select *
+    into organization_row
+    from public.organizations
+    where id = request_row.organization_id;
+  end if;
+
+  return organization_row;
+end;
+$$;
+
+revoke execute on function public.resolve_entitlement_upgrade_request(uuid, boolean) from public;
+revoke execute on function public.resolve_entitlement_upgrade_request(uuid, boolean) from anon;
+grant execute on function public.resolve_entitlement_upgrade_request(uuid, boolean) to authenticated;
