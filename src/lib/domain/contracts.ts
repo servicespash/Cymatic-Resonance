@@ -169,4 +169,3 @@ export const DOMAIN_INVARIANTS: readonly string[] = [
   "Call state, signaling state, media state, and UI state are separate concerns.",
   "Operational events are append-only evidence; derived status may be recomputed from them.",
 ];
-
