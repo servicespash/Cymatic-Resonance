@@ -79,7 +79,9 @@ export function useEntitlements(organizationId: string | null, userId: string | 
       const planGrant = rows.find((row) => row.user_id === null && row.feature === feature);
       if (planGrant) return planGrant.enabled;
       const definition = ENTITLEMENT_FEATURES.find((item) => item.key === feature);
-      return definition ? planIncludes(plan, definition) : false;
+      if (!definition) return false;
+      if (definition.availability !== "available") return false;
+      return planIncludes(plan, definition);
     },
     [rows, userId],
   );
