@@ -1560,6 +1560,16 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      resolve_entitlement_upgrade_request: {
+        Args: { _approved: boolean; _request_id: string }
+        Returns: Tables<"organizations">
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       decide_leave: {
         Args: { _approved: boolean; _id: string }
         Returns: {
