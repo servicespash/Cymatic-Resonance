@@ -16,6 +16,9 @@ import { useLiveKitCall } from "@/hooks/use-livekit-call";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/permission-gate";
+import { CallCapacityUpgradePanel } from "@/components/call-capacity-upgrade-panel";
+import { getCallParticipantLimit } from "@/lib/entitlements/catalog";
+import type { EntitlementPlan } from "@/lib/domain/contracts";
 
 type Sender = { id: string; full_name: string | null };
 
@@ -146,8 +149,39 @@ function CallRoomInner({
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [activeButton, setActiveButton] = useState<"thumb" | "heart" | "clap" | null>(null);
   const [showVoicePrompt, setShowVoicePrompt] = useState(false);
+  const [effectivePlan, setEffectivePlan] = useState<EntitlementPlan>("FREE");
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadEffectivePlan = async () => {
+      const { data: call } = await supabase
+        .from("calls")
+        .select("org_id")
+        .eq("id", callId)
+        .maybeSingle();
+
+      if (!call?.org_id) return;
+
+      const { data, error } = await supabase.rpc("get_effective_entitlement", {
+        _organization_id: call.org_id,
+      });
+
+      if (cancelled || error) return;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      const plan = row?.effective_plan as EntitlementPlan | undefined;
+      if (plan) setEffectivePlan(plan);
+    };
+
+    void loadEffectivePlan();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [callId]);
 
   // Call duration clock tracking live execution - only starts when answered
   useEffect(() => {
@@ -307,6 +341,9 @@ function CallRoomInner({
     ...remotes.map((r) => ({ userId: r.userId, stream: r.stream, isSelf: false, state: r.state })),
   ];
 
+  const participantCount = Object.keys(remotes).length + 1;
+  const maxParticipants = getCallParticipantLimit(effectivePlan, kind === "video" ? "VIDEO" : "AUDIO");
+
   return (
     <div
       className={`fixed z-50 flex flex-col bg-background/95 backdrop-blur-xl overflow-hidden selection:bg-primary/30 pointer-events-auto transition-all duration-300 ${
@@ -315,6 +352,12 @@ function CallRoomInner({
           : "inset-0"
       }`}
     >
+      <CallCapacityUpgradePanel
+        plan={effectivePlan}
+        mode={kind === "video" ? "VIDEO" : "AUDIO"}
+        participantCount={participantCount}
+        maxParticipants={maxParticipants}
+      />
       {minimized ? (
         /* Compact Picture-in-Picture View */
         <div className="flex flex-col h-full w-full relative">
