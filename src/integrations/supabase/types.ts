@@ -55,7 +55,7 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
-      }
+      },
       revenue_ledger: {
         Row: {
           id: string;
@@ -112,7 +112,7 @@ export type Database = {
           settled_at?: string | null;
         };
         Relationships: [];
-      }
+      },
       service_controls: {
         Row: {
           id: string;
@@ -139,7 +139,7 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
-      }
+      },
       system_usage_metrics: {
         Row: {
           id: string;
@@ -1902,7 +1902,7 @@ export type Database = {
         };
         Returns: string;
       }
-,      pulse_checkin: {
+      pulse_checkin: {
         Args: { _note?: string }
         Returns: {
           attendance_date: string
