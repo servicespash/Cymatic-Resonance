@@ -293,15 +293,6 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
                 {checking ? "Requesting hardware..." : "Grant hardware permissions"}
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleJoin}}
-                className="w-full gap-2 text-xs py-5 rounded-xl font-semibold border-border hover:bg-accent/10 active:scale-[0.98] transition-all"
-              >
-                <CheckCircle2 className="size-4" />
-                Continue with live hardware
-              </Button>
             </>
           )}
 
