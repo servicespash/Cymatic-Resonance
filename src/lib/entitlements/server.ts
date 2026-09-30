@@ -82,8 +82,19 @@ export async function checkCallCapacity(
   mode: CallMode,
   requestedParticipants: number,
 ): Promise<EntitlementDecision & { maxParticipants: number }> {
+  const entitlement = await checkEntitlement(tenantId, "group_calls");
   const state = await getEffectiveEntitlementState(tenantId);
   const maxParticipants = getCallParticipantLimit(state.plan, mode);
+
+  if (!entitlement.allowed) {
+    return {
+      allowed: false,
+      status: entitlement.status,
+      reason: entitlement.reason,
+      plan: state.plan,
+      maxParticipants,
+    };
+  }
   if (!Number.isInteger(requestedParticipants) || requestedParticipants < 1) {
     return { allowed: false, status: "DISABLED", reason: "Participant count is invalid.", plan: state.plan, maxParticipants };
   }
