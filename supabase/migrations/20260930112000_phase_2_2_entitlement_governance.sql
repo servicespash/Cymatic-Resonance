@@ -14,14 +14,14 @@ begin
   ) then
     alter table public.organizations
       add constraint organizations_plan_check
-      check (plan in ('FREE', 'PAID', 'CUSTOM_INSTITUTION'));
+      check (plan in ('FREE', 'SILVER', 'GOLD', 'CUSTOM_INSTITUTION'));
   end if;
 end
 $$;
 
 update public.organizations
-set plan = 'FREE'
-where plan is null or plan not in ('FREE', 'PAID', 'CUSTOM_INSTITUTION');
+set plan = case when plan = 'PAID' then 'SILVER' else 'FREE' end
+where plan is null or plan not in ('FREE', 'SILVER', 'GOLD', 'CUSTOM_INSTITUTION');
 
 do $$
 begin
@@ -41,7 +41,7 @@ create table if not exists public.entitlement_upgrade_requests (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   requested_by uuid not null references auth.users(id) on delete cascade,
-  requested_plan text not null check (requested_plan in ('PAID', 'CUSTOM_INSTITUTION')),
+  requested_plan text not null check (requested_plan in ('SILVER', 'GOLD', 'CUSTOM_INSTITUTION')),
   status text not null default 'PENDING'
     check (status in ('PENDING', 'APPROVED', 'DECLINED', 'CANCELLED')),
   note text,
