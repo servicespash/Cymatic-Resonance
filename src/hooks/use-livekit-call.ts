@@ -192,7 +192,7 @@ export function useLiveKitCall(opts: {
         tracks.push(micPub.track.mediaStreamTrack);
       }
 
-      if (p.connectionQuality !== ConnectionQuality.Unknown) {
+      if (p.isActive) {
         peerConnected = true;
       }
 
@@ -293,6 +293,10 @@ export function useLiveKitCall(opts: {
         updateRemotes();
 
         room.on(RoomEvent.ParticipantConnected, updateRemotes);
+        room.on(RoomEvent.ParticipantActive, () => {
+          setIsCallAnswered(true);
+          updateRemotes();
+        });
         room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
         room.on(RoomEvent.TrackSubscribed, () => {
           updateRemotes();
@@ -372,10 +376,13 @@ export function useLiveKitCall(opts: {
 
     if (roomRef.current && roomRef.current.state === "connected") {
       const room = roomRef.current;
-      // In a real LiveKit implementation, you might need to create a new track
-      // for the new device and swap it. This is a simplified placeholder.
-      await room.localParticipant.setCameraEnabled(false);
-      await room.localParticipant.setCameraEnabled(true);
+      const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      if (publication?.track && "restartTrack" in publication.track) {
+        await publication.track.restartTrack({ facingMode: newMode });
+      } else {
+        await room.localParticipant.setCameraEnabled(false);
+        await room.localParticipant.setCameraEnabled(true);
+      }
     }
   }, [facingMode]);
 
