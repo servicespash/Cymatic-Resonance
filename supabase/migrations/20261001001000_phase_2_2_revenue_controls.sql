@@ -8,7 +8,7 @@ create table if not exists public.payment_intents (
   provider text not null,
   transaction_reference text not null,
   feature_key text not null,
-  target_plan text not null check (target_plan in ('PAID', 'CUSTOM_INSTITUTION')),
+  target_plan text not null check (target_plan in ('SILVER', 'GOLD', 'CUSTOM_INSTITUTION')),
   currency text not null,
   amount_minor bigint not null check (amount_minor > 0),
   status text not null default 'PENDING'
