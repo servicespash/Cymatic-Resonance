@@ -219,6 +219,16 @@ function SettingsPage() {
     toast.success("Member removed");
   };
 
+  const resolveUpgradeRequest = async (requestId: string, approved: boolean) => {
+    const { error } = await supabase.rpc("resolve_entitlement_upgrade_request", {
+      _request_id: requestId,
+      _approved: approved,
+    });
+    if (error) return toast.error(error.message);
+    await Promise.all([entitlements.refresh(), refresh()]);
+    toast.success(approved ? "Plan upgraded" : "Upgrade request declined");
+  };
+
   const deleteOrg = async () => {
     if (!org || confirmName !== org.name) return toast.error("Workspace name does not match");
     const { error } = await supabase.rpc("delete_org");
@@ -348,6 +358,50 @@ function SettingsPage() {
           />
           <EntitlementMatrix currentPlan={entitlements.plan} />
         </>
+      )}
+
+      {isAdmin && entitlements.pendingRequests.length > 0 && (
+        <section className="glass rounded-2xl p-6">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+              Upgrade requests
+            </p>
+            <h3 className="mt-1 font-display text-lg font-semibold">Pending plan changes</h3>
+          </div>
+          <div className="mt-4 space-y-3">
+            {entitlements.pendingRequests.map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <div className="text-sm font-medium">
+                    {request.requested_plan === "PAID" ? "Paid" : "Custom Institution"} plan
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Requested {new Date(request.created_at).toLocaleString()}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => resolveUpgradeRequest(request.id, false)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveUpgradeRequest(request.id, true)}
+                    className="rounded-lg bg-frequency px-3 py-2 text-xs font-semibold text-primary-foreground resonance-glow"
+                  >
+                    Approve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Brand */}
