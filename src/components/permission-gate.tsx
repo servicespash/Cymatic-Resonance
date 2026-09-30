@@ -21,8 +21,6 @@ interface PermissionGateProps {
   videoRequired?: boolean;
 }
 
-const MANUAL_KEY = "cym.media.mode.v1";
-
 type Diagnostics = {
   secureContext: boolean;
   hasMediaDevices: boolean;
@@ -125,11 +123,7 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
       setPreviewStream(stream);
       setStatus("verified");
 
-      try {
-        localStorage.setItem(MANUAL_KEY, "hardware");
-      } catch {
-        // ignore
-      }
+
     } catch (err: unknown) {
       console.info("[PermissionGate] Media hardware failure:", err);
       setStatus("denied");
@@ -145,16 +139,6 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
   useEffect(() => {
     if (hasTestedRef.current) return;
     hasTestedRef.current = true;
-    let remembered: string | null = null;
-    try {
-      remembered = localStorage.getItem(MANUAL_KEY);
-    } catch {
-      // ignore
-    }
-    if (remembered === "simulated") {
-      setStatus("verified");
-      return;
-    }
     void checkPermissions();
   }, [checkPermissions]);
 
@@ -208,7 +192,7 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
           <h2 className="text-xl font-display font-semibold">Camera &amp; Microphone Access</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {videoRequired
-              ? "Peer video calling requires camera and microphone authorization, or you can enter immediately in audio / simulated mode."
+              ? "Peer video calling requires camera and microphone authorization before entering the live call."
               : "Peer calling requires microphone authorization, or you can enter immediately in audio / simulated mode."}
           </p>
         </div>
@@ -312,18 +296,11 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  try {
-                    localStorage.setItem(MANUAL_KEY, "simulated");
-                  } catch {
-                    // ignore
-                  }
-                  handleJoin();
-                }}
+                onClick={handleJoin}}
                 className="w-full gap-2 text-xs py-5 rounded-xl font-semibold border-border hover:bg-accent/10 active:scale-[0.98] transition-all"
               >
                 <CheckCircle2 className="size-4" />
-                Always continue in simulated / audio-only mode
+                Continue with live hardware
               </Button>
             </>
           )}
@@ -334,11 +311,6 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
               onClick={() => {
                 stopPreview();
                 CameraManager.stopStream();
-                try {
-                  localStorage.removeItem(MANUAL_KEY);
-                } catch {
-                  // ignore
-                }
                 void checkPermissions();
               }}
               className="text-[11px] text-muted-foreground underline underline-offset-4 flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
