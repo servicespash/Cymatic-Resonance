@@ -24,6 +24,7 @@ import { AdminMapMatrix } from "@/components/admin-map-matrix";
 import { NotificationPreferences } from "@/components/notification-preferences";
 import { EntitlementMatrix } from "@/components/entitlement-matrix";
 import { EntitlementUpgradeCard } from "@/components/entitlement-upgrade-card";
+import { EntitlementTrialCard } from "@/components/entitlement-trial-card";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
 type OrgLocation = { lat: number; lng: number; radius: number };
@@ -258,7 +259,7 @@ function SettingsPage() {
   const isAdmin = profile.role === "admin";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-4">
       {/* Workspace card */}
       {org && (
         <section className="glass-strong rounded-2xl p-6 resonance-glow">
@@ -349,9 +350,17 @@ function SettingsPage() {
       {/* Entitlements */}
       {org && (
         <>
+          <EntitlementTrialCard
+            hasUsedTrial={entitlements.trial.hasUsedTrial}
+            activePlan={entitlements.plan}
+            trialPlan={entitlements.trial.plan}
+            daysRemaining={entitlements.trial.daysRemaining}
+            isAdmin={isAdmin}
+            startTrial={entitlements.startTrial}
+          />
           <EntitlementUpgradeCard
             organizationId={org.id}
-            currentPlan={entitlements.plan}
+            currentPlan={entitlements.basePlan}
             isAdmin={isAdmin}
             requestedPlan={entitlements.pendingRequest?.requested_plan ?? null}
             onRequested={entitlements.refresh}
@@ -376,7 +385,7 @@ function SettingsPage() {
               >
                 <div>
                   <div className="text-sm font-medium">
-                    {request.requested_plan === "PAID" ? "Paid" : "Custom Institution"} plan
+                    {request.requested_plan === "SILVER" ? "Silver" : request.requested_plan === "GOLD" ? "Gold" : "Premium / Custom"} plan
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     Requested {new Date(request.created_at).toLocaleString()}
