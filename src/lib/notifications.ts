@@ -47,7 +47,9 @@ export function createRingtone(type: string = "default") {
         (window as unknown as Window & { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext
       )();
-      const gain = ctx.createGain();
+      void ctx.resume();
+      void ctx.resume();
+    const gain = ctx.createGain();
       gain.gain.value = 0.2;
       gain.connect(ctx.destination);
 
