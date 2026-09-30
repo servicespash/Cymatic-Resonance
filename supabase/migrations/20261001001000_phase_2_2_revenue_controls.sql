@@ -226,9 +226,13 @@ begin
     updated_at = now();
 
   update public.organizations
-  set plan = p_target_plan, updated_at = now()
-  where id = p_organization_id
-    and plan = 'FREE';
+  set
+    plan = p_target_plan,
+    trial_plan = null,
+    trial_started_at = null,
+    trial_expires_at = null,
+    updated_at = now()
+  where id = p_organization_id;
 
   return ledger_id;
 end;
