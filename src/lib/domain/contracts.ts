@@ -30,9 +30,8 @@ export type CallState =
   | "DECLINED"
   | "MISSED"
   | "FAILED";
-export type AttendanceSessionState =
-  | "SCHEDULED"
-  | "OPEN"
+export type AttendanceSessionState = "SCHEDULED" | "OPEN" | "ENDED" | "INVALIDATED";
+export type AttendanceParticipantState =
   | "CHECKED_IN"
   | "TRACKING"
   | "LOCATION_VERIFIED"
@@ -40,8 +39,7 @@ export type AttendanceSessionState =
   | "OUTSIDE_GEOFENCE"
   | "GRACE"
   | "ABSENT"
-  | "ENDED"
-  | "INVALIDATED";
+  | "CHECKED_OUT";
 export type AttendanceEventType =
   | "SESSION_OPENED"
   | "CHECK_IN_REQUESTED"
