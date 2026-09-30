@@ -193,7 +193,7 @@ export function PermissionGate({ onGranted, onCancel, videoRequired = true }: Pe
           <p className="text-xs text-muted-foreground leading-relaxed">
             {videoRequired
               ? "Peer video calling requires camera and microphone authorization before entering the live call."
-              : "Peer calling requires microphone authorization, or you can enter immediately in audio / simulated mode."}
+              : "Peer calling requires microphone authorization, before entering the live call."}
           </p>
         </div>
 
