@@ -128,6 +128,13 @@ export interface AttendanceSessionContract {
   graceSeconds: number;
   trackingRequired: boolean;
 }
+export interface AttendanceParticipantContract {
+  sessionId: string;
+  userId: string;
+  state: AttendanceParticipantState;
+  lastEvidenceAt?: string | null;
+}
+
 export interface AttendanceEventContract {
   id: string;
   sessionId: string;
