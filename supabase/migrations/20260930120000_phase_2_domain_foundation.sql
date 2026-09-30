@@ -180,6 +180,47 @@ alter table public.attendance_sessions enable row level security;
 alter table public.attendance_events enable row level security;
 alter table public.location_evidence enable row level security;
 
+-- Room authorization is a two-table relationship. Directly referencing
+-- room_members from rooms policies and rooms from room_members policies
+-- creates recursive RLS evaluation. Keep the membership lookup in a
+-- non-exposed SECURITY DEFINER helper with a pinned search_path.
+create schema if not exists private;
+
+create or replace function private.user_room_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select rm.room_id
+  from public.room_members rm
+  join public.rooms r on r.id = rm.room_id
+  where rm.user_id = (select auth.uid())
+    and rm.active
+    and r.organization_id = public.current_org_id()
+    and r.archived_at is null
+$;
+
+create or replace function private.user_admin_room_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select r.id
+  from public.rooms r
+  where r.organization_id = public.current_org_id()
+    and (select public.is_org_admin())
+$;
+
+revoke execute on function private.user_room_ids() from public;
+revoke execute on function private.user_admin_room_ids() from public;
+grant usage on schema private to authenticated;
+grant execute on function private.user_room_ids() to authenticated;
+grant execute on function private.user_admin_room_ids() to authenticated;
+
 create policy organization_members_select_self_or_org
 on public.organization_members for select to authenticated
 using (user_id = auth.uid() or organization_id = public.current_org_id());
@@ -188,11 +229,11 @@ create policy organization_members_admin_write
 on public.organization_members for all to authenticated
 using (
   organization_id = public.current_org_id()
-  and public.is_org_admin()
+  and (select public.is_org_admin())
 )
 with check (
   organization_id = public.current_org_id()
-  and public.is_org_admin()
+  and (select public.is_org_admin())
 );
 
 create policy entitlements_select_org
@@ -204,57 +245,52 @@ using (
 
 create policy entitlements_admin_write
 on public.entitlements for all to authenticated
-using (organization_id = public.current_org_id() and public.is_org_admin())
-with check (organization_id = public.current_org_id() and public.is_org_admin());
+using (
+  organization_id = public.current_org_id()
+  and (select public.is_org_admin())
+)
+with check (
+  organization_id = public.current_org_id()
+  and (select public.is_org_admin())
+);
 
 create policy rooms_member_select
 on public.rooms for select to authenticated
 using (
   organization_id = public.current_org_id()
   and archived_at is null
-  and exists (
-    select 1 from public.room_members rm
-    where rm.room_id = rooms.id and rm.user_id = auth.uid() and rm.active
+  and (
+    id in (select private.user_room_ids())
+    or id in (select private.user_admin_room_ids())
   )
 );
 
 create policy rooms_admin_write
 on public.rooms for all to authenticated
-using (organization_id = public.current_org_id() and public.is_org_admin())
-with check (organization_id = public.current_org_id() and public.is_org_admin());
+using (
+  organization_id = public.current_org_id()
+  and (select public.is_org_admin())
+)
+with check (
+  organization_id = public.current_org_id()
+  and (select public.is_org_admin())
+);
 
 create policy room_members_select
 on public.room_members for select to authenticated
 using (
   user_id = auth.uid()
-  or exists (
-    select 1 from public.rooms r
-    where r.id = room_members.room_id
-      and r.organization_id = public.current_org_id()
-      and exists (
-        select 1 from public.room_members own
-        where own.room_id = r.id and own.user_id = auth.uid() and own.active
-      )
-  )
+  or room_id in (select private.user_room_ids())
+  or room_id in (select private.user_admin_room_ids())
 );
 
 create policy room_members_admin_write
 on public.room_members for all to authenticated
 using (
-  exists (
-    select 1 from public.rooms r
-    where r.id = room_members.room_id
-      and r.organization_id = public.current_org_id()
-      and public.is_org_admin()
-  )
+  room_id in (select private.user_admin_room_ids())
 )
 with check (
-  exists (
-    select 1 from public.rooms r
-    where r.id = room_members.room_id
-      and r.organization_id = public.current_org_id()
-      and public.is_org_admin()
-  )
+  room_id in (select private.user_admin_room_ids())
 );
 
 create policy meetings_member_select
