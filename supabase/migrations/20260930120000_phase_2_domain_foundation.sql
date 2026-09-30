@@ -192,7 +192,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $phase2$
   select rm.room_id
   from public.room_members rm
   join public.rooms r on r.id = rm.room_id
@@ -200,7 +200,7 @@ as $
     and rm.active
     and r.organization_id = public.current_org_id()
     and r.archived_at is null
-$;
+$phase2$;
 
 create or replace function private.user_admin_room_ids()
 returns setof uuid
@@ -208,12 +208,12 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $phase2$
   select r.id
   from public.rooms r
   where r.organization_id = public.current_org_id()
     and (select public.is_org_admin())
-$;
+$phase2$;
 
 revoke execute on function private.user_room_ids() from public;
 revoke execute on function private.user_admin_room_ids() from public;
