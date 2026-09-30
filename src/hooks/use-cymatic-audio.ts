@@ -22,7 +22,12 @@ export const useCymaticAudio = () => {
         await ctx.resume();
       }
 
-      if (!Number.isFinite(frequency) || frequency <= 0 || !Number.isFinite(duration) || duration <= 0) {
+      if (
+        !Number.isFinite(frequency) ||
+        frequency <= 0 ||
+        !Number.isFinite(duration) ||
+        duration <= 0
+      ) {
         return;
       }
 
