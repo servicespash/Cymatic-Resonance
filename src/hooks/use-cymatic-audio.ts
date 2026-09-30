@@ -18,6 +18,14 @@ export const useCymaticAudio = () => {
       }
 
       const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+
+      if (!Number.isFinite(frequency) || frequency <= 0 || !Number.isFinite(duration) || duration <= 0) {
+        return;
+      }
+
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
