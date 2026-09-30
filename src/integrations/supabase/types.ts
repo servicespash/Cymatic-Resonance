@@ -1562,7 +1562,23 @@ export type Database = {
       current_org_id: { Args: never; Returns: string }
       resolve_entitlement_upgrade_request: {
         Args: { _approved: boolean; _request_id: string }
-        Returns: Tables<"organizations">
+        Returns: {
+          accent_color: string | null
+          access_code: string
+          created_at: string
+          created_by: string
+          day_start_cutoff: string
+          id: string
+          latitude: number | null
+          logo_url: string | null
+          longitude: number | null
+          name: string
+          org_type: string
+          plan: string
+          radius_meters: number | null
+          timezone: string
+          updated_at: string
+        }[]
         SetofOptions: {
           from: "*"
           to: "organizations"
