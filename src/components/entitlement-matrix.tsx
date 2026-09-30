@@ -84,7 +84,7 @@ export function EntitlementMatrix({ currentPlan }: { currentPlan?: EntitlementPl
             <tr className="bg-white/[0.025]">
               <td className="px-5 py-4 font-medium">Audio/video participants</td>
               <td className="px-5 py-4 text-center">5</td>
-              <td className="px-5 py-4 text-center">8</td>
+              <td className="px-5 py-4 text-center">15</td>
               <td className="px-5 py-4 text-center">25</td>
               <td className="px-5 py-4 text-center">Custom</td>
             </tr>
