@@ -22,6 +22,9 @@ import { InvitePanel } from "@/components/invite-panel";
 import { BrandPanel } from "@/components/brand-panel";
 import { AdminMapMatrix } from "@/components/admin-map-matrix";
 import { NotificationPreferences } from "@/components/notification-preferences";
+import { EntitlementMatrix } from "@/components/entitlement-matrix";
+import { EntitlementUpgradeCard } from "@/components/entitlement-upgrade-card";
+import { useEntitlements } from "@/hooks/use-entitlements";
 
 type OrgLocation = { lat: number; lng: number; radius: number };
 
@@ -78,6 +81,7 @@ function SettingsPage() {
   const [org, setOrg] = useState<Org | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [confirmName, setConfirmName] = useState("");
+  const entitlements = useEntitlements(profile?.org_id ?? null, user?.id ?? null);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -330,6 +334,20 @@ function SettingsPage() {
             </form>
           )}
         </section>
+      )}
+
+      {/* Entitlements */}
+      {org && (
+        <>
+          <EntitlementUpgradeCard
+            organizationId={org.id}
+            currentPlan={entitlements.plan}
+            isAdmin={isAdmin}
+            requestedPlan={entitlements.pendingRequest?.requested_plan ?? null}
+            onRequested={entitlements.refresh}
+          />
+          <EntitlementMatrix currentPlan={entitlements.plan} />
+        </>
       )}
 
       {/* Brand */}
