@@ -45,12 +45,7 @@ export interface UseResonanceTimerOptions {
 }
 
 export function useResonanceTimer(options: UseResonanceTimerOptions = {}) {
-  const {
-    initialDurationSeconds = 25 * 60,
-    onComplete,
-    onTick,
-    autoStart = false,
-  } = options;
+  const { initialDurationSeconds = 25 * 60, onComplete, onTick, autoStart = false } = options;
 
   // Hydration safety flag: initial render is always deterministic
   const [isMounted, setIsMounted] = useState(false);
