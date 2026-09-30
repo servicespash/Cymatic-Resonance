@@ -1,0 +1,41 @@
+name: Verify Supabase schema contract
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "src/integrations/supabase/types.ts"
+      - ".github/workflows/verify-supabase-types.yml"
+  push:
+    branches:
+      - main
+      - "audit/**"
+
+jobs:
+  verify-types:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Verify generated database types
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase gen types typescript --local > /tmp/database.types.ts
+          diff -u src/integrations/supabase/types.ts /tmp/database.types.ts
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop
