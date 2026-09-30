@@ -60,9 +60,8 @@ export function usePushNotifications() {
       }
 
       const reg = await navigator.serviceWorker.ready;
-      // VAPID public key placeholder for web push subscription
-      const vapidPublicKey =
-        "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjKJuBdr3qBjSIW7B3g8J5r1XQ5nE";
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) throw new Error("VITE_VAPID_PUBLIC_KEY is not configured");
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
       const subscription = await reg.pushManager.subscribe({
@@ -76,9 +75,8 @@ export function usePushNotifications() {
       }
     } catch (err) {
       console.error("[usePushNotifications] Subscription failed:", err);
-      // Fallback state for preview environments without VAPID server configuration
-      setIsSubscribed(true);
-      toast.success("Background push notifications enabled");
+      setIsSubscribed(false);
+      toast.error("Background push subscription could not be established");
     } finally {
       setLoading(false);
     }
