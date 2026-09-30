@@ -137,17 +137,16 @@ begin
   end if;
 
   if _approved then
-    update public.organizations
-    set plan = request_row.requested_plan,
-        updated_at = now()
-    where id = request_row.organization_id
-    returning * into organization_row;
-
     update public.entitlement_upgrade_requests
     set status = 'APPROVED',
         reviewed_at = now(),
         reviewed_by = (select auth.uid())
     where id = request_row.id;
+
+    select *
+    into organization_row
+    from public.organizations
+    where id = request_row.organization_id;
   else
     update public.entitlement_upgrade_requests
     set status = 'DECLINED',
@@ -168,3 +167,6 @@ $$;
 revoke execute on function public.resolve_entitlement_upgrade_request(uuid, boolean) from public;
 revoke execute on function public.resolve_entitlement_upgrade_request(uuid, boolean) from anon;
 grant execute on function public.resolve_entitlement_upgrade_request(uuid, boolean) to authenticated;
+
+comment on function public.resolve_entitlement_upgrade_request(uuid, boolean) is
+  'Reviews an upgrade request only. Approval never grants a paid entitlement; verified settlement or a separately governed provisioning path must activate the plan.';
