@@ -255,11 +255,15 @@ function AuthPage() {
 
     if (parsed.data.requested_plan !== "FREE") {
       const { data: currentUser } = await supabase.auth.getUser();
+      if (!currentUser.user) {
+        setBusy(false);
+        return toast.error("Your session is no longer active.");
+      }
       const { error: requestError } = await supabase
         .from("entitlement_upgrade_requests")
         .insert({
           organization_id: (org as { org_id: string }).org_id,
-          requested_by: currentUser.user?.id,
+          requested_by: currentUser.user.id,
           requested_plan: parsed.data.requested_plan,
           status: "PENDING",
         });
