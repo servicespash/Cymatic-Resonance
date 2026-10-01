@@ -36,7 +36,7 @@ comment on table public.call_room_members is
   'Authoritative Call Room invitation/admission audit layer. Media transport remains separate.';
 
 -- Existing direct INSERT access would bypass the admission function, so remove it.
-revoke insert on public.call_participants from authenticated;
+revoke insert, update, delete on public.call_participants from authenticated;
 
 drop policy if exists "initiator invites participants" on public.call_participants;
 
@@ -60,18 +60,7 @@ using (
 );
 
 drop policy if exists "call room members update own state" on public.call_room_members;
-create policy "call room members update own state"
-on public.call_room_members
-for update
-to authenticated
-using (
-  user_id = auth.uid()
-  and organization_id = public.current_org_id()
-)
-with check (
-  user_id = auth.uid()
-  and organization_id = public.current_org_id()
-);
+revoke insert, update, delete on public.call_room_members from authenticated;
 
 create or replace function public.admit_call_room_participant(
   _call_id uuid,
@@ -121,8 +110,10 @@ begin
     raise exception 'Call Room is not accepting participants';
   end if;
 
-  -- A caller may admit themselves. Only the call initiator or an existing
-  -- admitted host may admit another institution member.
+  -- A caller may admit themselves. Only the call initiator may admit
+  -- another active institution member. Host delegation is deferred to the
+  -- explicit role-management hardening step so it cannot become an
+  -- accidental authorization path here.
   if target_user_id <> caller_id
      and caller_id <> call_row.initiator_id then
     raise exception 'only the Call Room host may admit another participant';
@@ -130,9 +121,10 @@ begin
 
   if not exists (
     select 1
-    from public.profiles p
-    where p.id = target_user_id
-      and p.org_id = call_row.org_id
+    from public.organization_members om
+    where om.user_id = target_user_id
+      and om.organization_id = call_row.org_id
+      and om.active
   ) then
     raise exception 'participant is not an active institution member';
   end if;
