@@ -204,6 +204,18 @@ begin
     raise exception 'recent valid location evidence is required';
   end if;
 
+  if _session.tracking_required
+     and not exists (
+       select 1
+       from public.location_tracking_consents c
+       where c.organization_id = _session.organization_id
+         and c.user_id = _uid
+         and c.session_id = _session.id
+         and c.revoked_at is null
+     ) then
+    raise exception 'location tracking consent is required for this attendance session';
+  end if;
+
   insert into public.attendance_events (
     session_id,
     organization_id,
