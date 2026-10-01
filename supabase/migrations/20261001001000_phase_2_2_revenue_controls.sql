@@ -32,7 +32,7 @@ create table if not exists public.revenue_ledger (
   provider_fee_minor bigint not null default 0 check (provider_fee_minor >= 0),
   infrastructure_reserve_minor bigint not null default 0 check (infrastructure_reserve_minor >= 0),
   net_revenue_minor bigint not null default 0 check (net_revenue_minor >= 0),
-  target_plan text not null check (target_plan in ('PAID', 'CUSTOM_INSTITUTION')),
+  target_plan text not null check (target_plan in ('SILVER', 'GOLD', 'CUSTOM_INSTITUTION')),
   feature_key text not null,
   status text not null default 'SUCCEEDED'
     check (status in ('PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED', 'REVERSED')),
@@ -232,7 +232,8 @@ begin
     trial_started_at = null,
     trial_expires_at = null,
     updated_at = now()
-  where id = p_organization_id;
+  where id = p_organization_id
+    and p_target_plan in ('SILVER', 'GOLD', 'CUSTOM_INSTITUTION');
 
   return ledger_id;
 end;
