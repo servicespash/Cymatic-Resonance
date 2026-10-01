@@ -60,7 +60,7 @@ export function EntitlementUpgradeCard({
     setBusy(null);
 
     if (error) return toast.error(error.message);
-    toast.success(\`\${PLAN_LABELS[plan]} request submitted\`);
+    toast.success(`${PLAN_LABELS[plan]} request submitted`);
     onRequested?.();
   };
 
