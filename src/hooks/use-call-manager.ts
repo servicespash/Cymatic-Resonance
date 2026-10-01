@@ -65,7 +65,7 @@ export function useCallManager(channelId: string | null) {
     }
   }, []);
 
-  const negotiate = useCallback(async () => {
+  const negotiate = useCallback(async (remoteUserId: string) => {
     const connection = peer.current;
     if (!connection || !signaling.current || connection.signalingState !== "stable") {
       return;
@@ -80,7 +80,7 @@ export function useCallManager(channelId: string | null) {
       await signaling.current.send({
         type: "offer",
         from: user!.id,
-        to: "remote",
+        to: remoteUserId,
         sdp: description,
       });
     } finally {
@@ -142,7 +142,7 @@ export function useCallManager(channelId: string | null) {
           void signaling.current?.send({
             type: "ice",
             from: user.id,
-            to: "remote",
+            to: signal.from,
             candidate,
           });
         },
@@ -174,7 +174,7 @@ export function useCallManager(channelId: string | null) {
 
         try {
           if (signal.type === "hello") {
-            await negotiate();
+            await negotiate(signal.from);
             return;
           }
 
