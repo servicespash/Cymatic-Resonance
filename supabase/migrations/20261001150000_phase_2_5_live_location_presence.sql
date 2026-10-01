@@ -316,3 +316,70 @@ comment on column public.attendance_events.longitude is
 
 comment on function public.update_live_location(uuid,timestamptz,double precision,double precision,double precision) is
 'Updates current live location only after explicit per-session consent and active organization membership.';
+
+
+-- Realtime projection: the database row remains authoritative; Broadcast is ephemeral.
+create or replace function private.broadcast_live_location_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform realtime.broadcast_changes(
+    'attendance-live:' || coalesce(NEW.session_id, OLD.session_id)::text,
+    TG_OP,
+    TG_OP,
+    TG_TABLE_NAME,
+    TG_TABLE_SCHEMA,
+    NEW,
+    OLD
+  );
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+drop trigger if exists location_tracking_presence_broadcast on public.location_tracking_presence;
+create trigger location_tracking_presence_broadcast
+after insert or update or delete
+on public.location_tracking_presence
+for each row
+execute function private.broadcast_live_location_change();
+
+drop policy if exists live_location_map_receive on realtime.messages;
+create policy live_location_map_receive
+on realtime.messages
+for select
+to authenticated
+using (
+  realtime.messages.extension = 'broadcast'
+  and exists (
+    select 1
+    from public.attendance_sessions s
+    join public.organization_members om
+      on om.organization_id = s.organization_id
+     and om.user_id = auth.uid()
+     and om.active
+    join public.organizations o
+      on o.id = s.organization_id
+    where s.id = split_part(realtime.topic(), ':', 2)::uuid
+      and (
+        om.user_id = (
+          select p.user_id
+          from public.location_tracking_presence p
+          where p.session_id = s.id
+            and p.user_id = auth.uid()
+          limit 1
+        )
+        or (
+          om.role in ('OWNER', 'ADMIN')
+          and o.plan in ('GOLD', 'CUSTOM_INSTITUTION')
+        )
+      )
+  )
+);
+
+alter table public.location_tracking_presence replica identity full;
+
+comment on function private.broadcast_live_location_change() is
+'Projects consented live-location presence to a private Realtime topic. Persistent location state remains in PostgreSQL.';
