@@ -38,6 +38,8 @@ export function useCallManager(channelId: string | null) {
   const stopDialTone = useRef<() => void>(() => {});
   const pendingIce = useRef<RTCIceCandidateInit[]>([]);
   const makingOffer = useRef(false);
+  const remotePeerId = useRef<string | null>(null);
+  const pendingLocalIce = useRef<RTCIceCandidateInit[]>([]);
 
   const transport = useMemo(() => new LiveKitTransport(), []);
 
@@ -145,10 +147,15 @@ export function useCallManager(channelId: string | null) {
       localStream.current = await getLocalMedia(false);
       const connection = createPeer({
         onIceCandidate: (candidate) => {
+          const target = remotePeerId.current;
+          if (!target) {
+            pendingLocalIce.current.push(candidate);
+            return;
+          }
           void signaling.current?.send({
             type: "ice",
             from: user.id,
-            to: signal.from,
+            to: target,
             candidate,
           });
         },
@@ -180,6 +187,15 @@ export function useCallManager(channelId: string | null) {
 
         try {
           if (signal.type === "hello") {
+            remotePeerId.current = signal.from;
+            for (const candidate of pendingLocalIce.current.splice(0)) {
+              await signaling.current?.send({
+                type: "ice",
+                from: user.id,
+                to: signal.from,
+                candidate,
+              });
+            }
             await negotiate(signal.from);
             return;
           }
@@ -190,6 +206,7 @@ export function useCallManager(channelId: string | null) {
           }
 
           if (signal.type === "offer") {
+            remotePeerId.current = signal.from;
             const polite = user.id < signal.from;
             const offerCollision =
               makingOffer.current ||
@@ -221,6 +238,7 @@ export function useCallManager(channelId: string | null) {
           }
 
           if (signal.type === "answer") {
+            remotePeerId.current = signal.from;
             await peer.current.setRemoteDescription(
               new RTCSessionDescription(signal.sdp),
             );
@@ -265,6 +283,8 @@ export function useCallManager(channelId: string | null) {
     peer.current?.close();
     peer.current = null;
     pendingIce.current = [];
+    pendingLocalIce.current = [];
+    remotePeerId.current = null;
     makingOffer.current = false;
 
     await signaling.current?.leave();
