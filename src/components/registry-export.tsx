@@ -162,10 +162,6 @@ export const RegistryExport = ({
         // Subtitle & Scope
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
-        const hash = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-
         const subText = `${entityName ? `${entityName} · ` : ""}Date Range: ${rangeLabel} · Scope: ${scope.toUpperCase()} (${rowCount} records)`;
         doc.text(subText, 14, 22);
         doc.text(
