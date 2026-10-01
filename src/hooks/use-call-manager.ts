@@ -269,7 +269,8 @@ export function useCallManager(channelId: string | null) {
       localStream.current = null;
       peer.current?.close();
       peer.current = null;
-      await signaling.current?.leave();
+      if (roomId && user) { await supabase.rpc("leave_call_room", { _call_id: roomId }); }
+    await signaling.current?.leave();
       signaling.current = null;
       setRoomId(null);
       setState("error");
