@@ -1795,6 +1795,29 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      register_document_verification: {
+        Args: {
+          _document_type: string
+          _document_hash: string
+          _row_count: number
+          _range_start?: string | null
+          _range_end?: string | null
+        }
+        Returns: string
+      }
+      verify_document: {
+        Args: { _verification_id: string }
+        Returns: {
+          verification_id: string
+          document_type: string
+          organization_id: string
+          document_hash: string
+          row_count: number
+          range_start: string | null
+          range_end: string | null
+          created_at: string
+        }[]
+      }
       resolve_entitlement_upgrade_request: {
         Args: { _approved: boolean; _request_id: string }
         Returns: {
