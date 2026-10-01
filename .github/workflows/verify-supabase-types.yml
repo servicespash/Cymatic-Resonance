@@ -11,9 +11,14 @@ on:
       - main
       - "audit/**"
 
+concurrency:
+  group: supabase-schema-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify-types:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
 
