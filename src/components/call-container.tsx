@@ -178,24 +178,7 @@ export function CallContainer({
 
   const leave = async () => {
     try {
-      await supabase
-        .from("call_participants")
-        .update({ state: "left", left_at: new Date().toISOString() })
-        .eq("call_id", callId)
-        .eq("user_id", selfId);
-
-      const { data: still } = await supabase
-        .from("call_participants")
-        .select("id")
-        .eq("call_id", callId)
-        .eq("state", "joined");
-
-      if (!still || still.length === 0) {
-        await supabase
-          .from("calls")
-          .update({ status: "ended", ended_at: new Date().toISOString() })
-          .eq("id", callId);
-      }
+      await supabase.rpc("leave_call_room", { _call_id: callId });
     } catch (e) {
       console.error(e);
     }
