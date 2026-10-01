@@ -82,7 +82,7 @@ create policy entitlement_upgrade_requests_insert
   with check (
     organization_id = (select current_org_id())
     and requested_by = (select auth.uid())
-    and requested_plan in ('PAID', 'CUSTOM_INSTITUTION')
+    and requested_plan in ('SILVER', 'GOLD', 'CUSTOM_INSTITUTION')
     and status = 'PENDING'
   );
 
