@@ -109,9 +109,14 @@ function DocumentVerificationPage() {
           It does not expose the underlying attendance records.
         </p>
 
-        <Link to="/" className="mt-6 inline-block text-sm underline underline-offset-4">
-          Return to Cymatic Resonance
-        </Link>
+        <div className="mt-6 flex flex-wrap gap-4 text-sm">
+          <Link to="/explore" className="inline-flex items-center rounded-lg bg-accent px-4 py-2 font-medium text-white">
+            Explore Resonance
+          </Link>
+          <Link to="/" className="inline-flex items-center rounded-lg border border-white/10 px-4 py-2 underline-offset-4 hover:underline">
+            Return to Cymatic Resonance
+          </Link>
+        </div>
       </div>
     </main>
   );
