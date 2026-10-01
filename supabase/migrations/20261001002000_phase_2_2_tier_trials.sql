@@ -109,7 +109,7 @@ begin
     select 1
     from public.organizations o
     where o.id = org_id
-      and public.is_org_admin()
+      and private.is_current_org_admin()
   ) then
     raise exception 'organization administrator privileges are required';
   end if;
