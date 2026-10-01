@@ -183,20 +183,27 @@ export const RegistryExport = ({
         // Landscape PDF for maximum clarity and comprehensive column spacing
         const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
-        // Header Title
+        // Institutional identity
+        if (organizationLogoDataUrl) {
+          try { doc.addImage(organizationLogoDataUrl, "PNG", 14, 7, 18, 18); } catch {}
+        }
+        const headerX = organizationLogoDataUrl ? 36 : 14;
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text((organizationName || "Institution").toUpperCase(), headerX, 10);
         doc.setFontSize(16);
         doc.setTextColor(20, 20, 20);
-        doc.text(title, 14, 16);
+        doc.text(title, headerX, 17);
 
         // Subtitle & Scope
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
         const subText = `${entityName ? `${entityName} · ` : ""}Date Range: ${rangeLabel} · Scope: ${scope.toUpperCase()} (${rowCount} records)`;
-        doc.text(subText, 14, 22);
+        doc.text(subText, headerX, 23);
         doc.text(
           `Generated: ${new Date().toLocaleString()} · Engine Verification: ${verificationUrl || "registered"}`,
-          14,
-          27,
+          headerX,
+          28,
         );
 
         // Summary KPI mini-bar
@@ -265,7 +272,7 @@ export const RegistryExport = ({
         });
 
         autoTable(doc, {
-          startY: 42,
+          startY: 44,
           head: [pdfHeaders],
           body: pdfData,
           theme: "grid",
@@ -406,7 +413,7 @@ export const RegistryExport = ({
       <div className="hidden">
         <QRCodeSVG
           ref={qrRef}
-          value={`https://verify.cymatic.resonance/audit/${rangeFrom?.getTime() || Date.now()}`}
+          value={verificationUrl || window.location.origin}
           size={128}
         />
       </div>
