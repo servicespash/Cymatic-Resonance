@@ -136,6 +136,12 @@ export function useCallManager(channelId: string | null) {
       setRoomId(callId);
       setState(existing ? "ringing" : "dialing");
 
+      const { error: admissionError } = await supabase.rpc("admit_call_room_participant", {
+        _call_id: callId,
+        _user_id: user.id,
+      });
+      if (admissionError) throw admissionError;
+
       localStream.current = await getLocalMedia(false);
       const connection = createPeer({
         onIceCandidate: (candidate) => {
