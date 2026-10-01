@@ -1,7 +1,7 @@
 -- Phase 2.7: server-enforced Free-tier live tracking window.
 --
 -- Free organizations receive a finite entitlement:
---   * 60 calendar days from first activation
+--   * 30 calendar days from first activation
 --   * maximum 6 tracked hours per UTC day
 -- Usage is measured from server time, never client timestamps.
 -- This is an entitlement boundary, not a UI timer.
@@ -80,7 +80,7 @@ begin
     values (
       _organization_id,
       now(),
-      now() + interval '60 days'
+      now() + interval '30 days'
     )
     returning * into _row;
   end if;
@@ -185,7 +185,7 @@ begin
       organization_id, starts_at, expires_at
     )
     values (
-      _org.id, _now, _now + interval '60 days'
+      _org.id, _now, _now + interval '30 days'
     )
     on conflict (organization_id) do nothing;
 
@@ -277,7 +277,7 @@ revoke execute on function public.update_live_location(uuid,timestamptz,double p
 grant execute on function public.update_live_location(uuid,timestamptz,double precision,double precision,double precision) to authenticated;
 
 comment on table public.free_tracking_entitlements is
-'Server-enforced Free live-tracking entitlement: 60 calendar days from first activation, with a 6-hour UTC daily ceiling.';
+'Server-enforced Free live-tracking entitlement: 30 calendar days from first activation, with a 6-hour UTC daily ceiling.';
 
 comment on table public.free_tracking_daily_usage is
 'Server-accounted live tracking seconds. Client clocks cannot increase entitlement consumption or extend the window.';
