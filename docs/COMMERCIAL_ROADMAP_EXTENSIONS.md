@@ -28,10 +28,10 @@ It is intentionally scheduled after the sales-plan/revenue-readiness work, not d
 
 Map capability will progress with entitlement maturity:
 
-- Free: basic attendance and presence visualization.
-- Silver: expanded operational attendance map views.
-- Gold: advanced geofence configuration and richer institutional map controls.
-- Premium / Custom: institution-defined map policies and boundary configuration.
+- Free: basic attendance and presence visualization; Call Room capacity 5.
+- Silver: expanded operational attendance map views; Call Room capacity 15.
+- Gold: advanced geofence configuration and richer institutional map controls; Call Room capacity 30.
+- Premium / Custom: institution-defined map policies and boundary configuration; Call Room capacity is institution-configured.
 
 Interactive boundary drawing for Gold/Custom is deferred until the underlying attendance/session authorization is hardened. The eventual UI may support mouse/touch drawing of a boundary, but the resulting geometry must be validated and persisted server-side. Client-side geometry alone never authorizes attendance.
 
