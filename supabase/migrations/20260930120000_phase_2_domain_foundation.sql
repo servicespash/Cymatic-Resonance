@@ -186,6 +186,27 @@ alter table public.location_evidence enable row level security;
 -- non-exposed SECURITY DEFINER helper with a pinned search_path.
 create schema if not exists private;
 
+create or replace function private.is_current_org_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $phase2$
+  select exists (
+    select 1
+    from public.organization_members om
+    where om.organization_id = public.current_org_id()
+      and om.user_id = auth.uid()
+      and om.active
+      and om.role in ('OWNER', 'ADMIN')
+  )
+$phase2$;
+
+revoke execute on function private.is_current_org_admin() from public;
+grant usage on schema private to authenticated;
+grant execute on function private.is_current_org_admin() to authenticated;
+
 create or replace function private.user_room_ids()
 returns setof uuid
 language sql
