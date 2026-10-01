@@ -1727,13 +1727,6 @@ export type Database = {
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "call_room_members_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          }
         ];
       },
     Views: {
