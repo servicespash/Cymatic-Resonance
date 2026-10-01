@@ -260,10 +260,7 @@ function CallRoomInner({
 
       // If it's a 1-on-1 call, leaving should end it for both
       // We can check the number of participants or the kind of call
-      const { data: participants } = await supabase
-        .from("call_participants")
-        .select("id, state")
-        .eq("call_id", callId);
+      const { data: participants } = await supabase.rpc("leave_call_room", { _call_id: callId });
 
       const stillJoined = participants?.filter((p) => p.state === "joined") ?? [];
 
