@@ -1795,6 +1795,55 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      set_location_tracking_consent: {
+        Args: { _enabled: boolean; _session_id: string }
+        Returns: {
+          organization_id: string
+          user_id: string
+          session_id: string
+          consented_at: string
+          revoked_at: string | null
+        }
+      }
+      update_live_location: {
+        Args: {
+          _accuracy_meters: number
+          _captured_at: string
+          _latitude: number
+          _longitude: number
+          _session_id: string
+        }
+        Returns: {
+          session_id: string
+          organization_id: string
+          user_id: string
+          latitude: number
+          longitude: number
+          accuracy_meters: number
+          captured_at: string
+          updated_at: string
+        }
+      }
+      ensure_free_tracking_entitlement: {
+        Args: { _organization_id: string }
+        Returns: {
+          organization_id: string
+          starts_at: string
+          expires_at: string
+          daily_limit_seconds: number
+          created_at: string
+        }
+      }
+      claim_free_tracking_trial: {
+        Args: { _organization_id: string }
+        Returns: {
+          organization_id: string
+          starts_at: string
+          expires_at: string
+          daily_limit_seconds: number
+          created_at: string
+        }
+      }
       register_document_verification: {
         Args: {
           _document_type: string
