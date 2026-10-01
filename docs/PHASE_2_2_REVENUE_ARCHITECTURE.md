@@ -124,7 +124,7 @@ Free is not a communication-free tier.
 - Direct audio/video communication remains available.
 - Group audio/video calls are capped at 5 participants.
 - Silver defaults to 15 participants.
-- Gold defaults to 25 participants.
+- Gold defaults to 30 participants.
 - Premium / Custom defaults to 100 participants and can later be institution-configured.
 
 The authoritative limit is checked server-side. UI counters are informational only.
@@ -150,7 +150,7 @@ Tier selection is not only a price label. The product surface must project the e
 
 - Free exposes only Free-authorized controls.
 - Silver exposes Silver-authorized controls and a 15-participant audio/video capacity.
-- Gold exposes Gold-authorized controls, higher call capacity, advanced attendance/map policy controls, and execution analytics.
+- Gold exposes Gold-authorized controls, 30-participant calls, advanced attendance/map policy controls, and execution analytics.
 - Premium / Custom exposes institution-specific controls and quotas returned by server configuration.
 
 A capability that is not authorized must not merely be hidden in one component. The server guard remains authoritative, while the UI explains the reason and presents the upgrade matrix where appropriate.
