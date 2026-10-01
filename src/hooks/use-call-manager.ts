@@ -38,8 +38,6 @@ export function useCallManager(channelId: string | null) {
   const stopDialTone = useRef<() => void>(() => {});
   const pendingIce = useRef<RTCIceCandidateInit[]>([]);
   const makingOffer = useRef(false);
-  const ignoreOffer = useRef(false);
-  const isSettingRemoteAnswerPending = useRef(false);
 
   const transport = useMemo(() => new LiveKitTransport(), []);
 
@@ -191,8 +189,7 @@ export function useCallManager(channelId: string | null) {
               makingOffer.current ||
               peer.current.signalingState !== "stable";
 
-            ignoreOffer.current = !polite && offerCollision;
-            if (ignoreOffer.current) return;
+            if (!polite && offerCollision) return;
 
             if (offerCollision) {
               await peer.current.setLocalDescription({ type: "rollback" });
@@ -218,14 +215,9 @@ export function useCallManager(channelId: string | null) {
           }
 
           if (signal.type === "answer") {
-            isSettingRemoteAnswerPending.current = true;
-            try {
-              await peer.current.setRemoteDescription(
-                new RTCSessionDescription(signal.sdp),
-              );
-            } finally {
-              isSettingRemoteAnswerPending.current = false;
-            }
+            await peer.current.setRemoteDescription(
+              new RTCSessionDescription(signal.sdp),
+            );
             await flushPendingIce();
             return;
           }
@@ -258,7 +250,7 @@ export function useCallManager(channelId: string | null) {
       setRoomId(null);
       setState("error");
     }
-  }, [channelId, flushPendingIce, negotiate, state, transport, user]);
+  }, [channelId, flushPendingIce, negotiate, transport, user]);
 
   const leaveCall = useCallback(async () => {
     stopDialTone.current();
@@ -268,8 +260,6 @@ export function useCallManager(channelId: string | null) {
     peer.current = null;
     pendingIce.current = [];
     makingOffer.current = false;
-    ignoreOffer.current = false;
-    isSettingRemoteAnswerPending.current = false;
 
     await signaling.current?.leave();
     signaling.current = null;
