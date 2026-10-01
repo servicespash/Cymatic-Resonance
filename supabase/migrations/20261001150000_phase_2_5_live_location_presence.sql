@@ -219,6 +219,15 @@ begin
 
   if not exists (
     select 1
+    from public.organizations o
+    where o.id = _session.organization_id
+      and o.plan in ('SILVER', 'GOLD', 'CUSTOM_INSTITUTION')
+  ) then
+    raise exception 'live location is not included in the organization plan';
+  end if;
+
+  if not exists (
+    select 1
     from public.organization_members om
     where om.organization_id = _session.organization_id
       and om.user_id = _uid
