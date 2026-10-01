@@ -141,9 +141,9 @@ export function CallContainer({
 
   // Realtime Broadcast Channel
   useEffect(() => {
-    const channelName = `call_room_${callId}`;
+    const channelName = `call-${callId}`;
     const channel = supabase.channel(channelName, {
-      config: { broadcast: { self: true } },
+      config: { private: true, broadcast: { self: true, ack: true } },
     });
 
     channel
