@@ -228,6 +228,14 @@ begin
   )
   returning * into _row;
 
+  update public.attendance_events
+  set latitude = _latest.latitude,
+      longitude = _latest.longitude,
+      accuracy_meters = _latest.accuracy_meters,
+      distance_meters = _latest.distance_meters
+  where id = _row.id
+  returning * into _row;
+
   return _row;
 end;
 $$;
