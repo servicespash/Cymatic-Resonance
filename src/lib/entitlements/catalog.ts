@@ -15,6 +15,7 @@ export type EntitlementFeature =
   | "attendance_exports"
   | "attendance_analytics"
   | "continuous_attendance_tracking"
+  | "live_location_map"
   | "advanced_notifications"
   | "custom_attendance_policies"
   | "execution_charts"
@@ -108,6 +109,7 @@ export const ENTITLEMENT_FEATURES: readonly EntitlementFeatureDefinition[] = [
   available("attendance_exports", "Attendance exports", "Export operational attendance records.", false, true, true, true),
   available("attendance_analytics", "Attendance analytics", "Extended attendance reporting and analysis.", false, true, true, true),
   available("continuous_attendance_tracking", "Continuous attendance tracking", "Session-based location evidence and geofence transitions.", false, true, true, true),
+  available("live_location_map", "Live location map", "Consent-based live map of active members during eligible attendance sessions.", false, false, true, true),
   available("advanced_notifications", "Advanced notifications", "Expanded operational notification capabilities.", false, true, true, true),
   available("execution_charts", "Execution charts", "Live institutional execution and progress charts.", false, true, true, true),
   available("execution_meetings", "Execution meetings", "Structured institutional execution meetings.", false, true, true, true),
