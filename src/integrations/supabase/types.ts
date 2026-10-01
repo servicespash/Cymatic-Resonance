@@ -14,6 +14,141 @@ export type Database = {
   }
   public: {
     Tables: {
+      free_tracking_entitlements: {
+        Row: {
+          organization_id: string
+          starts_at: string
+          expires_at: string
+          daily_limit_seconds: number
+          created_at: string
+        }
+        Insert: {
+          organization_id: string
+          starts_at: string
+          expires_at: string
+          daily_limit_seconds?: number
+          created_at?: string
+        }
+        Update: {
+          organization_id?: string
+          starts_at?: string
+          expires_at?: string
+          daily_limit_seconds?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      free_tracking_daily_usage: {
+        Row: {
+          organization_id: string
+          user_id: string
+          usage_date: string
+          tracked_seconds: number
+          last_seen_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          user_id: string
+          usage_date: string
+          tracked_seconds?: number
+          last_seen_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          user_id?: string
+          usage_date?: string
+          tracked_seconds?: number
+          last_seen_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      free_tracking_trial_claims: {
+        Row: {
+          identifier_hash: string
+          identifier_kind: string
+          claimed_at: string
+          first_organization_id: string | null
+          first_user_id: string | null
+          revoked_at: string | null
+        }
+        Insert: {
+          identifier_hash: string
+          identifier_kind: string
+          claimed_at?: string
+          first_organization_id?: string | null
+          first_user_id?: string | null
+          revoked_at?: string | null
+        }
+        Update: {
+          identifier_hash?: string
+          identifier_kind?: string
+          claimed_at?: string
+          first_organization_id?: string | null
+          first_user_id?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
+      location_tracking_consents: {
+        Row: {
+          organization_id: string
+          user_id: string
+          session_id: string
+          consented_at: string
+          revoked_at: string | null
+        }
+        Insert: {
+          organization_id: string
+          user_id: string
+          session_id: string
+          consented_at?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          organization_id?: string
+          user_id?: string
+          session_id?: string
+          consented_at?: string
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
+      location_tracking_presence: {
+        Row: {
+          session_id: string
+          organization_id: string
+          user_id: string
+          latitude: number
+          longitude: number
+          accuracy_meters: number
+          captured_at: string
+          updated_at: string
+        }
+        Insert: {
+          session_id: string
+          organization_id: string
+          user_id: string
+          latitude: number
+          longitude: number
+          accuracy_meters: number
+          captured_at: string
+          updated_at?: string
+        }
+        Update: {
+          session_id?: string
+          organization_id?: string
+          user_id?: string
+          latitude?: number
+          longitude?: number
+          accuracy_meters?: number
+          captured_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_intents: {
         Row: {
           id: string;
