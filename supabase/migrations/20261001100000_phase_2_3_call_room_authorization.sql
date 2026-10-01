@@ -323,3 +323,22 @@ end
 $$;
 
 alter table public.call_room_members replica identity full;
+
+
+-- Keep the legacy join_call API compatible, but make its admission path authoritative.
+create or replace function public.join_call(_call_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.admit_call_room_participant(_call_id, auth.uid());
+end;
+$$;
+
+revoke execute on function public.join_call(uuid) from public, anon;
+grant execute on function public.join_call(uuid) to authenticated;
+
+comment on function public.join_call(uuid) is
+  'Compatibility wrapper. All Call Room joins are subject to authoritative membership and tier-capacity admission.';
