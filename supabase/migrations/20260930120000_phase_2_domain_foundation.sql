@@ -26,7 +26,7 @@ create table if not exists public.entitlements (
   limit_value integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint entitlements_plan_check check (plan in ('FREE','PAID','CUSTOM_INSTITUTION')),
+  constraint entitlements_plan_check check (plan in ('FREE','SILVER','GOLD','CUSTOM_INSTITUTION')),
   constraint entitlements_limit_check check (limit_value is null or limit_value >= 0)
 );
 
