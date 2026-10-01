@@ -191,23 +191,53 @@ begin
     raise exception 'payment does not match payment intent';
   end if;
 
-  insert into public.revenue_ledger (
-    organization_id, provider, provider_reference, transaction_reference,
-    currency, gross_amount_minor, provider_fee_minor,
-    infrastructure_reserve_minor, net_revenue_minor,
-    target_plan, feature_key, status, settled_at
-  )
-  values (
-    p_organization_id, p_provider, p_provider_reference, p_transaction_reference,
-    p_currency, p_gross_amount_minor, p_provider_fee_minor,
-    p_infrastructure_reserve_minor, p_net_revenue_minor,
-    p_target_plan, p_feature_key, 'SUCCEEDED', now()
-  )
-  on conflict (provider, provider_reference)
-  do update set
-    status = 'SUCCEEDED',
-    settled_at = coalesce(public.revenue_ledger.settled_at, now())
-  returning id into ledger_id;
+  -- Provider references are immutable settlement identities. If a webhook is
+  -- retried, the exact same transaction may safely reuse the existing ledger
+  -- row. A different transaction must never be allowed to collide with it.
+  select id
+    into ledger_id
+  from public.revenue_ledger
+  where provider = p_provider
+    and provider_reference = p_provider_reference
+  for update;
+
+  if found then
+    if not exists (
+      select 1
+      from public.revenue_ledger rl
+      where rl.id = ledger_id
+        and rl.organization_id = p_organization_id
+        and rl.transaction_reference = p_transaction_reference
+        and rl.currency = p_currency
+        and rl.gross_amount_minor = p_gross_amount_minor
+        and rl.provider_fee_minor = p_provider_fee_minor
+        and rl.infrastructure_reserve_minor = p_infrastructure_reserve_minor
+        and rl.net_revenue_minor = p_net_revenue_minor
+        and rl.target_plan = p_target_plan
+        and rl.feature_key = p_feature_key
+      ) then
+      raise exception 'provider reference already belongs to a different settlement';
+    end if;
+
+    update public.revenue_ledger
+    set status = 'SUCCEEDED',
+        settled_at = coalesce(settled_at, now())
+    where id = ledger_id;
+  else
+    insert into public.revenue_ledger (
+      organization_id, provider, provider_reference, transaction_reference,
+      currency, gross_amount_minor, provider_fee_minor,
+      infrastructure_reserve_minor, net_revenue_minor,
+      target_plan, feature_key, status, settled_at
+    )
+    values (
+      p_organization_id, p_provider, p_provider_reference, p_transaction_reference,
+      p_currency, p_gross_amount_minor, p_provider_fee_minor,
+      p_infrastructure_reserve_minor, p_net_revenue_minor,
+      p_target_plan, p_feature_key, 'SUCCEEDED', now()
+    )
+    returning id into ledger_id;
+  end if;
 
   update public.payment_intents
   set status = 'SUCCEEDED', updated_at = now()
