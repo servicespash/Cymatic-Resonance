@@ -1675,6 +1675,67 @@ export type Database = {
         Relationships: []
       }
     }
+      call_room_members: {
+        Row: {
+          id: string;
+          call_id: string;
+          organization_id: string;
+          user_id: string;
+          role: string;
+          admission_state: string;
+          invited_at: string;
+          admitted_at: string | null;
+          left_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          call_id: string;
+          organization_id: string;
+          user_id: string;
+          role?: string;
+          admission_state?: string;
+          invited_at?: string;
+          admitted_at?: string | null;
+          left_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          call_id?: string;
+          organization_id?: string;
+          user_id?: string;
+          role?: string;
+          admission_state?: string;
+          invited_at?: string;
+          admitted_at?: string | null;
+          left_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "call_room_members_call_id_fkey";
+            columns: ["call_id"];
+            isOneToOne: false;
+            referencedRelation: "calls";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "call_room_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "call_room_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      },
     Views: {
       [_ in never]: never
     }
