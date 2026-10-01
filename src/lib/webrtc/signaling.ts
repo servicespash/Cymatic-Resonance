@@ -22,7 +22,7 @@ export function joinCallChannel(
   leave: () => Promise<void>;
 } {
   const channel = supabase.channel(`call-${callId}`, {
-    config: { broadcast: { self: false, ack: false }, presence: { key: selfId } },
+    config: {\n      private: true,\n      broadcast: { self: false, ack: true },\n      presence: { key: selfId },\n    },
   });
 
   channel.on("broadcast", { event: "signal" }, ({ payload }) => {
@@ -47,7 +47,7 @@ export function joinCallChannel(
   return {
     channel,
     send: async (payload: SignalPayload) => {
-      await channel.send({ type: "broadcast", event: "signal", payload });
+      const status = await channel.send({ type: "broadcast", event: "signal", payload });\n      if (status !== "ok") throw new Error(`Realtime signaling send failed: ${status}`);
     },
     leave: async () => {
       try {
