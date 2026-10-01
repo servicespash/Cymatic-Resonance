@@ -1679,6 +1679,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admit_call_room_participant: {
+        Args: { _call_id: string; _user_id?: string | null }
+        Returns: {
+          call_id: string
+          organization_id: string
+          user_id: string
+          admission_state: string
+          participant_limit: number
+          participant_count: number
+          effective_plan: string
+        }[]
+      }
+      leave_call_room: {
+        Args: { _call_id: string }
+        Returns: undefined
+      }
+      get_call_participant_limit: {
+        Args: { _organization_id: string; _mode: string }
+        Returns: number
+      }
       accept_invite: {
         Args: { _token: string }
         Returns: {
