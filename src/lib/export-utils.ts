@@ -19,6 +19,11 @@ export interface ExportRow {
   late?: boolean | null;
   telemetry?: string | null;
   notes?: string | null;
+  locationLabel?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyMeters?: number | null;
+  distanceMeters?: number | null;
 }
 
 export interface AttendanceRecordLike {
@@ -32,6 +37,11 @@ export interface AttendanceRecordLike {
   is_late?: boolean | null;
   status?: string | null;
   note?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy_meters?: number | null;
+  distance_meters?: number | null;
+  location_label?: string | null;
 }
 
 export interface LeaveRecordLike {
@@ -207,6 +217,11 @@ export function buildMultiDayExportRows({
         status,
         late: att?.is_late ?? false,
         telemetry: att ? telemetryStatus : "—",
+        latitude: att?.latitude ?? null,
+        longitude: att?.longitude ?? null,
+        accuracyMeters: att?.accuracy_meters ?? null,
+        distanceMeters: att?.distance_meters ?? null,
+        locationLabel: att?.location_label ?? null,
       });
     }
   }
