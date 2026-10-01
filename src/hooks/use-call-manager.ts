@@ -19,18 +19,27 @@ export type CallSessionMemberUpdate =
     joined_at?: string | null;
   };
 
-export type CallSessionMemberOperation = CallSessionMemberInsert | CallSessionMemberUpdate;
+export type CallSessionMemberOperation =
+  | CallSessionMemberInsert
+  | CallSessionMemberUpdate;
+
+type SignalConnection = ReturnType<typeof joinCallChannel>;
 
 export function useCallManager(channelId: string | null) {
   const { user } = useAuth();
   const [state, setState] = useState<CallState>("idle");
   const [participants, setParticipants] = useState<string[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-  const signaling = useRef<ReturnType<typeof joinCallChannel> | null>(null);
+  const signaling = useRef<SignalConnection | null>(null);
   const peer = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
   const stopDialTone = useRef<() => void>(() => {});
+  const pendingIce = useRef<RTCIceCandidateInit[]>([]);
+  const makingOffer = useRef(false);
+  const ignoreOffer = useRef(false);
+  const isSettingRemoteAnswerPending = useRef(false);
 
   const transport = useMemo(() => new LiveKitTransport(), []);
 
@@ -38,13 +47,57 @@ export function useCallManager(channelId: string | null) {
     transport.onParticipantsChange(setParticipants);
   }, [transport]);
 
+  useEffect(() => {
+    return () => {
+      void signaling.current?.leave();
+      localStream.current?.getTracks().forEach((track) => track.stop());
+      peer.current?.close();
+      void transport.disconnect();
+      stopDialTone.current();
+    };
+  }, [transport]);
+
+  const flushPendingIce = useCallback(async () => {
+    const connection = peer.current;
+    if (!connection?.remoteDescription) return;
+
+    const candidates = pendingIce.current.splice(0);
+    for (const candidate of candidates) {
+      await connection.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+  }, []);
+
+  const negotiate = useCallback(async () => {
+    const connection = peer.current;
+    if (!connection || !signaling.current || connection.signalingState !== "stable") {
+      return;
+    }
+
+    try {
+      makingOffer.current = true;
+      await connection.setLocalDescription();
+      const description = connection.localDescription;
+      if (!description) throw new Error("WebRTC did not produce a local description");
+
+      await signaling.current.send({
+        type: "offer",
+        from: user!.id,
+        to: "remote",
+        sdp: description,
+      });
+    } finally {
+      makingOffer.current = false;
+    }
+  }, [user]);
+
   const joinCall = useCallback(async () => {
     if (!channelId || !user) return;
+
     setState("dialing");
     stopDialTone.current = playDialTone();
 
     try {
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("calls")
         .select("id, status")
         .eq("channel_id", channelId)
@@ -53,16 +106,20 @@ export function useCallManager(channelId: string | null) {
         .limit(1)
         .maybeSingle();
 
+      if (existingError) throw existingError;
+
       let callId = existing?.id ?? null;
       if (!callId) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("org_id")
           .eq("id", user.id)
           .maybeSingle();
+
+        if (profileError) throw profileError;
         if (!profile?.org_id) throw new Error("No workspace found");
 
-        const { data: created } = await supabase
+        const { data: created, error: createError } = await supabase
           .from("calls")
           .insert({
             channel_id: channelId,
@@ -73,63 +130,161 @@ export function useCallManager(channelId: string | null) {
           })
           .select("id")
           .single();
-        callId = created!.id;
-      }
-      setRoomId(callId);
 
-      // P2P Handshake Setup
+        if (createError) throw createError;
+        callId = created.id;
+      }
+
+      setRoomId(callId);
+      setState(existing ? "ringing" : "dialing");
+
       localStream.current = await getLocalMedia(false);
-      peer.current = createPeer({
-        onIceCandidate: (c) =>
-          signaling.current?.send({ type: "ice", from: user.id, to: "remote", candidate: c }),
-        onRemoteStream: (stream) => console.log("Received remote stream:", stream),
-        onConnectionStateChange: (s) => {
-          console.log("Connection state:", s);
-          if (s === "connected") {
+      const connection = createPeer({
+        onIceCandidate: (candidate) => {
+          void signaling.current?.send({
+            type: "ice",
+            from: user.id,
+            to: "remote",
+            candidate,
+          });
+        },
+        onRemoteStream: (stream) => setRemoteStream(stream),
+        onConnectionStateChange: (connectionState) => {
+          if (connectionState === "connected") {
             stopDialTone.current();
             setState("active");
+          } else if (connectionState === "failed" || connectionState === "closed") {
+            stopDialTone.current();
+            setState("error");
+          } else if (
+            connectionState === "disconnected" &&
+            state !== "idle" &&
+            state !== "error"
+          ) {
+            setState("ringing");
           }
         },
       });
-      localStream.current
-        .getTracks()
-        .forEach((t) => peer.current!.addTrack(t, localStream.current!));
 
-      signaling.current = joinCallChannel(callId, user.id, async (sig) => {
-        if (sig.type === "hello") {
-          const offer = await peer.current!.createOffer();
-          await peer.current!.setLocalDescription(offer);
-          signaling.current!.send({ type: "offer", from: user.id, to: sig.from, sdp: offer });
-        } else if (sig.type === "offer") {
-          await peer.current!.setRemoteDescription(new RTCSessionDescription(sig.sdp));
-          const answer = await peer.current!.createAnswer();
-          await peer.current!.setLocalDescription(answer);
-          signaling.current!.send({ type: "answer", from: user.id, to: sig.from, sdp: answer });
-        } else if (sig.type === "answer") {
-          await peer.current!.setRemoteDescription(new RTCSessionDescription(sig.sdp));
-        } else if (sig.type === "ice") {
-          await peer.current!.addIceCandidate(new RTCIceCandidate(sig.candidate));
+      peer.current = connection;
+      localStream.current.getTracks().forEach((track) => {
+        connection.addTrack(track, localStream.current!);
+      });
+
+      signaling.current = joinCallChannel(callId, user.id, async (signal) => {
+        if (!peer.current) return;
+
+        try {
+          if (signal.type === "hello") {
+            await negotiate();
+            return;
+          }
+
+          if (signal.type === "bye") {
+            setState("idle");
+            return;
+          }
+
+          if (signal.type === "offer") {
+            const polite = user.id < signal.from;
+            const offerCollision =
+              makingOffer.current ||
+              peer.current.signalingState !== "stable";
+
+            ignoreOffer.current = !polite && offerCollision;
+            if (ignoreOffer.current) return;
+
+            if (offerCollision) {
+              await peer.current.setLocalDescription({ type: "rollback" });
+            }
+
+            await peer.current.setRemoteDescription(
+              new RTCSessionDescription(signal.sdp),
+            );
+            await flushPendingIce();
+
+            const answer = await peer.current.createAnswer();
+            await peer.current.setLocalDescription(answer);
+            const description = peer.current.localDescription;
+            if (!description) throw new Error("WebRTC did not produce an answer");
+
+            await signaling.current?.send({
+              type: "answer",
+              from: user.id,
+              to: signal.from,
+              sdp: description,
+            });
+            return;
+          }
+
+          if (signal.type === "answer") {
+            isSettingRemoteAnswerPending.current = true;
+            try {
+              await peer.current.setRemoteDescription(
+                new RTCSessionDescription(signal.sdp),
+              );
+            } finally {
+              isSettingRemoteAnswerPending.current = false;
+            }
+            await flushPendingIce();
+            return;
+          }
+
+          if (signal.type === "ice") {
+            if (peer.current.remoteDescription) {
+              await peer.current.addIceCandidate(
+                new RTCIceCandidate(signal.candidate),
+              );
+            } else {
+              pendingIce.current.push(signal.candidate);
+            }
+          }
+        } catch (error) {
+          console.error("[WebRTC] Signaling failure:", error);
+          setState("error");
         }
       });
 
       await transport.connect(callId, user.id);
-    } catch (err) {
-      console.error("Failed to join call:", err);
+    } catch (error) {
+      console.error("Failed to join call:", error);
+      stopDialTone.current();
+      localStream.current?.getTracks().forEach((track) => track.stop());
+      localStream.current = null;
+      peer.current?.close();
+      peer.current = null;
+      await signaling.current?.leave();
+      signaling.current = null;
+      setRoomId(null);
       setState("error");
     }
-  }, [channelId, user, transport]);
+  }, [channelId, flushPendingIce, negotiate, state, transport, user]);
 
   const leaveCall = useCallback(async () => {
-    if (!roomId || !user) return;
-
-    localStream.current?.getTracks().forEach((t) => t.stop());
+    stopDialTone.current();
+    localStream.current?.getTracks().forEach((track) => track.stop());
+    localStream.current = null;
     peer.current?.close();
+    peer.current = null;
+    pendingIce.current = [];
+    makingOffer.current = false;
+    ignoreOffer.current = false;
+    isSettingRemoteAnswerPending.current = false;
+
     await signaling.current?.leave();
+    signaling.current = null;
     await transport.disconnect();
 
+    setRemoteStream(null);
     setRoomId(null);
     setState("idle");
-  }, [roomId, user, transport]);
+  }, [transport]);
 
-  return { state, participants, joinCall, leaveCall };
+  return {
+    state,
+    participants,
+    remoteStream,
+    joinCall,
+    leaveCall,
+  };
 }
