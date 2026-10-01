@@ -105,7 +105,12 @@ begin
     raise exception 'organization context is required';
   end if;
 
-  if not (select public.is_org_admin()) then
+  if not exists (
+    select 1
+    from public.organizations o
+    where o.id = org_id
+      and public.is_org_admin()
+  ) then
     raise exception 'organization administrator privileges are required';
   end if;
 
