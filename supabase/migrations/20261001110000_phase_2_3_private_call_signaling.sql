@@ -1,3 +1,5 @@
+create schema if not exists private;
+
 -- Phase 2.3.1: private Realtime authorization for Call Room signaling.
 --
 -- Broadcast signaling is ephemeral, but authorization is not optional.
