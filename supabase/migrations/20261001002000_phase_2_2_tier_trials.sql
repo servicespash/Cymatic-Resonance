@@ -166,7 +166,7 @@ as $$
     ) = 'SILVER' then 15
     when (
       select effective_plan from public.get_effective_entitlement(_organization_id)
-    ) = 'GOLD' then 25
+    ) = 'GOLD' then 30
     when (
       select effective_plan from public.get_effective_entitlement(_organization_id)
     ) = 'CUSTOM_INSTITUTION' then 100
