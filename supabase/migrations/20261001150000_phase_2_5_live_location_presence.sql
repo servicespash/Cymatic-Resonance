@@ -362,7 +362,28 @@ using (
      and om.active
     join public.organizations o
       on o.id = s.organization_id
-    where s.id = split_part(realtime.topic(), ':', 2)::uuid
+    where split_part(realtime.topic(), ':', 2) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+      and (
+        om.user_id = (
+          select p.user_id
+          from public.location_tracking_presence p
+          where p.session_id = s.id
+            and p.user_id = auth.uid()
+          limit 1
+        )
+        or (
+          om.role in ('OWNER', 'ADMIN')
+          and o.plan in ('GOLD', 'CUSTOM_INSTITUTION')
+        )
+      )
+  )
+);
+
+alter table public.location_tracking_presence replica identity full;
+
+comment on function private.broadcast_live_location_change() is
+'Projects consented live-location presence to a private Realtime topic. Persistent location state remains in PostgreSQL.';
+\n      and s.id = split_part(realtime.topic(), ':', 2)::uuid
       and (
         om.user_id = (
           select p.user_id
