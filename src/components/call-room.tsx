@@ -58,6 +58,67 @@ export function CallRoom({
   initiatorId: string;
 }) {
   const [hasPermission, setHasPermission] = useState(false);
+  const [admission, setAdmission] = useState<"checking" | "admitted" | "rejected">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const admit = async () => {
+      const { error } = await supabase.rpc("admit_call_room_participant", {
+        _call_id: callId,
+        _user_id: selfId,
+      });
+
+      if (cancelled) return;
+
+      if (error) {
+        setAdmission("rejected");
+        toast.error(error.message || "This Call Room cannot accept you.");
+        return;
+      }
+
+      setAdmission("admitted");
+    };
+
+    void admit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [callId, selfId]);
+
+  if (admission === "checking") {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 backdrop-blur-xl">
+        <div className="rounded-2xl border border-white/10 bg-card px-6 py-5 text-center shadow-2xl">
+          <p className="text-sm font-semibold">Checking Call Room access</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Verifying institution membership and current tier capacity.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (admission === "rejected") {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 backdrop-blur-xl">
+        <div className="max-w-md rounded-2xl border border-white/10 bg-card px-6 py-5 text-center shadow-2xl">
+          <p className="text-sm font-semibold">Call Room access unavailable</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The server rejected this participant admission. Existing participants remain unaffected.
+          </p>
+          <button
+            type="button"
+            onClick={onLeave}
+            className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Return
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!hasPermission) {
     return (
@@ -195,11 +256,7 @@ function CallRoomInner({
 
   const leave = useCallback(async () => {
     try {
-      await supabase
-        .from("call_participants")
-        .update({ state: "left", left_at: new Date().toISOString() })
-        .eq("call_id", callId)
-        .eq("user_id", selfId);
+      await supabase.rpc("leave_call_room", { _call_id: callId });
 
       // If it's a 1-on-1 call, leaving should end it for both
       // We can check the number of participants or the kind of call
