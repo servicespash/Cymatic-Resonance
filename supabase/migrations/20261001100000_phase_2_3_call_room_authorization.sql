@@ -87,6 +87,7 @@ declare
   participant_limit integer;
   participant_count integer;
   existing_member public.call_room_members%rowtype;
+  member_found boolean := false;
 begin
   if caller_id is null then
     raise exception 'authentication is required';
@@ -152,7 +153,9 @@ begin
     and user_id = target_user_id
   for update;
 
-  if found and existing_member.admission_state = 'ADMITTED' then
+  member_found := found;
+
+  if member_found and existing_member.admission_state = 'ADMITTED' then
     return query
     select
       _call_id,
@@ -177,7 +180,7 @@ begin
     and m.admission_state = 'ADMITTED';
 
   if participant_count >= participant_limit then
-    if found then
+    if member_found then
       update public.call_room_members
       set admission_state = 'REJECTED'
       where id = existing_member.id;
@@ -199,7 +202,7 @@ begin
       );
   end if;
 
-  if found then
+  if member_found then
     update public.call_room_members
     set
       admission_state = 'ADMITTED',
