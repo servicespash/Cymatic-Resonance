@@ -18,6 +18,7 @@ export interface RegistryExportProps {
   rangeFrom?: Date;
   rangeTo?: Date;
   entityName?: string;
+  organizationLogoUrl?: string | null;
   compact?: boolean;
   onExportLogged?: (
     format: "pdf" | "excel",
@@ -34,11 +35,39 @@ export const RegistryExport = ({
   rangeFrom,
   rangeTo,
   entityName,
+  organizationLogoUrl,
   compact = false,
   onExportLogged,
 }: RegistryExportProps) => {
   const qrRef = useRef<SVGSVGElement>(null);
   const [verificationUrl, setVerificationUrl] = React.useState<string | null>(null);
+  const [organizationName, setOrganizationName] = React.useState<string | null>(entityName ?? null);
+  const [organizationLogoDataUrl, setOrganizationLogoDataUrl] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data: orgId } = await supabase.rpc("current_org_id");
+      if (!orgId) return;
+      const { data } = await supabase.from("organizations").select("name, logo_url").eq("id", orgId).maybeSingle();
+      if (cancelled || !data) return;
+      setOrganizationName(entityName || data.name || null);
+      const logoPath = organizationLogoUrl || data.logo_url;
+      if (!logoPath) return;
+      const { data: signed } = await supabase.storage.from("org-logos").createSignedUrl(logoPath, 300);
+      if (!signed?.signedUrl || cancelled) return;
+      try {
+        const response = await fetch(signed.signedUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!cancelled) setOrganizationLogoDataUrl(typeof reader.result === "string" ? reader.result : null);
+        };
+        reader.readAsDataURL(blob);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [entityName, organizationLogoUrl]);
 
   const rangeLabel = React.useMemo(() => {
     if (rangeFrom && rangeTo) {
