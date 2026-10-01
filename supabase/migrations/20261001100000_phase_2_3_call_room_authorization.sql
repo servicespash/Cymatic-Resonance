@@ -132,7 +132,7 @@ begin
     select 1
     from public.profiles p
     where p.id = target_user_id
-      and p.organization_id = call_row.org_id
+      and p.org_id = call_row.org_id
   ) then
     raise exception 'participant is not an active institution member';
   end if;
