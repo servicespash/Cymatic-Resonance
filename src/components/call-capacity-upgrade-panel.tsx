@@ -60,11 +60,11 @@ export function CallCapacityUpgradePanel({
               return (
                 <div
                   key={tier.plan}
-                  className={\`rounded-xl border p-3 \${
+                  className={`rounded-xl border p-3 \${
                     tier.plan === plan
                       ? "border-accent/40 bg-accent/10"
                       : "border-white/10 bg-white/5"
-                  }\`}
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold">{tier.label}</span>
