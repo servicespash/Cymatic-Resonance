@@ -30,7 +30,7 @@ export function EntitlementTrialCard({
           <Clock3 className="mt-0.5 size-5 text-muted-foreground" />
           <div>
             <h3 className="font-display text-lg font-semibold">
-              {trialPlan && activePlan === trialPlan ? \`\${trialPlan} trial active\` : "Trial already used"}
+              {trialPlan && activePlan === trialPlan ? `${trialPlan} trial active` : "Trial already used"}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {trialPlan && activePlan === trialPlan
