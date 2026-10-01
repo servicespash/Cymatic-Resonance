@@ -23,20 +23,6 @@ update public.organizations
 set plan = case when plan = 'PAID' then 'SILVER' else 'FREE' end
 where plan is null or plan not in ('FREE', 'SILVER', 'GOLD', 'CUSTOM_INSTITUTION');
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conname = 'entitlements_plan_check'
-      and conrelid = 'public.entitlements'::regclass
-  ) then
-    alter table public.entitlements
-      add constraint entitlements_plan_check
-      check (plan in ('FREE', 'PAID', 'CUSTOM_INSTITUTION'));
-  end if;
-end
-$$;
-
 create table if not exists public.entitlement_upgrade_requests (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
