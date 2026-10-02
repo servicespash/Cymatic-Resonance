@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
 // Re-using existing types inferred from the original file
-export type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
+export type Channel = { id: string; name: string; kind: "broadcast" | "dm" | null; org_id: string };
 export type Msg = {
   id: string;
   channel_id: string;
@@ -9,7 +9,7 @@ export type Msg = {
   body: string;
   created_at: string;
 };
-export type Sender = { id: string; full_name: string | null; role: string };
+export type Sender = { id: string; full_name: string | null; role: string | null };
 export type Thread = {
   id: string;
   channel_id: string;
