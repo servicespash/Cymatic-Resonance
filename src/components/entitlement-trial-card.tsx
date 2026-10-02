@@ -34,7 +34,7 @@ export function EntitlementTrialCard({
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {trialPlan && activePlan === trialPlan
-                ? \`\${daysRemaining} day\${daysRemaining === 1 ? "" : "s"} remaining.\`
+                ? `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining.`
                 : "The one-time institutional trial cannot be redeemed again."}
             </p>
           </div>
@@ -49,7 +49,7 @@ export function EntitlementTrialCard({
     setBusy(true);
     try {
       await startTrial(selectedPlan, duration);
-      toast.success(\`\${selectedPlan} trial started\`);
+      toast.success(`${selectedPlan} trial started`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to start trial");
     } finally {
