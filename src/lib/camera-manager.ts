@@ -145,23 +145,7 @@ export class CameraManager {
       }
     }
 
-    console.warn(
-      "[CameraManager] All getUserMedia attempts failed, providing fallback stream:",
-      lastError,
-    );
-    try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      const dst = ctx.createMediaStreamDestination();
-      this.stream = dst.stream;
-      return dst.stream;
-    } catch {
-      const emptyStream = new MediaStream();
-      this.stream = emptyStream;
-      return emptyStream;
-    }
+    throw this.wrapError(lastError);
   }
 
   /**

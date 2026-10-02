@@ -22,6 +22,10 @@ import { InvitePanel } from "@/components/invite-panel";
 import { BrandPanel } from "@/components/brand-panel";
 import { AdminMapMatrix } from "@/components/admin-map-matrix";
 import { NotificationPreferences } from "@/components/notification-preferences";
+import { EntitlementMatrix } from "@/components/entitlement-matrix";
+import { EntitlementUpgradeCard } from "@/components/entitlement-upgrade-card";
+import { EntitlementTrialCard } from "@/components/entitlement-trial-card";
+import { useEntitlements } from "@/hooks/use-entitlements";
 
 type OrgLocation = { lat: number; lng: number; radius: number };
 
@@ -78,6 +82,7 @@ function SettingsPage() {
   const [org, setOrg] = useState<Org | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [confirmName, setConfirmName] = useState("");
+  const entitlements = useEntitlements(profile?.org_id ?? null, user?.id ?? null);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -215,6 +220,16 @@ function SettingsPage() {
     toast.success("Member removed");
   };
 
+  const resolveUpgradeRequest = async (requestId: string, approved: boolean) => {
+    const { error } = await supabase.rpc("resolve_entitlement_upgrade_request", {
+      _request_id: requestId,
+      _approved: approved,
+    });
+    if (error) return toast.error(error.message);
+    await Promise.all([entitlements.refresh(), refresh()]);
+    toast.success(approved ? "Plan upgraded" : "Upgrade request declined");
+  };
+
   const deleteOrg = async () => {
     if (!org || confirmName !== org.name) return toast.error("Workspace name does not match");
     const { error } = await supabase.rpc("delete_org");
@@ -244,7 +259,7 @@ function SettingsPage() {
   const isAdmin = profile.role === "admin";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-4">
       {/* Workspace card */}
       {org && (
         <section className="glass-strong rounded-2xl p-6 resonance-glow">
@@ -329,6 +344,72 @@ function SettingsPage() {
               </div>
             </form>
           )}
+        </section>
+      )}
+
+      {/* Entitlements */}
+      {org && (
+        <>
+          <EntitlementTrialCard
+            hasUsedTrial={entitlements.trial.hasUsedTrial}
+            activePlan={entitlements.plan}
+            trialPlan={entitlements.trial.plan}
+            daysRemaining={entitlements.trial.daysRemaining}
+            isAdmin={isAdmin}
+            startTrial={entitlements.startTrial}
+          />
+          <EntitlementUpgradeCard
+            organizationId={org.id}
+            currentPlan={entitlements.basePlan}
+            isAdmin={isAdmin}
+            requestedPlan={entitlements.pendingRequest?.requested_plan ?? null}
+            onRequested={entitlements.refresh}
+          />
+          <EntitlementMatrix currentPlan={entitlements.plan} />
+        </>
+      )}
+
+      {isAdmin && entitlements.pendingRequests.length > 0 && (
+        <section className="glass rounded-2xl p-6">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+              Upgrade requests
+            </p>
+            <h3 className="mt-1 font-display text-lg font-semibold">Pending plan changes</h3>
+          </div>
+          <div className="mt-4 space-y-3">
+            {entitlements.pendingRequests.map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <div className="text-sm font-medium">
+                    {request.requested_plan === "SILVER" ? "Silver" : request.requested_plan === "GOLD" ? "Gold" : "Premium / Custom"} plan
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Requested {new Date(request.created_at).toLocaleString()}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => resolveUpgradeRequest(request.id, false)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveUpgradeRequest(request.id, true)}
+                    className="rounded-lg bg-frequency px-3 py-2 text-xs font-semibold text-primary-foreground resonance-glow"
+                  >
+                    Approve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

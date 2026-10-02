@@ -20,6 +20,8 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { CymaticLogo, CymaticWave } from "@/components/cymatic-wave";
 import { ClientOnly } from "@/components/client-only";
 import { Moon, Sun } from "lucide-react";
+import { EntitlementPlanSelector } from "@/components/entitlement-plan-selector";
+import type { EntitlementPlan } from "@/lib/domain/contracts";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -42,6 +44,7 @@ const adminSchema = z.object({
   ...baseSignUp,
   org_name: z.string().trim().min(2).max(80),
   org_type: z.string().trim().max(40),
+  requested_plan: z.enum(["FREE", "PAID", "CUSTOM_INSTITUTION"]),
 });
 const memberSchema = z.object({
   ...baseSignUp,
@@ -63,6 +66,7 @@ function AuthPage() {
   const { user, loading } = useAuth();
   const { theme, toggleTheme } = useTheme(); // Added theme hook
   const [busy, setBusy] = useState(false);
+  const [requestedPlan, setRequestedPlan] = useState<EntitlementPlan>("FREE");
   const [emailConfirmation, setEmailConfirmation] = useState(false);
   const [mode, setMode] = useState<"normal" | "reset" | "invite">("normal");
   const [tab, setTab] = useState<"signin" | "admin" | "member" | "signup">("signin");
@@ -248,9 +252,35 @@ function AuthPage() {
       setBusy(false);
       return toast.error(orgErr?.message ?? "Could not create workspace");
     }
+
+    if (parsed.data.requested_plan !== "FREE") {
+      const { data: currentUser } = await supabase.auth.getUser();
+      if (!currentUser.user) {
+        setBusy(false);
+        return toast.error("Your session is no longer active.");
+      }
+      const { error: requestError } = await supabase
+        .from("entitlement_upgrade_requests")
+        .insert({
+          organization_id: (org as { org_id: string }).org_id,
+          requested_by: currentUser.user.id,
+          requested_plan: parsed.data.requested_plan,
+          status: "PENDING",
+        });
+      if (requestError) {
+        setBusy(false);
+        return toast.error(
+          "Workspace created, but the upgrade request could not be recorded. Submit it later from Settings.",
+        );
+      }
+    }
+
     setBusy(false);
     toast.success(`Workspace created · ${(org as { access_code: string }).access_code}`, {
-      description: "Share this code with members.",
+      description:
+        parsed.data.requested_plan === "FREE"
+          ? "Share this code with members."
+          : "Share this code with members. The requested plan remains pending approval.",
     });
     navigate({ to: "/dashboard" });
   };
@@ -567,6 +597,8 @@ function AuthPage() {
                               placeholder="Director"
                             />
                           </div>
+                          <EntitlementPlanSelector value={requestedPlan} onChange={setRequestedPlan} />
+                          <input type="hidden" name="requested_plan" value={requestedPlan} />
                           <Field id="ad-email" label="Email" name="email" type="email" required />
                           <Field
                             id="ad-pw"

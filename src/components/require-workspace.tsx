@@ -5,6 +5,8 @@ import { CymaticWave } from "@/components/cymatic-wave";
 import { Radio, Plus, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { EntitlementPlanSelector } from "@/components/entitlement-plan-selector";
+import type { EntitlementPlan } from "@/lib/domain/contracts";
 
 type Status = "loading" | "linked" | "unlinked";
 
@@ -82,6 +84,7 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
   const [orgType, setOrgType] = useState("generic");
   const [category, setCategory] = useState("staff");
   const [busy, setBusy] = useState(false);
+  const [requestedPlan, setRequestedPlan] = useState<EntitlementPlan>("FREE");
 
   const join = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,13 +104,43 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
     e.preventDefault();
     if (!orgName.trim()) return;
     setBusy(true);
-    const { error } = await supabase.rpc("create_org_as_admin", {
-      _name: orgName.trim(),
-      _org_type: orgType,
-    });
+    const { data: createdOrg, error } = await supabase
+      .rpc("create_org_as_admin", {
+        _name: orgName.trim(),
+        _org_type: orgType,
+      })
+      .single();
+    if (error || !createdOrg) {
+      setBusy(false);
+      return toast.error(error?.message ?? "Workspace could not be created.");
+    }
+
+    if (requestedPlan !== "FREE") {
+      const { data: currentUser } = await supabase.auth.getUser();
+      if (!currentUser.user) {
+        setBusy(false);
+        return toast.error("Your session is no longer active.");
+      }
+      const { error: requestError } = await supabase.from("entitlement_upgrade_requests").insert({
+        organization_id: (createdOrg as { org_id: string }).org_id,
+        requested_by: currentUser.user.id,
+        requested_plan: requestedPlan,
+        status: "PENDING",
+      });
+      if (requestError) {
+        setBusy(false);
+        return toast.error(
+          "Workspace created, but the upgrade request could not be recorded. Please submit it from Settings.",
+        );
+      }
+    }
+
     setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Workspace created");
+    toast.success(
+      requestedPlan === "FREE"
+        ? "Workspace created"
+        : "Workspace created · upgrade request submitted",
+    );
     onLinked();
   };
 
@@ -185,7 +218,8 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
                 className="w-full bg-transparent text-sm outline-none"
               />
             </Field>
-            <button
+            <EntitlementPlanSelector value={requestedPlan} onChange={setRequestedPlan} />
+          <button
               disabled={busy}
               className="w-full rounded-xl bg-frequency px-4 py-3 text-sm font-semibold text-primary-foreground resonance-glow disabled:opacity-50"
             >

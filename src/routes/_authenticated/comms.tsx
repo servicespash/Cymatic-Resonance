@@ -49,6 +49,7 @@ import { CymaticWave } from "@/components/cymatic-wave";
 import { MessageItem } from "@/components/message-item";
 import { ChatItem } from "@/components/chat-item";
 import type { Attachment } from "@/components/comm-attachment";
+import type { Channel } from "@/lib/comms-context-def";
 import { readCache, writeCache, onReconnect } from "@/lib/offline-cache";
 import { ClientOnly } from "@/components/client-only";
 
@@ -67,7 +68,6 @@ export const Route = createFileRoute("/_authenticated/comms")({
   component: CommsComponent,
 });
 
-type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
 type Thread = {
   id: string;
   channel_id: string;

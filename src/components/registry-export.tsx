@@ -6,6 +6,7 @@ import autoTable from "jspdf-autotable";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 import { ExportRow, formatTimeSafe, formatDateSafe } from "@/lib/export-utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export type { ExportRow };
 
@@ -17,6 +18,7 @@ export interface RegistryExportProps {
   rangeFrom?: Date;
   rangeTo?: Date;
   entityName?: string;
+  organizationLogoUrl?: string | null;
   compact?: boolean;
   onExportLogged?: (
     format: "pdf" | "excel",
@@ -33,10 +35,39 @@ export const RegistryExport = ({
   rangeFrom,
   rangeTo,
   entityName,
+  organizationLogoUrl,
   compact = false,
   onExportLogged,
 }: RegistryExportProps) => {
   const qrRef = useRef<SVGSVGElement>(null);
+  const [verificationUrl, setVerificationUrl] = React.useState<string | null>(null);
+  const [organizationName, setOrganizationName] = React.useState<string | null>(entityName ?? null);
+  const [organizationLogoDataUrl, setOrganizationLogoDataUrl] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data: orgId } = await supabase.rpc("current_org_id");
+      if (!orgId) return;
+      const { data } = await supabase.from("organizations").select("name, logo_url").eq("id", orgId).maybeSingle();
+      if (cancelled || !data) return;
+      setOrganizationName(entityName || data.name || null);
+      const logoPath = organizationLogoUrl || data.logo_url;
+      if (!logoPath) return;
+      const { data: signed } = await supabase.storage.from("org-logos").createSignedUrl(logoPath, 300);
+      if (!signed?.signedUrl || cancelled) return;
+      try {
+        const response = await fetch(signed.signedUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!cancelled) setOrganizationLogoDataUrl(typeof reader.result === "string" ? reader.result : null);
+        };
+        reader.readAsDataURL(blob);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [entityName, organizationLogoUrl]);
 
   const rangeLabel = React.useMemo(() => {
     if (rangeFrom && rangeTo) {
@@ -65,6 +96,24 @@ export const RegistryExport = ({
         : format(new Date(), "yyyy-MM-dd");
 
     try {
+      const canonical = JSON.stringify(availableRows.map((r) => ({
+        id: r.id, userId: r.userId, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut,
+        status: r.status, latitude: r.latitude, longitude: r.longitude,
+        locationLabel: r.locationLabel, accuracyMeters: r.accuracyMeters,
+      })));
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+      const documentHash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const { data: verificationId, error: verificationError } = await supabase.rpc("register_document_verification", {
+        _document_type: exportFormat === "pdf" ? "ATTENDANCE_LEDGER" : "REGISTRY_EXPORT",
+        _document_hash: documentHash,
+        _row_count: rowCount,
+        _range_start: rangeFrom ? format(rangeFrom, "yyyy-MM-dd") : null,
+        _range_end: rangeTo ? format(rangeTo, "yyyy-MM-dd") : null,
+      });
+      if (verificationError || !verificationId) throw verificationError ?? new Error("Could not register export verification");
+      const verifyUrl = `${window.location.origin}/verify/document/${verificationId}`;
+      setVerificationUrl(verifyUrl);
+
       if (exportFormat === "excel") {
         // Full, rich CSV / Excel with UTF-8 BOM
         const header = [
@@ -81,6 +130,10 @@ export const RegistryExport = ({
           "Work Hours",
           "Late Arrival",
           "Telemetry Status",
+          "Check-in Location",
+          "Latitude",
+          "Longitude",
+          "Accuracy (m)",
         ];
 
         const csvData = availableRows.map((r) => [
@@ -102,6 +155,10 @@ export const RegistryExport = ({
           r.hours != null ? `${r.hours.toFixed(2)}h` : "—",
           r.late ? "Yes" : "No",
           (r.telemetry || "verified").toUpperCase(),
+          r.locationLabel || "—",
+          r.latitude != null ? r.latitude.toFixed(6) : "—",
+          r.longitude != null ? r.longitude.toFixed(6) : "—",
+          r.accuracyMeters != null ? r.accuracyMeters.toFixed(1) : "—",
         ]);
 
         const csvContent =
@@ -126,24 +183,27 @@ export const RegistryExport = ({
         // Landscape PDF for maximum clarity and comprehensive column spacing
         const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
-        // Header Title
+        // Institutional identity
+        if (organizationLogoDataUrl) {
+          try { doc.addImage(organizationLogoDataUrl, "PNG", 14, 7, 18, 18); } catch {}
+        }
+        const headerX = organizationLogoDataUrl ? 36 : 14;
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text((organizationName || "Institution").toUpperCase(), headerX, 10);
         doc.setFontSize(16);
         doc.setTextColor(20, 20, 20);
-        doc.text(title, 14, 16);
+        doc.text(title, headerX, 17);
 
         // Subtitle & Scope
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
-        const hash = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-
         const subText = `${entityName ? `${entityName} · ` : ""}Date Range: ${rangeLabel} · Scope: ${scope.toUpperCase()} (${rowCount} records)`;
-        doc.text(subText, 14, 22);
+        doc.text(subText, headerX, 23);
         doc.text(
-          `Generated: ${new Date().toLocaleString()} · Cryptographic Hash: ${hash.slice(0, 16)}...`,
-          14,
-          27,
+          `Generated: ${new Date().toLocaleString()} · Engine Verification: ${verificationUrl || "registered"}`,
+          headerX,
+          28,
         );
 
         // Summary KPI mini-bar
@@ -174,6 +234,10 @@ export const RegistryExport = ({
           "Hours",
           "Status",
           "Late",
+          "Check-in Location",
+          "Latitude",
+          "Longitude",
+          "Accuracy",
         ];
 
         const pdfData = availableRows.map((r) => {
@@ -200,11 +264,15 @@ export const RegistryExport = ({
             r.hours != null ? `${r.hours.toFixed(2)}h` : "—",
             r.status || "—",
             r.late ? "Yes" : "No",
+            r.locationLabel || "—",
+            r.latitude != null ? r.latitude.toFixed(6) : "—",
+            r.longitude != null ? r.longitude.toFixed(6) : "—",
+            r.accuracyMeters != null ? `${r.accuracyMeters.toFixed(1)}m` : "—",
           ];
         });
 
         autoTable(doc, {
-          startY: 42,
+          startY: 44,
           head: [pdfHeaders],
           body: pdfData,
           theme: "grid",
@@ -306,11 +374,7 @@ export const RegistryExport = ({
         </button>
 
         <div className="hidden">
-          <QRCodeSVG
-            ref={qrRef}
-            value={`https://verify.cymatic.resonance/audit/${rangeFrom?.getTime() || Date.now()}`}
-            size={128}
-          />
+          <QRCodeSVG ref={qrRef} value={verificationUrl || window.location.origin} size={128} />
         </div>
       </div>
     );
@@ -349,7 +413,7 @@ export const RegistryExport = ({
       <div className="hidden">
         <QRCodeSVG
           ref={qrRef}
-          value={`https://verify.cymatic.resonance/audit/${rangeFrom?.getTime() || Date.now()}`}
+          value={verificationUrl || window.location.origin}
           size={128}
         />
       </div>

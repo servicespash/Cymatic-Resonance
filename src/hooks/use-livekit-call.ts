@@ -160,21 +160,52 @@ export function useLiveKitCall(opts: {
   useEffect(() => {
     // Re-sync tracks when call is answered
     if (isCallAnswered) {
-        Object.entries(peerConnections.current).forEach(([userId, pc]) => {
-            const stream = localStreamRef.current;
-            if (stream) {
-                stream.getTracks().forEach((t) => {
-                    const sender = pc.getSenders().find(s => s.track?.kind === t.kind);
-                    if (sender) sender.replaceTrack(t);
-                    else pc.addTrack(t, stream);
-                });
-            }
-        });
+      Object.entries(peerConnections.current).forEach(([, pc]) => {
+        const stream = localStreamRef.current;
+        if (stream) {
+          stream.getTracks().forEach((t) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === t.kind);
+            if (sender) sender.replaceTrack(t);
+            else pc.addTrack(t, stream);
+          });
+        }
+      });
     }
   }, [isCallAnswered]);
 
   const updateRemotes = useCallback(() => {
-    // ... same as before
+    const room = roomRef.current;
+    if (!room) return;
+
+    let peerConnected = false;
+    const newRemotes: Record<string, RemotePeer> = {};
+
+    room.remoteParticipants.forEach((p: RemoteParticipant) => {
+      const tracks: MediaStreamTrack[] = [];
+      const camPub = p.getTrackPublication(Track.Source.Camera);
+      const micPub = p.getTrackPublication(Track.Source.Microphone);
+
+      if (camPub?.track?.mediaStreamTrack && !camPub.isMuted) {
+        tracks.push(camPub.track.mediaStreamTrack);
+      }
+      if (micPub?.track?.mediaStreamTrack && !micPub.isMuted) {
+        tracks.push(micPub.track.mediaStreamTrack);
+      }
+
+      if (p.isActive) {
+        peerConnected = true;
+      }
+
+      newRemotes[p.identity] = {
+        userId: p.identity,
+        stream: tracks.length > 0 ? new MediaStream(tracks) : null,
+        state: "connected",
+        connectionQuality: p.connectionQuality,
+      };
+    });
+
+    setRemotes((prev) => ({ ...prev, ...newRemotes }));
+    if (peerConnected) setIsCallAnswered(true);
   }, []);
 
   useEffect(() => {
@@ -262,6 +293,10 @@ export function useLiveKitCall(opts: {
         updateRemotes();
 
         room.on(RoomEvent.ParticipantConnected, updateRemotes);
+        room.on(RoomEvent.ParticipantActive, () => {
+          setIsCallAnswered(true);
+          updateRemotes();
+        });
         room.on(RoomEvent.ParticipantDisconnected, updateRemotes);
         room.on(RoomEvent.TrackSubscribed, () => {
           updateRemotes();
@@ -341,10 +376,13 @@ export function useLiveKitCall(opts: {
 
     if (roomRef.current && roomRef.current.state === "connected") {
       const room = roomRef.current;
-      // In a real LiveKit implementation, you might need to create a new track
-      // for the new device and swap it. This is a simplified placeholder.
-      await room.localParticipant.setCameraEnabled(false);
-      await room.localParticipant.setCameraEnabled(true);
+      const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      if (publication?.track && "restartTrack" in publication.track) {
+        await publication.track.restartTrack({ facingMode: newMode });
+      } else {
+        await room.localParticipant.setCameraEnabled(false);
+        await room.localParticipant.setCameraEnabled(true);
+      }
     }
   }, [facingMode]);
 

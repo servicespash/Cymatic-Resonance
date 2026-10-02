@@ -1,6 +1,5 @@
-// Signaling via Supabase Realtime Broadcast channels.
-// Each call gets its own channel `call-{callId}`; peers broadcast targeted
-// offers/answers/ICE candidates keyed by the recipient's user_id.
+// Signaling via authenticated Supabase Realtime Broadcast channels.
+// Each call gets its own private channel `call-{callId}`.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -15,39 +14,66 @@ export type SignalPayload =
 export function joinCallChannel(
   callId: string,
   selfId: string,
-  onSignal: (p: SignalPayload) => void,
+  onSignal: (payload: SignalPayload) => void,
 ): {
   channel: RealtimeChannel;
   send: (payload: SignalPayload) => Promise<void>;
   leave: () => Promise<void>;
 } {
   const channel = supabase.channel(`call-${callId}`, {
-    config: { broadcast: { self: false, ack: false }, presence: { key: selfId } },
+    config: {
+      private: true,
+      broadcast: { self: false, ack: true },
+      presence: { key: selfId },
+    },
   });
 
   channel.on("broadcast", { event: "signal" }, ({ payload }) => {
-    const p = payload as SignalPayload;
-    // Drop messages not addressed to us (except hello/bye which are broadcasts)
-    if ("to" in p && p.to !== selfId) return;
-    if (p.from === selfId) return;
-    onSignal(p);
+    const signal = payload as SignalPayload;
+    if ("to" in signal && signal.to !== selfId) return;
+    if (signal.from === selfId) return;
+    onSignal(signal);
   });
 
   channel.subscribe(async (status) => {
-    if (status === "SUBSCRIBED") {
-      await channel.track({ user_id: selfId, online_at: new Date().toISOString() });
-      await channel.send({
+    if (status !== "SUBSCRIBED") {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.error("[WebRTC] Call signaling subscription failed:", status);
+      }
+      return;
+    }
+
+    try {
+      await channel.track({
+        user_id: selfId,
+        online_at: new Date().toISOString(),
+      });
+
+      const sendStatus = await channel.send({
         type: "broadcast",
         event: "signal",
         payload: { type: "hello", from: selfId } as SignalPayload,
       });
+
+      if (sendStatus !== "ok") {
+        console.error("[WebRTC] Failed to announce call presence:", sendStatus);
+      }
+    } catch (error) {
+      console.error("[WebRTC] Failed to initialize call signaling:", error);
     }
   });
 
   return {
     channel,
-    send: async (payload: SignalPayload) => {
-      await channel.send({ type: "broadcast", event: "signal", payload });
+    send: async (payload) => {
+      const status = await channel.send({
+        type: "broadcast",
+        event: "signal",
+        payload,
+      });
+      if (status !== "ok") {
+        throw new Error(`Realtime signaling send failed: ${status}`);
+      }
     },
     leave: async () => {
       try {
@@ -57,7 +83,7 @@ export function joinCallChannel(
           payload: { type: "bye", from: selfId } as SignalPayload,
         });
       } catch (error) {
-        console.error("Failed to send leave signal:", error);
+        console.error("[WebRTC] Failed to send leave signal:", error);
       }
       await supabase.removeChannel(channel);
     },
