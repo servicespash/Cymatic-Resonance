@@ -2194,10 +2194,6 @@ export type Database = {
           trial_expires_at: string;
         }[];
       };
-      get_call_participant_limit: {
-        Args: { _organization_id: string; _mode: string };
-        Returns: number;
-      };
       settle_verified_payment: {
         Args: {
           p_organization_id: string;
