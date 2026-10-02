@@ -141,8 +141,10 @@ function AuthPage() {
     setBusy(true);
     console.log("[auth.tsx] handleSignIn initiated");
     try {
-      const email = String(fd.get("email")).trim();
-      const password = String(fd.get("password"));
+      const email = String(fd.get("email") || "")
+        .trim()
+        .toLowerCase();
+      const password = String(fd.get("password") || "").trim();
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,

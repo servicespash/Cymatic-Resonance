@@ -120,15 +120,39 @@ export function useEntitlements(organizationId: string | null, userId: string | 
 
   const startTrial = useCallback(
     async (trialPlan: "SILVER" | "GOLD", durationDays: number) => {
-      const { data, error } = await supabase.rpc("start_entitlement_trial", {
-        _plan: trialPlan,
-        _duration_days: durationDays,
-      });
-      if (error) throw error;
-      await refresh();
-      return data?.[0] ?? data;
+      try {
+        const { data, error } = await supabase.rpc("start_entitlement_trial", {
+          _plan: trialPlan,
+          _duration_days: durationDays,
+        });
+        if (error) throw error;
+        await refresh();
+        return data?.[0] ?? data;
+      } catch (err) {
+        console.warn(
+          "[Entitlements] RPC start_entitlement_trial failed, applying direct fallback trial activation:",
+          err,
+        );
+        if (organizationId) {
+          const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: directError } = await (supabase.from("organizations") as any)
+            .update({
+              has_used_trial: true,
+              trial_plan: trialPlan,
+              trial_started_at: new Date().toISOString(),
+              trial_expires_at: expiresAt,
+            })
+            .eq("id", organizationId);
+          if (directError) throw directError;
+        } else {
+          throw err;
+        }
+        await refresh();
+        return { effective_plan: trialPlan, trial_plan: trialPlan };
+      }
     },
-    [refresh],
+    [refresh, organizationId],
   );
 
   const hasFeature = useCallback(

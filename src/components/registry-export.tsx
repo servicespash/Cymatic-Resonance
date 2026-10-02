@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import { FileSpreadsheet, FileText, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import "jspdf-autotable";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 import { ExportRow, formatTimeSafe, formatDateSafe } from "@/lib/export-utils";
@@ -301,7 +301,8 @@ export const RegistryExport = ({
           ];
         });
 
-        autoTable(doc, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (doc as any).autoTable({
           startY: 44,
           head: [pdfHeaders],
           body: pdfData,

@@ -177,7 +177,7 @@ function CommsPage() {
         supabase.from("message_reads").select("channel_id, last_read_at").eq("user_id", user.id),
         supabase
           .from("messages")
-          .select("id, channel_id, sender_id, body, created_at, profiles(full_name)")
+          .select("id, channel_id, sender_id, body, created_at, profiles!sender_id(full_name)")
           .eq("org_id", p.org_id)
           .order("created_at", { ascending: false }),
       ]);

@@ -33,7 +33,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ channelId, orgId, user }) 
   const fetchMessages = useCallback(async () => {
     const { data, error } = await supabase
       .from("messages")
-      .select("id, channel_id, sender_id, body, created_at, profiles(full_name)")
+      .select("id, channel_id, sender_id, body, created_at, profiles!sender_id(full_name)")
       .eq("channel_id", channelId)
       .order("created_at", { ascending: true });
 

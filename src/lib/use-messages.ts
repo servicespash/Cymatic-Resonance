@@ -26,10 +26,24 @@ export const useMessages = (channelId: string | null) => {
         },
         (payload) => {
           const newMsg = payload.new as Msg;
-          queryClient.setQueryData(["messages", channelId], (old: Msg[] | undefined) => {
-            if (!old) return [newMsg];
-            if (old.some((m) => m.id === newMsg.id)) return old;
-            return [...old, newMsg];
+          void context.ensureSender(newMsg.sender_id).then((sender) => {
+            const hydrated = {
+              ...newMsg,
+              profiles: sender
+                ? {
+                    full_name: sender.full_name || "Member",
+                    avatar_url: sender.avatar_url || "",
+                    role: sender.role || "",
+                  }
+                : undefined,
+            };
+            queryClient.setQueryData(["messages", channelId], (old: Msg[] | undefined) => {
+              if (!old) return [hydrated];
+              if (old.some((m) => m.id === hydrated.id)) {
+                return old.map((m) => (m.id === hydrated.id ? hydrated : m));
+              }
+              return [...old, hydrated];
+            });
           });
         },
       )
@@ -69,6 +83,7 @@ export const useMessages = (channelId: string | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, queryClient, orgId]);
 
   return useQuery({
@@ -80,7 +95,7 @@ export const useMessages = (channelId: string | null) => {
         .select(
           `
           *,
-          profiles:sender_id(id, full_name, avatar_url, role)
+          profiles!sender_id(id, full_name, avatar_url, role)
         `,
         )
         .eq("channel_id", channelId)

@@ -365,6 +365,8 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
     }
   }, [location, radius]);
 
+  // const prevLocationRef = useRef<LocationData | null>(null);
+
   useEffect(() => {
     if (isLeafletLatLng(position) && onChange) {
       const key = `${position.lat.toFixed(6)},${position.lng.toFixed(6)},${Math.round(radius)}`;
@@ -382,7 +384,7 @@ export function AdminMapMatrix({ location, onChange, readOnly = false }: AdminMa
         onChange({ lat: position.lat, lng: position.lng, radius });
       }
     }
-  }, [position, radius, location, onChange]);
+  }, [position, radius, onChange, location]);
 
   const toggleTracking = () => {
     setIsTracking((prev) => !prev);

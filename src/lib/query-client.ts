@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { readCache, writeCache } from "./offline-cache";
 
 const PERSIST_KEY = "react-query";
-const PERSIST_PREFIXES = ["tasks", "call-history"];
+const PERSIST_PREFIXES = ["tasks", "call-history", "messages", "channels"];
 
 type PersistedEntry = { key: unknown[]; data: unknown; at: number };
 

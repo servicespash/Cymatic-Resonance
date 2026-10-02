@@ -21,8 +21,8 @@ const plugins: PluginOption[] = [
       icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml" }],
     },
     workbox: {
-      // Exclude html from precaching to ensure navigateFallback always fetches the latest index.html
-      globPatterns: ["**/*.{js,css,png,svg}"],
+      // Include html in precaching to satisfy Workbox requirements and ensure offline reliability
+      globPatterns: ["**/*.{js,css,png,svg,html}"],
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       skipWaiting: true,
       clientsClaim: true,

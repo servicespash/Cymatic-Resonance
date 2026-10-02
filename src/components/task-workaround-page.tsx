@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { UserOptions } from "jspdf-autotable";
 import { useDropzone } from "react-dropzone";
 import { Database } from "@/integrations/supabase/types";
 
@@ -175,7 +174,7 @@ export const TaskWorkaroundPage = ({ taskId }: { taskId: string }) => {
     doc.text(`Status: ${task.status}`, 10, 20);
     doc.text(`Notes:`, 10, 30);
     doc.text(research, 10, 40);
-    (doc as unknown as { autoTable: (options: UserOptions) => void }).autoTable({
+    (doc as any).autoTable({
       head: [["File Name"]],
       body: attachments.map((a) => [a.file_name]),
       startY: 70,

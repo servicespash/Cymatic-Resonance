@@ -18,7 +18,12 @@ export type Msg = {
   body: string;
   created_at: string;
 };
-export type Sender = { id: string; full_name: string | null; role: string | null };
+export type Sender = {
+  id: string;
+  full_name: string | null;
+  role: string | null;
+  avatar_url?: string | null;
+};
 export type Thread = {
   id: string;
   channel_id: string;

@@ -56,8 +56,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   const isMe = m.sender_id === user?.id;
 
-  // Use hydrated profile info
-  const senderName = m.profiles?.full_name || "Cymatic Member";
+  // Use hydrated profile info or fallback cleanly
+  const senderName =
+    m.profiles?.full_name ||
+    (isMe ? "You" : `Member ${m.sender_id ? m.sender_id.slice(0, 6) : ""}`);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 

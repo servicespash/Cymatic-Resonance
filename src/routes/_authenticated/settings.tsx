@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { CymaticWave } from "@/components/cymatic-wave";
@@ -27,9 +27,9 @@ import { EntitlementUpgradeCard } from "@/components/entitlement-upgrade-card";
 import { EntitlementTrialCard } from "@/components/entitlement-trial-card";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
-type OrgLocation = { lat: number; lng: number; radius: number };
+type LocationData = { lat: number; lng: number; radius: number };
 
-function parseOrgType(raw: string): { type: string; location: OrgLocation | null } {
+function parseOrgType(raw: string): { type: string; location: LocationData | null } {
   try {
     if (raw.startsWith("{")) {
       const parsed = JSON.parse(raw);
@@ -41,7 +41,7 @@ function parseOrgType(raw: string): { type: string; location: OrgLocation | null
   return { type: raw || "generic", location: null };
 }
 
-function stringifyOrgType(type: string, location: OrgLocation | null): string {
+function stringifyOrgType(type: string, location: LocationData | null): string {
   if (!location) return type;
   return JSON.stringify({ type, location });
 }
@@ -78,11 +78,16 @@ function SettingsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "profile" | "workspace" | "team" | "entitlements" | "notifications" | "map"
+  >("profile");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [confirmName, setConfirmName] = useState("");
-  const entitlements = useEntitlements(profile?.org_id ?? null, user?.id ?? null);
+  const orgId = useMemo(() => profile?.org_id ?? null, [profile?.org_id]);
+  const uid = useMemo(() => user?.id ?? null, [user?.id]);
+  const entitlements = useEntitlements(orgId, uid);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -111,8 +116,12 @@ function SettingsPage() {
     setLoading(false);
   }, [user]);
 
+  const initialized = useRef(false);
   useEffect(() => {
-    refresh();
+    if (!initialized.current) {
+      refresh();
+      initialized.current = true;
+    }
   }, [refresh]);
 
   const saveProfile = async (e: React.FormEvent) => {
@@ -196,15 +205,18 @@ function SettingsPage() {
     toast.success("Access code rotated");
   };
 
-  const handleMapChange = useCallback((loc: OrgLocation) => {
-    setOrg((prevOrg) => {
-      if (!prevOrg) return prevOrg;
-      const parsedType = parseOrgType(prevOrg.org_type).type;
-      const newType = stringifyOrgType(parsedType, loc);
-      if (prevOrg.org_type === newType) return prevOrg;
-      return { ...prevOrg, org_type: newType };
-    });
-  }, []);
+  const handleMapChange = useCallback(
+    (loc: LocationData) => {
+      setOrg((prevOrg) => {
+        if (!prevOrg) return prevOrg;
+        const parsedType = parseOrgType(prevOrg.org_type);
+        const newType = stringifyOrgType(parsedType.type, loc);
+        if (prevOrg.org_type === newType) return prevOrg;
+        return { ...prevOrg, org_type: newType };
+      });
+    },
+    [],
+  );
 
   const setRole = async (uid: string, role: "admin" | "member") => {
     const { error } = await supabase.rpc("set_member_role", { _user: uid, _role: role });
@@ -259,334 +271,373 @@ function SettingsPage() {
   const isAdmin = profile.role === "admin";
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-4">
-      {/* Workspace card */}
-      {org && (
-        <section className="glass-strong rounded-2xl p-6 resonance-glow">
-          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-            Workspace
-          </div>
-          <h2 className="mt-1 font-display text-2xl font-bold">{org.name}</h2>
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-4 pb-16">
+      <div>
+        <h1 className="font-display text-2xl font-bold">Settings & Configuration</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage your profile, workspace, team, and plans.
+        </p>
+      </div>
 
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                Access code
-              </div>
-              <div className="mt-1 font-mono text-xl tracking-[0.3em] text-gradient">
-                {org.access_code}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={copyCode}
-                className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs transition hover:bg-white/10"
-              >
-                <Copy className="size-3.5" /> Copy
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={rotate}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs transition hover:bg-white/10"
-                >
-                  <RefreshCw className="size-3.5" /> Rotate
-                </button>
-              )}
-            </div>
-          </div>
-
-          {isAdmin && (
-            <form onSubmit={saveOrg} className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Field
-                label="Workspace name"
-                value={org.name}
-                onChange={(v) => setOrg({ ...org, name: v })}
-              />
-              <Field
-                label="Type"
-                value={orgInfo.type}
-                onChange={(v) =>
-                  setOrg({
-                    ...org,
-                    org_type: stringifyOrgType(v, orgInfo.location),
-                  })
-                }
-              />
-              <Field
-                label="Day-start cutoff"
-                value={org.day_start_cutoff?.slice(0, 5) ?? "09:00"}
-                onChange={(v) => setOrg({ ...org, day_start_cutoff: v })}
-              />
-              <Field
-                label="Timezone"
-                value={org.timezone}
-                onChange={(v) => setOrg({ ...org, timezone: v })}
-              />
-
-              <div className="sm:col-span-2 mt-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
-                  Station Boundary (Location Verification)
-                </div>
-                <AdminMapMatrix
-                  location={orgInfo.location}
-                  onChange={isAdmin ? handleMapChange : undefined}
-                  readOnly={!isAdmin}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <button
-                  disabled={busy}
-                  className="w-full rounded-xl bg-frequency px-4 py-2.5 text-sm font-semibold text-primary-foreground resonance-glow disabled:opacity-50"
-                >
-                  {busy ? "Saving…" : "Save workspace"}
-                </button>
-              </div>
-            </form>
-          )}
-        </section>
-      )}
-
-      {/* Entitlements */}
-      {org && (
-        <>
-          <EntitlementTrialCard
-            hasUsedTrial={entitlements.trial.hasUsedTrial}
-            activePlan={entitlements.plan}
-            trialPlan={entitlements.trial.plan}
-            daysRemaining={entitlements.trial.daysRemaining}
-            isAdmin={isAdmin}
-            startTrial={entitlements.startTrial}
-          />
-          <EntitlementUpgradeCard
-            organizationId={org.id}
-            currentPlan={entitlements.basePlan}
-            isAdmin={isAdmin}
-            requestedPlan={entitlements.pendingRequest?.requested_plan ?? null}
-            onRequested={entitlements.refresh}
-          />
-          <EntitlementMatrix currentPlan={entitlements.plan} />
-        </>
-      )}
-
-      {isAdmin && entitlements.pendingRequests.length > 0 && (
-        <section className="glass rounded-2xl p-6">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-              Upgrade requests
-            </p>
-            <h3 className="mt-1 font-display text-lg font-semibold">Pending plan changes</h3>
-          </div>
-          <div className="mt-4 space-y-3">
-            {entitlements.pendingRequests.map((request) => (
-              <div
-                key={request.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <div className="text-sm font-medium">
-                    {request.requested_plan === "SILVER"
-                      ? "Silver"
-                      : request.requested_plan === "GOLD"
-                        ? "Gold"
-                        : "Premium / Custom"}{" "}
-                    plan
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Requested {new Date(request.created_at).toLocaleString()}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => resolveUpgradeRequest(request.id, false)}
-                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
-                  >
-                    Decline
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => resolveUpgradeRequest(request.id, true)}
-                    className="rounded-lg bg-frequency px-3 py-2 text-xs font-semibold text-primary-foreground resonance-glow"
-                  >
-                    Approve
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Brand */}
-      {isAdmin && org && (
-        <BrandPanel
-          orgId={org.id}
-          logoUrl={org.logo_url}
-          accentColor={org.accent_color}
-          onChange={(patch) => setOrg({ ...org, ...patch })}
-        />
-      )}
-
-      {/* Invites */}
-      {isAdmin && <InvitePanel />}
-
-      {/* Members */}
-      {isAdmin && (
-        <section className="glass rounded-2xl p-6">
-          <h3 className="font-display text-lg font-semibold">Members</h3>
-          <div className="mt-3 divide-y divide-white/5">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 place-items-center rounded-lg bg-frequency/15 font-mono text-xs text-accent">
-                    {(m.full_name ?? "?")
-                      .split(" ")
-                      .map((x) => x[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase()}
-                  </span>
-                  <div>
-                    <div className="text-sm font-medium">{m.full_name ?? "—"}</div>
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {m.role} {m.position ? `· ${m.position}` : ""}
-                    </div>
-                  </div>
-                </div>
-                {m.id !== user?.id && (
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setRole(m.id, m.role === "admin" ? "member" : "admin")}
-                      className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs transition hover:bg-white/10"
-                    >
-                      {m.role === "admin" ? (
-                        <UserIcon className="size-3" />
-                      ) : (
-                        <Crown className="size-3" />
-                      )}
-                      {m.role === "admin" ? "Demote" : "Promote"}
-                    </button>
-                    <button
-                      onClick={() => remove(m.id)}
-                      className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-red-300 transition hover:bg-red-500/10"
-                    >
-                      <UserMinus className="size-3" /> Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Profile */}
-      <section className="glass rounded-2xl p-6">
-        <h3 className="font-display text-lg font-semibold">Profile</h3>
-        <form onSubmit={saveProfile} className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Field
-            label="Full name"
-            value={profile.full_name}
-            onChange={(v) => setProfile({ ...profile, full_name: v })}
-          />
-          <Field
-            label="Position"
-            value={profile.position}
-            onChange={(v) => setProfile({ ...profile, position: v })}
-          />
-          <Field
-            label="Phone"
-            value={profile.phone}
-            onChange={(v) => setProfile({ ...profile, phone: v })}
-          />
-          <Field
-            label="Category"
-            value={profile.category}
-            onChange={(v) => setProfile({ ...profile, category: v })}
-          />
-          <div className="sm:col-span-2">
-            <button
-              disabled={busy}
-              className="w-full rounded-xl bg-frequency px-4 py-2.5 text-sm font-semibold text-primary-foreground resonance-glow disabled:opacity-50"
-            >
-              {busy ? "Saving…" : "Save profile"}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* Self-Rush Portal */}
-      <section className="glass rounded-2xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-lg font-semibold">Self-Rush Portal</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Generate a unique URL to safely check-in on public or shared terminals.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-col sm:flex-row gap-3">
-          <input
-            readOnly
-            value={`${window.location.origin}/self-rush?code=${org?.access_code || ""}`}
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none font-mono text-muted-foreground"
-          />
+      <div className="flex overflow-x-auto gap-2 border-b border-white/10 pb-2">
+        {[
+          { id: "profile", label: "Profile" },
+          { id: "workspace", label: "Workspace" },
+          { id: "team", label: "Team & Invites" },
+          { id: "entitlements", label: "Plans & Trial" },
+          { id: "notifications", label: "Notifications" },
+          { id: "map", label: "Location & Map" },
+        ].map((tab) => (
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/self-rush?code=${org?.access_code || ""}`,
-              );
-              toast.success("Self-Rush link copied");
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent/20 border border-accent/40 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/30 transition-colors"
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab.id
+                ? "bg-frequency text-primary-foreground resonance-glow"
+                : "text-muted-foreground hover:bg-white/5 hover:text-white"
+            }`}
           >
-            <Copy className="size-4" /> Copy Link
+            {tab.label}
           </button>
-        </div>
-      </section>
+        ))}
+      </div>
 
-      {/* Notification Preferences */}
-      <NotificationPreferences />
+      <div className="space-y-6">
+        {activeTab === "profile" && (
+          <>
+            <section className="glass rounded-2xl p-6">
+              <h3 className="font-display text-lg font-semibold">Profile</h3>
+              <form onSubmit={saveProfile} className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Field
+                  label="Full name"
+                  value={profile.full_name}
+                  onChange={(v) => setProfile({ ...profile, full_name: v })}
+                />
+                <Field
+                  label="Position"
+                  value={profile.position}
+                  onChange={(v) => setProfile({ ...profile, position: v })}
+                />
+                <Field
+                  label="Phone"
+                  value={profile.phone}
+                  onChange={(v) => setProfile({ ...profile, phone: v })}
+                />
+                <Field
+                  label="Category"
+                  value={profile.category}
+                  onChange={(v) => setProfile({ ...profile, category: v })}
+                />
+                <div className="sm:col-span-2">
+                  <button
+                    disabled={busy}
+                    className="w-full rounded-xl bg-frequency px-4 py-2.5 text-sm font-semibold text-primary-foreground resonance-glow disabled:opacity-50"
+                  >
+                    {busy ? "Saving…" : "Save profile"}
+                  </button>
+                </div>
+              </form>
+            </section>
 
-      {/* Danger zone */}
-      {isAdmin && org && (
-        <section className="glass rounded-2xl border border-red-500/20 p-6">
-          <h3 className="font-display text-lg font-semibold text-red-400">Danger Zone</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Delete this organization and all its data permanently.
-          </p>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="mt-4 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20">
-                Delete organization
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="bg-background/95 backdrop-blur-xl border-white/10">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. Type{" "}
-                  <span className="font-mono text-foreground font-bold">{org.name}</span> to
-                  confirm.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <input
-                value={confirmName}
-                onChange={(e) => setConfirmName(e.target.value)}
-                placeholder={org.name}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-red-500/40"
+            <section className="glass rounded-2xl p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-lg font-semibold">Self-Rush Portal</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Generate a unique URL to safely check-in on public or shared terminals.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                <input
+                  readOnly
+                  value={`${window.location.origin}/self-rush?code=${org?.access_code || ""}`}
+                  className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none font-mono text-muted-foreground"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `${window.location.origin}/self-rush?code=${org?.access_code || ""}`,
+                    );
+                    toast.success("Self-Rush link copied");
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent/25 border border-accent/40 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/30 transition-colors"
+                >
+                  <Copy className="size-4" /> Copy Link
+                </button>
+              </div>
+            </section>
+
+            {isAdmin && org && (
+              <section className="glass rounded-2xl border border-red-500/20 p-6">
+                <h3 className="font-display text-lg font-semibold text-red-400">Danger Zone</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Delete this organization and all its data permanently.
+                </p>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="mt-4 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20">
+                      Delete organization
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-background/95 backdrop-blur-xl border-white/10">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. Type{" "}
+                        <span className="font-mono text-foreground font-bold">{org.name}</span> to
+                        confirm.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <input
+                      value={confirmName}
+                      onChange={(e) => setConfirmName(e.target.value)}
+                      placeholder={org.name}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-red-500/40"
+                    />
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={deleteOrg}
+                        className="bg-red-500/80 hover:bg-red-500"
+                      >
+                        Delete forever
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </section>
+            )}
+          </>
+        )}
+
+        {activeTab === "workspace" && org && (
+          <>
+            <section className="glass-strong rounded-2xl p-6 resonance-glow">
+              <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Workspace
+              </div>
+              <h2 className="mt-1 font-display text-2xl font-bold">{org.name}</h2>
+
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Access code
+                  </div>
+                  <div className="mt-1 font-mono text-xl tracking-[0.3em] text-gradient">
+                    {org.access_code}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyCode}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs transition hover:bg-white/10"
+                  >
+                    <Copy className="size-3.5" /> Copy
+                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={rotate}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs transition hover:bg-white/10"
+                    >
+                      <RefreshCw className="size-3.5" /> Rotate
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {isAdmin && (
+                <form onSubmit={saveOrg} className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <Field
+                    label="Workspace name"
+                    value={org.name}
+                    onChange={(v) => setOrg({ ...org, name: v })}
+                  />
+                  <Field
+                    label="Type"
+                    value={orgInfo.type}
+                    onChange={(v) =>
+                      setOrg({
+                        ...org,
+                        org_type: stringifyOrgType(v, orgInfo.location),
+                      })
+                    }
+                  />
+                  <Field
+                    label="Day-start cutoff"
+                    value={org.day_start_cutoff?.slice(0, 5) ?? "09:00"}
+                    onChange={(v) => setOrg({ ...org, day_start_cutoff: v })}
+                  />
+                  <Field
+                    label="Timezone"
+                    value={org.timezone}
+                    onChange={(v) => setOrg({ ...org, timezone: v })}
+                  />
+
+                  <div className="sm:col-span-2">
+                    <button
+                      disabled={busy}
+                      className="w-full rounded-xl bg-frequency px-4 py-2.5 text-sm font-semibold text-primary-foreground resonance-glow disabled:opacity-50"
+                    >
+                      {busy ? "Saving…" : "Save workspace"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
+
+            {isAdmin && org && (
+              <BrandPanel
+                orgId={org.id}
+                logoUrl={org.logo_url}
+                accentColor={org.accent_color}
+                onChange={(patch) => setOrg({ ...org, ...patch })}
               />
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={deleteOrg} className="bg-red-500/80 hover:bg-red-500">
-                  Delete forever
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </section>
-      )}
+            )}
+          </>
+        )}
+
+        {activeTab === "team" && isAdmin && org && (
+          <>
+            <InvitePanel />
+            <section className="glass rounded-2xl p-6">
+              <h3 className="font-display text-lg font-semibold">Members</h3>
+              <div className="mt-3 divide-y divide-white/5">
+                {members.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="grid size-9 place-items-center rounded-lg bg-frequency/15 font-mono text-xs text-accent">
+                        {(m.full_name ?? "?")
+                          .split(" ")
+                          .map((x) => x[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()}
+                      </span>
+                      <div>
+                        <div className="text-sm font-medium">{m.full_name ?? "—"}</div>
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                          {m.role} {m.position ? `· ${m.position}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                    {m.id !== user?.id && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setRole(m.id, m.role === "admin" ? "member" : "admin")}
+                          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs transition hover:bg-white/10"
+                        >
+                          {m.role === "admin" ? (
+                            <UserIcon className="size-3" />
+                          ) : (
+                            <Crown className="size-3" />
+                          )}
+                          {m.role === "admin" ? "Demote" : "Promote"}
+                        </button>
+                        <button
+                          onClick={() => remove(m.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-red-300 transition hover:bg-red-500/10"
+                        >
+                          <UserMinus className="size-3" /> Remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        {activeTab === "entitlements" && org && (
+          <>
+            <EntitlementTrialCard
+              hasUsedTrial={entitlements.trial.hasUsedTrial}
+              activePlan={entitlements.plan}
+              trialPlan={entitlements.trial.plan}
+              daysRemaining={entitlements.trial.daysRemaining}
+              isAdmin={isAdmin}
+              startTrial={entitlements.startTrial}
+            />
+            <EntitlementUpgradeCard
+              organizationId={org.id}
+              currentPlan={entitlements.basePlan}
+              isAdmin={isAdmin}
+              requestedPlan={entitlements.pendingRequest?.requested_plan ?? null}
+              onRequested={entitlements.refresh}
+            />
+            <EntitlementMatrix currentPlan={entitlements.plan} />
+
+            {isAdmin && entitlements.pendingRequests.length > 0 && (
+              <section className="glass rounded-2xl p-6">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+                    Upgrade requests
+                  </p>
+                  <h3 className="mt-1 font-display text-lg font-semibold">Pending plan changes</h3>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {entitlements.pendingRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <div className="text-sm font-medium">
+                          {request.requested_plan === "SILVER"
+                            ? "Silver"
+                            : request.requested_plan === "GOLD"
+                              ? "Gold"
+                              : "Premium / Custom"}{" "}
+                          plan
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Requested {new Date(request.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => resolveUpgradeRequest(request.id, false)}
+                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
+                        >
+                          Decline
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resolveUpgradeRequest(request.id, true)}
+                          className="rounded-lg bg-frequency px-3 py-2 text-xs font-semibold text-primary-foreground resonance-glow"
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {activeTab === "notifications" && <NotificationPreferences />}
+
+        {activeTab === "map" && org && (
+          <section className="glass rounded-2xl p-6">
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
+              Station Boundary (Location Verification)
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure the geographical boundary and geofence radius for attendance check-ins and
+              live map tracking.
+            </p>
+            <AdminMapMatrix
+              location={orgInfo.location}
+              onChange={isAdmin ? handleMapChange : undefined}
+              readOnly={!isAdmin}
+            />
+          </section>
+        )}
+      </div>
     </div>
   );
 }
