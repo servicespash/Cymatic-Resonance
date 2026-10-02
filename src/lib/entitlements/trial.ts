@@ -12,7 +12,7 @@ export interface TrialState {
 
 export function normalizeTrialDays(days: number): number {
   if (!Number.isInteger(days) || days < 1 || days > MAX_TRIAL_DAYS) {
-    throw new Error(\`Trial duration must be an integer from 1 to \${MAX_TRIAL_DAYS} days\`);
+    throw new Error(`Trial duration must be an integer from 1 to ${MAX_TRIAL_DAYS} days`);
   }
   return days;
 }
