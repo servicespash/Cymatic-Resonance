@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import {
   ENTITLEMENT_FEATURES,
+  isPaidPlan,
   type EntitlementFeature,
 } from "@/lib/entitlements/catalog";
-import type { EntitlementPlan } from "@/lib/domain/contracts";
 import type { PaymentRequest, PaymentInitiation } from "./contracts";
 import { createPaymentGateway } from "./provider";
 
@@ -33,10 +33,6 @@ export async function createPaymentIntent(
 
   if (definition.availability !== "revenue_required") {
     throw new Error("This feature is not currently billable");
-  }
-
-  if (request.targetPlan === "FREE") {
-    throw new Error("Free plan cannot create a paid payment intent");
   }
 
   const supabase = adminClient();
@@ -84,9 +80,6 @@ export async function createPaymentIntent(
   }
 }
 
-export function isPaidPlan(plan: EntitlementPlan): boolean {
-  return plan === "PAID" || plan === "CUSTOM_INSTITUTION";
-}
 
 export function isRevenueGatedFeature(
   featureKey: EntitlementFeature,
