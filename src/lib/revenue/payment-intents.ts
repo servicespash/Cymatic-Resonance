@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import {
   ENTITLEMENT_FEATURES,
-  isPaidPlan,
   type EntitlementFeature,
 } from "@/lib/entitlements/catalog";
 import type { PaymentRequest, PaymentInitiation } from "./contracts";
@@ -79,7 +78,6 @@ export async function createPaymentIntent(
     throw error;
   }
 }
-
 
 export function isRevenueGatedFeature(
   featureKey: EntitlementFeature,
