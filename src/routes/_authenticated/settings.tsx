@@ -205,19 +205,15 @@ function SettingsPage() {
     toast.success("Access code rotated");
   };
 
-  const handleMapChange = useCallback(
-    (loc: LocationData) => {
-      setOrg((prevOrg) => {
-        if (!prevOrg) return prevOrg;
-        const parsedType = parseOrgType(prevOrg.org_type);
-        const newType = stringifyOrgType(parsedType.type, loc);
-        if (prevOrg.org_type === newType) return prevOrg;
-        return { ...prevOrg, org_type: newType };
-      });
-    },
-    [],
-  );
-
+  const handleMapChange = useCallback((loc: LocationData) => {
+    setOrg((prevOrg) => {
+      if (!prevOrg) return prevOrg;
+      const parsedType = parseOrgType(prevOrg.org_type);
+      const newType = stringifyOrgType(parsedType.type, loc);
+      if (prevOrg.org_type === newType) return prevOrg;
+      return { ...prevOrg, org_type: newType };
+    });
+  }, []);
   const setRole = async (uid: string, role: "admin" | "member") => {
     const { error } = await supabase.rpc("set_member_role", { _user: uid, _role: role });
     if (error) return toast.error(error.message);
