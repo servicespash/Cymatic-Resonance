@@ -30,7 +30,9 @@ export function EntitlementTrialCard({
           <Clock3 className="mt-0.5 size-5 text-muted-foreground" />
           <div>
             <h3 className="font-display text-lg font-semibold">
-              {trialPlan && activePlan === trialPlan ? `${trialPlan} trial active` : "Trial already used"}
+              {trialPlan && activePlan === trialPlan
+                ? `${trialPlan} trial active`
+                : "Trial already used"}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {trialPlan && activePlan === trialPlan
@@ -62,17 +64,24 @@ export function EntitlementTrialCard({
       <div className="flex items-start gap-3">
         <Sparkles className="mt-0.5 size-5 text-accent" />
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">One-time trial</p>
-          <h3 className="mt-1 font-display text-lg font-semibold">Test Silver or Gold before subscribing</h3>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+            One-time trial
+          </p>
+          <h3 className="mt-1 font-display text-lg font-semibold">
+            Test Silver or Gold before subscribing
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            The trial is redeemed once per institution. Expiry is determined by server time and automatically returns authorization to Free.
+            The trial is redeemed once per institution. Expiry is determined by server time and
+            automatically returns authorization to Free.
           </p>
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <label className="space-y-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Trial tier</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Trial tier
+          </span>
           <select
             value={selectedPlan}
             onChange={(event) => setSelectedPlan(event.target.value as "SILVER" | "GOLD")}
@@ -84,7 +93,9 @@ export function EntitlementTrialCard({
         </label>
 
         <label className="space-y-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Duration</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Duration
+          </span>
           <select
             value={duration}
             onChange={(event) => setDuration(Number(event.target.value))}

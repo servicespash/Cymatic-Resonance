@@ -219,7 +219,7 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
               />
             </Field>
             <EntitlementPlanSelector value={requestedPlan} onChange={setRequestedPlan} />
-          <button
+            <button
               disabled={busy}
               className="w-full rounded-xl bg-frequency px-4 py-3 text-sm font-semibold text-primary-foreground resonance-glow disabled:opacity-50"
             >

@@ -15,20 +15,20 @@ The current production database already provides organizations, profiles, channe
 
 ## Required normalized concepts
 
-| Concept | Authoritative source | Current status |
-|---|---|---|
-| Organization | PostgreSQL + Auth | Existing |
-| Membership | PostgreSQL | Existing, but represented partly through profiles/groups |
-| Entitlements | PostgreSQL/server authorization | Implemented; runtime enforcement pending |
-| Room | PostgreSQL | Implemented; runtime adapter pending |
-| Room membership | PostgreSQL | Implemented; runtime adapter pending |
-| Presence | Supabase Realtime | Contract defined; intentionally ephemeral, no durable presence table |
-| Meeting | PostgreSQL + LiveKit | Implemented; runtime lifecycle pending |
-| Call | PostgreSQL + LiveKit | Existing base; state model must be hardened |
-| Attendance session | PostgreSQL | Implemented; session and participant state now separated |
-| Attendance event | PostgreSQL append-only evidence | Implemented; transition enforcement pending |
-| Location evidence | PostgreSQL | Implemented; validation pipeline pending |
-| Notification delivery | Server-side lifecycle | Existing base; delivery architecture incomplete |
+| Concept               | Authoritative source            | Current status                                                       |
+| --------------------- | ------------------------------- | -------------------------------------------------------------------- |
+| Organization          | PostgreSQL + Auth               | Existing                                                             |
+| Membership            | PostgreSQL                      | Existing, but represented partly through profiles/groups             |
+| Entitlements          | PostgreSQL/server authorization | Implemented; runtime enforcement pending                             |
+| Room                  | PostgreSQL                      | Implemented; runtime adapter pending                                 |
+| Room membership       | PostgreSQL                      | Implemented; runtime adapter pending                                 |
+| Presence              | Supabase Realtime               | Contract defined; intentionally ephemeral, no durable presence table |
+| Meeting               | PostgreSQL + LiveKit            | Implemented; runtime lifecycle pending                               |
+| Call                  | PostgreSQL + LiveKit            | Existing base; state model must be hardened                          |
+| Attendance session    | PostgreSQL                      | Implemented; session and participant state now separated             |
+| Attendance event      | PostgreSQL append-only evidence | Implemented; transition enforcement pending                          |
+| Location evidence     | PostgreSQL                      | Implemented; validation pipeline pending                             |
+| Notification delivery | Server-side lifecycle           | Existing base; delivery architecture incomplete                      |
 
 ## Non-negotiable boundaries
 

@@ -87,8 +87,8 @@ function ExploreResonancePage() {
           <p className="mt-4 leading-8 text-muted-foreground">
             Authentication establishes identity. Organization membership establishes scope.
             Entitlements establish capability. Server RPCs establish authority. PostgreSQL stores
-            truth. Realtime projects state. The interface renders it. No single UI component gets
-            to overrule the chain.
+            truth. Realtime projects state. The interface renders it. No single UI component gets to
+            overrule the chain.
           </p>
         </div>
       </section>

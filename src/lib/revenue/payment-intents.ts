@@ -1,8 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import {
-  ENTITLEMENT_FEATURES,
-  type EntitlementFeature,
-} from "@/lib/entitlements/catalog";
+import { ENTITLEMENT_FEATURES, type EntitlementFeature } from "@/lib/entitlements/catalog";
 import type { PaymentRequest, PaymentInitiation } from "./contracts";
 import { createPaymentGateway } from "./provider";
 
@@ -19,12 +16,8 @@ function adminClient() {
   });
 }
 
-export async function createPaymentIntent(
-  request: PaymentRequest,
-): Promise<PaymentInitiation> {
-  const definition = ENTITLEMENT_FEATURES.find(
-    (feature) => feature.key === request.featureKey,
-  );
+export async function createPaymentIntent(request: PaymentRequest): Promise<PaymentInitiation> {
+  const definition = ENTITLEMENT_FEATURES.find((feature) => feature.key === request.featureKey);
 
   if (!definition) {
     throw new Error("Unknown entitlement feature");
@@ -36,18 +29,16 @@ export async function createPaymentIntent(
 
   const supabase = adminClient();
 
-  const { error: insertError } = await supabase
-    .from("payment_intents")
-    .insert({
-      organization_id: request.tenantId,
-      provider: "FLUTTERWAVE",
-      transaction_reference: request.txRef,
-      feature_key: request.featureKey,
-      target_plan: request.targetPlan,
-      currency: request.currency,
-      amount_minor: Number(request.amountMinor),
-      status: "PENDING",
-    });
+  const { error: insertError } = await supabase.from("payment_intents").insert({
+    organization_id: request.tenantId,
+    provider: "FLUTTERWAVE",
+    transaction_reference: request.txRef,
+    feature_key: request.featureKey,
+    target_plan: request.targetPlan,
+    currency: request.currency,
+    amount_minor: Number(request.amountMinor),
+    status: "PENDING",
+  });
 
   if (insertError) throw insertError;
 
@@ -79,11 +70,9 @@ export async function createPaymentIntent(
   }
 }
 
-export function isRevenueGatedFeature(
-  featureKey: EntitlementFeature,
-): boolean {
+export function isRevenueGatedFeature(featureKey: EntitlementFeature): boolean {
   return (
-    ENTITLEMENT_FEATURES.find((feature) => feature.key === featureKey)
-      ?.availability === "revenue_required"
+    ENTITLEMENT_FEATURES.find((feature) => feature.key === featureKey)?.availability ===
+    "revenue_required"
   );
 }

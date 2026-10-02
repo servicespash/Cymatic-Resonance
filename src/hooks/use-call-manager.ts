@@ -19,9 +19,7 @@ export type CallSessionMemberUpdate =
     joined_at?: string | null;
   };
 
-export type CallSessionMemberOperation =
-  | CallSessionMemberInsert
-  | CallSessionMemberUpdate;
+export type CallSessionMemberOperation = CallSessionMemberInsert | CallSessionMemberUpdate;
 
 type SignalConnection = ReturnType<typeof joinCallChannel>;
 
@@ -67,28 +65,31 @@ export function useCallManager(channelId: string | null) {
     }
   }, []);
 
-  const negotiate = useCallback(async (remoteUserId: string) => {
-    const connection = peer.current;
-    if (!connection || !signaling.current || connection.signalingState !== "stable") {
-      return;
-    }
+  const negotiate = useCallback(
+    async (remoteUserId: string) => {
+      const connection = peer.current;
+      if (!connection || !signaling.current || connection.signalingState !== "stable") {
+        return;
+      }
 
-    try {
-      makingOffer.current = true;
-      await connection.setLocalDescription();
-      const description = connection.localDescription;
-      if (!description) throw new Error("WebRTC did not produce a local description");
+      try {
+        makingOffer.current = true;
+        await connection.setLocalDescription();
+        const description = connection.localDescription;
+        if (!description) throw new Error("WebRTC did not produce a local description");
 
-      await signaling.current.send({
-        type: "offer",
-        from: user!.id,
-        to: remoteUserId,
-        sdp: description,
-      });
-    } finally {
-      makingOffer.current = false;
-    }
-  }, [user]);
+        await signaling.current.send({
+          type: "offer",
+          from: user!.id,
+          to: remoteUserId,
+          sdp: description,
+        });
+      } finally {
+        makingOffer.current = false;
+      }
+    },
+    [user],
+  );
 
   const joinCall = useCallback(async () => {
     if (!channelId || !user) return;
@@ -167,11 +168,7 @@ export function useCallManager(channelId: string | null) {
           } else if (connectionState === "failed" || connectionState === "closed") {
             stopDialTone.current();
             setState("error");
-          } else if (
-            connectionState === "disconnected" &&
-            state !== "idle" &&
-            state !== "error"
-          ) {
+          } else if (connectionState === "disconnected" && state !== "idle" && state !== "error") {
             setState("ringing");
           }
         },
@@ -208,9 +205,7 @@ export function useCallManager(channelId: string | null) {
           if (signal.type === "offer") {
             remotePeerId.current = signal.from;
             const polite = user.id < signal.from;
-            const offerCollision =
-              makingOffer.current ||
-              peer.current.signalingState !== "stable";
+            const offerCollision = makingOffer.current || peer.current.signalingState !== "stable";
 
             if (!polite && offerCollision) return;
 
@@ -218,9 +213,7 @@ export function useCallManager(channelId: string | null) {
               await peer.current.setLocalDescription({ type: "rollback" });
             }
 
-            await peer.current.setRemoteDescription(
-              new RTCSessionDescription(signal.sdp),
-            );
+            await peer.current.setRemoteDescription(new RTCSessionDescription(signal.sdp));
             await flushPendingIce();
 
             const answer = await peer.current.createAnswer();
@@ -239,18 +232,14 @@ export function useCallManager(channelId: string | null) {
 
           if (signal.type === "answer") {
             remotePeerId.current = signal.from;
-            await peer.current.setRemoteDescription(
-              new RTCSessionDescription(signal.sdp),
-            );
+            await peer.current.setRemoteDescription(new RTCSessionDescription(signal.sdp));
             await flushPendingIce();
             return;
           }
 
           if (signal.type === "ice") {
             if (peer.current.remoteDescription) {
-              await peer.current.addIceCandidate(
-                new RTCIceCandidate(signal.candidate),
-              );
+              await peer.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
             } else {
               pendingIce.current.push(signal.candidate);
             }
@@ -269,12 +258,15 @@ export function useCallManager(channelId: string | null) {
       localStream.current = null;
       peer.current?.close();
       peer.current = null;
-      if (roomId && user) { await supabase.rpc("leave_call_room", { _call_id: roomId }); }
-    await signaling.current?.leave();
+      if (roomId && user) {
+        await supabase.rpc("leave_call_room", { _call_id: roomId });
+      }
+      await signaling.current?.leave();
       signaling.current = null;
       setRoomId(null);
       setState("error");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, flushPendingIce, negotiate, transport, user]);
 
   const leaveCall = useCallback(async () => {

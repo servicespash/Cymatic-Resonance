@@ -371,7 +371,10 @@ function CallRoomInner({
   ];
 
   const participantCount = Object.keys(remotes).length + 1;
-  const maxParticipants = getCallParticipantLimit(effectivePlan, kind === "video" ? "VIDEO" : "AUDIO");
+  const maxParticipants = getCallParticipantLimit(
+    effectivePlan,
+    kind === "video" ? "VIDEO" : "AUDIO",
+  );
 
   return (
     <div

@@ -1,9 +1,5 @@
 import { Check, LockKeyhole, Sparkles } from "lucide-react";
-import {
-  ENTITLEMENT_FEATURES,
-  ENTITLEMENT_TIERS,
-  planIncludes,
-} from "@/lib/entitlements/catalog";
+import { ENTITLEMENT_FEATURES, ENTITLEMENT_TIERS, planIncludes } from "@/lib/entitlements/catalog";
 import type { EntitlementPlan } from "@/lib/domain/contracts";
 
 function CapabilityCell({
@@ -23,10 +19,7 @@ function CapabilityCell({
 
   if (!enabled) {
     return (
-      <LockKeyhole
-        className="mx-auto size-4 text-muted-foreground/40"
-        aria-label="Not included"
-      />
+      <LockKeyhole className="mx-auto size-4 text-muted-foreground/40" aria-label="Not included" />
     );
   }
 
@@ -40,12 +33,10 @@ export function EntitlementMatrix({ currentPlan }: { currentPlan?: EntitlementPl
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
           Capability matrix
         </p>
-        <h3 className="mt-1 font-display text-xl font-semibold">
-          Institutional execution tiers
-        </h3>
+        <h3 className="mt-1 font-display text-xl font-semibold">Institutional execution tiers</h3>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          The active tier determines available capabilities and operating limits.
-          Free communication remains usable; paid tiers add capacity and institutional execution controls.
+          The active tier determines available capabilities and operating limits. Free communication
+          remains usable; paid tiers add capacity and institutional execution controls.
         </p>
       </div>
 
@@ -57,7 +48,9 @@ export function EntitlementMatrix({ currentPlan }: { currentPlan?: EntitlementPl
               {ENTITLEMENT_TIERS.map((tier) => (
                 <th key={tier.plan} className="w-[16.5%] px-5 py-4 text-center font-medium">
                   <div className={currentPlan === tier.plan ? "text-accent" : ""}>{tier.label}</div>
-                  <div className="mt-1 font-mono text-xs text-muted-foreground">{tier.priceLabel}</div>
+                  <div className="mt-1 font-mono text-xs text-muted-foreground">
+                    {tier.priceLabel}
+                  </div>
                   {currentPlan === tier.plan && (
                     <div className="mt-1 inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-accent">
                       <Sparkles className="size-3" /> Current
@@ -72,11 +65,16 @@ export function EntitlementMatrix({ currentPlan }: { currentPlan?: EntitlementPl
               <tr key={feature.key} className="border-b border-white/5 last:border-0">
                 <td className="px-5 py-4 align-top">
                   <div className="font-medium">{feature.label}</div>
-                  <div className="mt-1 text-xs leading-5 text-muted-foreground">{feature.description}</div>
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {feature.description}
+                  </div>
                 </td>
                 {ENTITLEMENT_TIERS.map((tier) => (
                   <td key={tier.plan} className="px-5 py-4 text-center align-middle">
-                    <CapabilityCell enabled={planIncludes(tier.plan, feature)} availability={feature.availability} />
+                    <CapabilityCell
+                      enabled={planIncludes(tier.plan, feature)}
+                      availability={feature.availability}
+                    />
                   </td>
                 ))}
               </tr>

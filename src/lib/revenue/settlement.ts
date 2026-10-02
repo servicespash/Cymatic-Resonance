@@ -23,9 +23,7 @@ function adminClient() {
   });
 }
 
-export async function settleVerifiedPayment(
-  payment: VerifiedPayment,
-): Promise<void> {
+export async function settleVerifiedPayment(payment: VerifiedPayment): Promise<void> {
   const supabase = adminClient();
 
   const { data: pending, error: pendingError } = await supabase
@@ -40,22 +38,15 @@ export async function settleVerifiedPayment(
 
   const intent = pending as PendingPayment;
 
-  if (
-    intent.currency !== payment.currency ||
-    BigInt(intent.amount_minor) !== payment.amountMinor
-  ) {
+  if (intent.currency !== payment.currency || BigInt(intent.amount_minor) !== payment.amountMinor) {
     throw new Error("Verified payment does not match payment intent");
   }
 
-  const policyBps = BigInt(
-    process.env.INFRASTRUCTURE_RESERVE_BPS ?? "3000",
-  );
+  const policyBps = BigInt(process.env.INFRASTRUCTURE_RESERVE_BPS ?? "3000");
 
-  const allocation = allocateRevenue(
-    payment.amountMinor,
-    payment.providerFeeMinor,
-    { infrastructureReserveBps: policyBps },
-  );
+  const allocation = allocateRevenue(payment.amountMinor, payment.providerFeeMinor, {
+    infrastructureReserveBps: policyBps,
+  });
 
   assertBalancedAllocation(allocation);
 
@@ -67,9 +58,7 @@ export async function settleVerifiedPayment(
     p_currency: payment.currency,
     p_gross_amount_minor: Number(allocation.grossMinor),
     p_provider_fee_minor: Number(allocation.providerFeeMinor),
-    p_infrastructure_reserve_minor: Number(
-      allocation.infrastructureReserveMinor,
-    ),
+    p_infrastructure_reserve_minor: Number(allocation.infrastructureReserveMinor),
     p_net_revenue_minor: Number(allocation.netRevenueMinor),
     p_target_plan: intent.target_plan,
     p_feature_key: intent.feature_key,

@@ -38,11 +38,17 @@ export function EntitlementPlanSelector({
                 className="sr-only"
               />
               <span className="flex items-start gap-3">
-                <Icon className={`mt-0.5 size-4 ${selected ? "text-accent" : "text-muted-foreground"}`} />
+                <Icon
+                  className={`mt-0.5 size-4 ${selected ? "text-accent" : "text-muted-foreground"}`}
+                />
                 <span>
                   <span className="block text-sm font-semibold">{PLAN_LABELS[tier.plan]}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">{tier.description}</span>
-                  <span className="mt-2 block font-mono text-xs text-accent">{tier.priceLabel}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {tier.description}
+                  </span>
+                  <span className="mt-2 block font-mono text-xs text-accent">
+                    {tier.priceLabel}
+                  </span>
                 </span>
               </span>
             </label>
@@ -50,7 +56,8 @@ export function EntitlementPlanSelector({
         })}
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Paid plan requests do not activate access automatically. Trial activation is a separate one-time flow.
+        Paid plan requests do not activate access automatically. Trial activation is a separate
+        one-time flow.
       </p>
     </fieldset>
   );

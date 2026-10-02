@@ -7,11 +7,7 @@ import {
 import type { EntitlementPlan } from "@/lib/domain/contracts";
 import { supabase } from "@/integrations/supabase/client";
 
-export type ServiceControlStatus =
-  | "ENABLED"
-  | "DISABLED"
-  | "COMING_SOON"
-  | "REVENUE_REQUIRED";
+export type ServiceControlStatus = "ENABLED" | "DISABLED" | "COMING_SOON" | "REVENUE_REQUIRED";
 
 export interface EntitlementState {
   loading: boolean;
@@ -62,21 +58,10 @@ export function useEntitlement(
 
       if (cancelled) return;
 
-      if (effectiveResult.error || controlResult.error) {
-        setState({
-          loading: false,
-          enabled: false,
-          status: "DISABLED",
-          reason: "Entitlement status unavailable.",
-          plan: "FREE",
-        });
-        return;
-      }
-
       const effective = effectiveResult.data?.[0];
       const plan = (effective?.effective_plan as EntitlementPlan | undefined) ?? "FREE";
       const definition = ENTITLEMENT_FEATURES.find((item) => item.key === featureKey);
-      const status = (controlResult.data?.status as ServiceControlStatus | undefined) ?? null;
+      const status = (controlResult.data?.status as ServiceControlStatus | undefined) ?? "ENABLED";
 
       if (!definition) {
         setState({

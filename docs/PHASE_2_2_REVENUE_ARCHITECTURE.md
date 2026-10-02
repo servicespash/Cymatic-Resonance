@@ -103,17 +103,16 @@ Do not enable the live gateway until all of the following are verified:
 - infrastructure reserve policy is documented;
 - the Free tier works without any payment dependency.
 
-
 ## Four-tier entitlement contract
 
 The commercial tier model is:
 
-| Tier | Price | Institutional capability |
-| --- | --- | --- |
-| Free | $0 | Core attendance, presence, messaging, and audio/video calls up to 5 participants |
-| Silver | ~$15 | Enhanced presence, live execution channels, small-group execution sync |
-| Gold | ~$40 | Full institutional registers, unlimited presence tracking, execution charts, higher-capacity calls |
-| Premium / Custom | Custom | Institution-specific infrastructure, meeting quotas, signaling, and SLA controls |
+| Tier             | Price  | Institutional capability                                                                           |
+| ---------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| Free             | $0     | Core attendance, presence, messaging, and audio/video calls up to 5 participants                   |
+| Silver           | ~$15   | Enhanced presence, live execution channels, small-group execution sync                             |
+| Gold             | ~$40   | Full institutional registers, unlimited presence tracking, execution charts, higher-capacity calls |
+| Premium / Custom | Custom | Institution-specific infrastructure, meeting quotas, signaling, and SLA controls                   |
 
 The displayed prices are product configuration, not payment-provider truth. Actual billing amounts will be introduced only when the payment layer is activated.
 
@@ -142,7 +141,6 @@ A Free institution may redeem exactly one Silver or Gold trial.
 - A successful paid settlement can convert the workspace to the permanent paid tier and clear the temporary trial fields while retaining `has_used_trial = true`.
 
 Trial state is therefore an entitlement overlay, not a replacement for the organization's persistent subscription plan.
-
 
 ## Tier-specific UI and settings contract
 

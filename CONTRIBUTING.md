@@ -14,6 +14,7 @@ Developer identity is represented by GitHub authorship, commit history, pull req
 ## Contribution standard
 
 Contributions must:
+
 - preserve the production architecture contract;
 - use real backend/device/network state for operational behavior;
 - avoid mocks and simulations in production paths;
@@ -26,6 +27,7 @@ Contributions must:
 ## Pull requests
 
 A production-affecting pull request should explain:
+
 1. what changed;
 2. which architecture phase it affects;
 3. which authoritative state drives the behavior;

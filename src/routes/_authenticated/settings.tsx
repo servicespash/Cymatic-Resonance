@@ -385,7 +385,12 @@ function SettingsPage() {
               >
                 <div>
                   <div className="text-sm font-medium">
-                    {request.requested_plan === "SILVER" ? "Silver" : request.requested_plan === "GOLD" ? "Gold" : "Premium / Custom"} plan
+                    {request.requested_plan === "SILVER"
+                      ? "Silver"
+                      : request.requested_plan === "GOLD"
+                        ? "Gold"
+                        : "Premium / Custom"}{" "}
+                    plan
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     Requested {new Date(request.created_at).toLocaleString()}

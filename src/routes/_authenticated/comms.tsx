@@ -264,7 +264,7 @@ function CommsPage() {
       (
         prev: Record<
           string,
-          { id: string; full_name: string | null; role: string; avatar_url?: string | null }
+          { id: string; full_name: string | null; role: string | null; avatar_url?: string | null }
         >,
       ) =>
         Object.keys(prev).length ? prev : Object.fromEntries(cached.senders.map((s) => [s.id, s])),

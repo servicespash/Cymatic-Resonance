@@ -49,24 +49,35 @@ export const RegistryExport = ({
     void (async () => {
       const { data: orgId } = await supabase.rpc("current_org_id");
       if (!orgId) return;
-      const { data } = await supabase.from("organizations").select("name, logo_url").eq("id", orgId).maybeSingle();
+      const { data } = await supabase
+        .from("organizations")
+        .select("name, logo_url")
+        .eq("id", orgId)
+        .maybeSingle();
       if (cancelled || !data) return;
       setOrganizationName(entityName || data.name || null);
       const logoPath = organizationLogoUrl || data.logo_url;
       if (!logoPath) return;
-      const { data: signed } = await supabase.storage.from("org-logos").createSignedUrl(logoPath, 300);
+      const { data: signed } = await supabase.storage
+        .from("org-logos")
+        .createSignedUrl(logoPath, 300);
       if (!signed?.signedUrl || cancelled) return;
       try {
         const response = await fetch(signed.signedUrl);
         const blob = await response.blob();
         const reader = new FileReader();
         reader.onloadend = () => {
-          if (!cancelled) setOrganizationLogoDataUrl(typeof reader.result === "string" ? reader.result : null);
+          if (!cancelled)
+            setOrganizationLogoDataUrl(typeof reader.result === "string" ? reader.result : null);
         };
         reader.readAsDataURL(blob);
-      } catch {}
+      } catch {
+        // ignore
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [entityName, organizationLogoUrl]);
 
   const rangeLabel = React.useMemo(() => {
@@ -96,21 +107,36 @@ export const RegistryExport = ({
         : format(new Date(), "yyyy-MM-dd");
 
     try {
-      const canonical = JSON.stringify(availableRows.map((r) => ({
-        id: r.id, userId: r.userId, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut,
-        status: r.status, latitude: r.latitude, longitude: r.longitude,
-        locationLabel: r.locationLabel, accuracyMeters: r.accuracyMeters,
-      })));
+      const canonical = JSON.stringify(
+        availableRows.map((r) => ({
+          id: r.id,
+          userId: r.userId,
+          date: r.date,
+          checkIn: r.checkIn,
+          checkOut: r.checkOut,
+          status: r.status,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          locationLabel: r.locationLabel,
+          accuracyMeters: r.accuracyMeters,
+        })),
+      );
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
-      const documentHash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-      const { data: verificationId, error: verificationError } = await supabase.rpc("register_document_verification", {
-        _document_type: exportFormat === "pdf" ? "ATTENDANCE_LEDGER" : "REGISTRY_EXPORT",
-        _document_hash: documentHash,
-        _row_count: rowCount,
-        _range_start: rangeFrom ? format(rangeFrom, "yyyy-MM-dd") : null,
-        _range_end: rangeTo ? format(rangeTo, "yyyy-MM-dd") : null,
-      });
-      if (verificationError || !verificationId) throw verificationError ?? new Error("Could not register export verification");
+      const documentHash = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      const { data: verificationId, error: verificationError } = await supabase.rpc(
+        "register_document_verification",
+        {
+          _document_type: exportFormat === "pdf" ? "ATTENDANCE_LEDGER" : "REGISTRY_EXPORT",
+          _document_hash: documentHash,
+          _row_count: rowCount,
+          _range_start: rangeFrom ? format(rangeFrom, "yyyy-MM-dd") : null,
+          _range_end: rangeTo ? format(rangeTo, "yyyy-MM-dd") : null,
+        },
+      );
+      if (verificationError || !verificationId)
+        throw verificationError ?? new Error("Could not register export verification");
       const verifyUrl = `${window.location.origin}/verify/document/${verificationId}`;
       setVerificationUrl(verifyUrl);
 
@@ -185,7 +211,11 @@ export const RegistryExport = ({
 
         // Institutional identity
         if (organizationLogoDataUrl) {
-          try { doc.addImage(organizationLogoDataUrl, "PNG", 14, 7, 18, 18); } catch {}
+          try {
+            doc.addImage(organizationLogoDataUrl, "PNG", 14, 7, 18, 18);
+          } catch {
+            // ignore
+          }
         }
         const headerX = organizationLogoDataUrl ? 36 : 14;
         doc.setFontSize(8);
@@ -411,11 +441,7 @@ export const RegistryExport = ({
       </div>
 
       <div className="hidden">
-        <QRCodeSVG
-          ref={qrRef}
-          value={verificationUrl || window.location.origin}
-          size={128}
-        />
+        <QRCodeSVG ref={qrRef} value={verificationUrl || window.location.origin} size={128} />
       </div>
     </div>
   );

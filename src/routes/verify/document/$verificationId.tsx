@@ -105,15 +105,21 @@ function DocumentVerificationPage() {
         )}
 
         <p className="mt-6 text-xs text-muted-foreground">
-          This record confirms that Cymatic Resonance registered the export fingerprint.
-          It does not expose the underlying attendance records.
+          This record confirms that Cymatic Resonance registered the export fingerprint. It does not
+          expose the underlying attendance records.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-4 text-sm">
-          <Link to="/explore" className="inline-flex items-center rounded-lg bg-accent px-4 py-2 font-medium text-white">
+          <Link
+            to="/explore"
+            className="inline-flex items-center rounded-lg bg-accent px-4 py-2 font-medium text-white"
+          >
             Explore Resonance
           </Link>
-          <Link to="/" className="inline-flex items-center rounded-lg border border-white/10 px-4 py-2 underline-offset-4 hover:underline">
+          <Link
+            to="/"
+            className="inline-flex items-center rounded-lg border border-white/10 px-4 py-2 underline-offset-4 hover:underline"
+          >
             Return to Cymatic Resonance
           </Link>
         </div>

@@ -1,8 +1,8 @@
 import React, { useRef, useState } from "react";
 import { Users, Hash, BadgeCheck, Trash2 } from "lucide-react";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
-
-export type Channel = { id: string; name: string; kind: "broadcast" | "dm"; org_id: string };
+import type { Channel } from "@/lib/comms-context-def";
+export type { Channel };
 export type Msg = {
   id: string;
   channel_id: string;

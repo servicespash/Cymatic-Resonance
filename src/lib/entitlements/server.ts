@@ -32,7 +32,9 @@ function adminClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-export async function getEffectiveEntitlementState(tenantId: string): Promise<EffectiveEntitlementState> {
+export async function getEffectiveEntitlementState(
+  tenantId: string,
+): Promise<EffectiveEntitlementState> {
   const { data, error } = await adminClient().rpc("get_effective_entitlement", {
     _organization_id: tenantId,
   });
@@ -53,16 +55,18 @@ export async function checkEntitlement(
   featureKey: EntitlementFeature,
 ): Promise<EntitlementDecision> {
   const definition = ENTITLEMENT_FEATURES.find((feature) => feature.key === featureKey);
-  if (!definition) return { allowed: false, status: "DISABLED", reason: "Unknown entitlement.", plan: "FREE" };
+  if (!definition)
+    return { allowed: false, status: "DISABLED", reason: "Unknown entitlement.", plan: "FREE" };
 
   const state = await getEffectiveEntitlementState(tenantId);
   if (definition.availability !== "available") {
     return {
       allowed: false,
       status: definition.availability === "revenue_required" ? "REVENUE_REQUIRED" : "COMING_SOON",
-      reason: definition.availability === "revenue_required"
-        ? "This capability requires an eligible plan."
-        : "This capability is coming soon.",
+      reason:
+        definition.availability === "revenue_required"
+          ? "This capability requires an eligible plan."
+          : "This capability is coming soon.",
       plan: state.plan,
     };
   }
@@ -96,7 +100,13 @@ export async function checkCallCapacity(
     };
   }
   if (!Number.isInteger(requestedParticipants) || requestedParticipants < 1) {
-    return { allowed: false, status: "DISABLED", reason: "Participant count is invalid.", plan: state.plan, maxParticipants };
+    return {
+      allowed: false,
+      status: "DISABLED",
+      reason: "Participant count is invalid.",
+      plan: state.plan,
+      maxParticipants,
+    };
   }
   if (requestedParticipants <= maxParticipants) {
     return { allowed: true, status: "ENABLED", plan: state.plan, maxParticipants };

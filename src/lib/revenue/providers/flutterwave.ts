@@ -1,9 +1,5 @@
 import type { IPaymentGateway } from "../gateway";
-import type {
-  PaymentInitiation,
-  PaymentRequest,
-  VerifiedPayment,
-} from "../contracts";
+import type { PaymentInitiation, PaymentRequest, VerifiedPayment } from "../contracts";
 
 interface FlutterwaveConfig {
   secretKey: string;
@@ -41,9 +37,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
 
   constructor(private readonly config: FlutterwaveConfig) {}
 
-  async initiatePayment(
-    request: PaymentRequest,
-  ): Promise<PaymentInitiation> {
+  async initiatePayment(request: PaymentRequest): Promise<PaymentInitiation> {
     if (request.amountMinor > BigInt(Number.MAX_SAFE_INTEGER)) {
       throw new Error("Payment amount exceeds gateway-safe integer range");
     }
@@ -74,8 +68,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
       throw new Error(`Flutterwave initiation failed: HTTP ${response.status}`);
     }
 
-    const body =
-      (await response.json()) as FlutterwaveResponse<{ link?: string }>;
+    const body = (await response.json()) as FlutterwaveResponse<{ link?: string }>;
 
     if (body.status !== "success") {
       throw new Error(body.message || "Flutterwave initiation failed");
@@ -89,10 +82,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
     };
   }
 
-  async verifyWebhook(
-    request: Request,
-    rawBody: string,
-  ): Promise<VerifiedPayment | null> {
+  async verifyWebhook(request: Request, rawBody: string): Promise<VerifiedPayment | null> {
     const signature = request.headers.get("verif-hash");
     if (!signature || !this.constantTimeEqual(signature, this.config.webhookSecretHash)) {
       return null;
@@ -116,13 +106,9 @@ export class FlutterwaveGateway implements IPaymentGateway {
     return this.checkTransactionStatus(String(payload.data.id));
   }
 
-  async checkTransactionStatus(
-    transactionReference: string,
-  ): Promise<VerifiedPayment | null> {
+  async checkTransactionStatus(transactionReference: string): Promise<VerifiedPayment | null> {
     const response = await fetch(
-      `${this.config.baseUrl}/v3/transactions/${encodeURIComponent(
-        transactionReference,
-      )}/verify`,
+      `${this.config.baseUrl}/v3/transactions/${encodeURIComponent(transactionReference)}/verify`,
       {
         headers: {
           Authorization: `Bearer ${this.config.secretKey}`,
@@ -132,8 +118,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
 
     if (!response.ok) return null;
 
-    const body =
-      (await response.json()) as FlutterwaveResponse<FlutterwaveTransaction>;
+    const body = (await response.json()) as FlutterwaveResponse<FlutterwaveTransaction>;
 
     const transaction = body.data;
     if (body.status !== "success" || transaction.status !== "successful") {
@@ -147,9 +132,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
       amountMinor: minorUnits(transaction.charged_amount),
       currency: transaction.currency as VerifiedPayment["currency"],
       status: "SUCCEEDED",
-      providerFeeMinor: minorUnits(
-        transaction.app_fee ?? transaction.merchant_fee ?? 0,
-      ),
+      providerFeeMinor: minorUnits(transaction.app_fee ?? transaction.merchant_fee ?? 0),
     };
   }
 

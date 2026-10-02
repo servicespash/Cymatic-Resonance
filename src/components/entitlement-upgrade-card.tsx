@@ -35,9 +35,12 @@ export function EntitlementUpgradeCard({
         <div className="flex items-start gap-3">
           <Building2 className="mt-0.5 size-5 text-accent" />
           <div>
-            <h3 className="font-display text-lg font-semibold">Premium / Custom institution plan</h3>
+            <h3 className="font-display text-lg font-semibold">
+              Premium / Custom institution plan
+            </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              This workspace uses institution-specific capabilities, quotas, and policy configuration.
+              This workspace uses institution-specific capabilities, quotas, and policy
+              configuration.
             </p>
           </div>
         </div>
@@ -72,7 +75,8 @@ export function EntitlementUpgradeCard({
           <div>
             <h3 className="font-display text-lg font-semibold">Plan request pending</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Your workspace requested {PLAN_LABELS[requestedPlan]}. Access changes only after the plan is provisioned.
+              Your workspace requested {PLAN_LABELS[requestedPlan]}. Access changes only after the
+              plan is provisioned.
             </p>
           </div>
         </div>
@@ -100,10 +104,15 @@ export function EntitlementUpgradeCard({
 
   return (
     <section className="glass w-full rounded-2xl border border-accent/20 p-5 sm:p-6">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">Plan management</p>
-      <h3 className="mt-1 font-display text-lg font-semibold">Current plan: {PLAN_LABELS[currentPlan]}</h3>
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+        Plan management
+      </p>
+      <h3 className="mt-1 font-display text-lg font-semibold">
+        Current plan: {PLAN_LABELS[currentPlan]}
+      </h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Requests are recorded for administrator review. Payment activation remains separate from entitlement governance.
+        Requests are recorded for administrator review. Payment activation remains separate from
+        entitlement governance.
       </p>
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
         {plans.map((plan) => {
@@ -118,7 +127,11 @@ export function EntitlementUpgradeCard({
               className="h-auto min-h-16 justify-between border-white/10 bg-white/5 px-4 py-3 text-left"
             >
               <span className="flex items-center gap-3">
-                {busy === plan ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
+                {busy === plan ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Icon className="size-4" />
+                )}
                 <span>
                   <span className="block text-sm font-semibold">{PLAN_LABELS[plan]}</span>
                   <span className="block text-[11px] text-muted-foreground">

@@ -1,10 +1,7 @@
 import { ChevronDown, ChevronUp, LockKeyhole, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  ENTITLEMENT_TIERS,
-  getCallParticipantLimit,
-} from "@/lib/entitlements/catalog";
+import { ENTITLEMENT_TIERS, getCallParticipantLimit } from "@/lib/entitlements/catalog";
 import type { EntitlementPlan } from "@/lib/domain/contracts";
 
 export function CallCapacityUpgradePanel({
@@ -36,7 +33,8 @@ export function CallCapacityUpgradePanel({
             This {mode.toLowerCase()} Call Room is above the current {plan} admission limit.
           </p>
           <p className="text-xs text-muted-foreground">
-            Existing participants remain connected. New participants require a higher authorized capacity.
+            Existing participants remain connected. New participants require a higher authorized
+            capacity.
           </p>
         </div>
         <Button

@@ -43,10 +43,7 @@ export function trialStateFromServer(
       active && expiresAt
         ? Math.max(
             0,
-            Math.ceil(
-              (new Date(expiresAt).getTime() - new Date(serverNow).getTime()) /
-                86_400_000,
-            ),
+            Math.ceil((new Date(expiresAt).getTime() - new Date(serverNow).getTime()) / 86_400_000),
           )
         : 0,
   };

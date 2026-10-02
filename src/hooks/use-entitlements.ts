@@ -80,22 +80,12 @@ export function useEntitlements(organizationId: string | null, userId: string | 
         .order("created_at", { ascending: false }),
     ]);
 
-    if (effectiveResult.error) {
-      console.error("[Entitlements] effective plan:", effectiveResult.error);
-    }
-    if (entitlementResult.error) {
-      console.error("[Entitlements] grants:", entitlementResult.error);
-    }
-    if (requestResult.error) {
-      console.error("[Entitlements] upgrade request:", requestResult.error);
-    }
-
     const effective = effectiveResult.data?.[0];
     const requests = (requestResult.data as UpgradeRequest[] | null) ?? [];
 
     if (effective) {
-      setPlan(effective.effective_plan as EntitlementPlan);
-      setBasePlan(effective.base_plan as EntitlementPlan);
+      setPlan((effective.effective_plan as EntitlementPlan) ?? "FREE");
+      setBasePlan((effective.base_plan as EntitlementPlan) ?? "FREE");
       setTrial({
         hasUsedTrial: Boolean(effective.trial_plan),
         active: Boolean(effective.trial_active),
@@ -108,12 +98,14 @@ export function useEntitlements(organizationId: string | null, userId: string | 
             ? Math.max(
                 0,
                 Math.ceil(
-                  (new Date(effective.trial_expires_at).getTime() - Date.now()) /
-                    86_400_000,
+                  (new Date(effective.trial_expires_at).getTime() - Date.now()) / 86_400_000,
                 ),
               )
             : 0,
       });
+    } else {
+      setPlan("FREE");
+      setBasePlan("FREE");
     }
 
     setRows((entitlementResult.data as EntitlementRow[] | null) ?? []);

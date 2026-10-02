@@ -35,6 +35,7 @@ CODEOWNERS is the enforcement mechanism for repository ownership. The canonical 
 Every production-critical directory must remain reviewable by the code owner. Additional maintainers may be added later without replacing the project owner.
 
 Developer names belong in:
+
 - CODEOWNERS
 - contribution documentation
 - commit authorship
@@ -114,6 +115,7 @@ The communication engine and operational engine share identity, membership, enti
 **Purpose:** establish repository, authentication, database, deployment, environment, and engineering conventions.
 
 **Exit criteria**
+
 - reproducible builds
 - typed application
 - authenticated identity
@@ -130,6 +132,7 @@ The communication engine and operational engine share identity, membership, enti
 **Purpose:** deliver the institutional execution engine.
 
 Includes:
+
 - attendance
 - sessions
 - GPS acquisition
@@ -148,6 +151,7 @@ Includes:
 **Purpose:** replace fragile/demo communication behavior with a production communication architecture.
 
 Includes:
+
 - Code Room
 - persistent chat
 - presence
@@ -167,6 +171,7 @@ Includes:
 ### Phase 3 — Production Administration and Security Hardening
 
 Includes:
+
 - institutional administration
 - role/permission management
 - subscription administration
@@ -185,6 +190,7 @@ Includes:
 ### Phase 4 — Scale
 
 Includes:
+
 - larger institutions
 - workload isolation
 - queue-based processing
@@ -202,6 +208,7 @@ Includes:
 The web/PWA remains the canonical product surface. Native distributions are delivery targets, not separate application architectures.
 
 Targets:
+
 - Android APK / AAB
 - iOS application
 - Windows desktop
@@ -209,6 +216,7 @@ Targets:
 - Linux desktop where justified
 
 Preferred architecture:
+
 - shared TypeScript domain contracts
 - shared API/backend
 - shared authentication
@@ -225,6 +233,7 @@ Candidate delivery technologies may include Capacitor for mobile and Tauri/Elect
 ### Phase 6 — Continuous Production
 
 Includes:
+
 - automated releases
 - staged deployments
 - rollback
@@ -301,12 +310,15 @@ Onboarding
 Supported product tiers:
 
 ### FREE
+
 Baseline institutional functionality subject to documented limits.
 
 ### PAID
+
 Expanded room capacity, communication capability, storage, analytics, and other paid features according to the actual commercial contract.
 
 ### CUSTOM / INSTITUTION
+
 Institution-specific limits, administrative controls, larger capacity, custom policies, and contractual features.
 
 The exact limits are configuration data, not hardcoded UI assumptions.
@@ -318,15 +330,19 @@ The exact limits are configuration data, not hardcoded UI assumptions.
 ## 7. Realtime architecture
 
 ### Persistent state
+
 Supabase PostgreSQL.
 
 ### Ephemeral collaboration state
+
 Supabase Realtime Presence/Broadcast using authorized private channels.
 
 ### Media state
+
 LiveKit/WebRTC.
 
 ### UI state
+
 React hooks and domain state derived from authoritative sources.
 
 Example:
@@ -342,6 +358,7 @@ DB membership exists
 A media disconnect must not silently erase database membership.
 
 Presence should distinguish states such as:
+
 - ONLINE
 - AWAY
 - IN_CALL
@@ -371,6 +388,7 @@ IDLE
 ```
 
 Alternative terminal paths:
+
 - DECLINED
 - MISSED
 - FAILED
@@ -399,6 +417,7 @@ It must not become “connected” simply because the user pressed Accept.
 Use one lifecycle-aware `CallAudioController`.
 
 Responsibilities:
+
 - incoming ringtone
 - outgoing ringback
 - connecting tone
@@ -433,6 +452,7 @@ Device
 A valid check-in must not be equivalent to “device was once inside a radius.”
 
 The system must be able to distinguish:
+
 - location acquired
 - location sufficiently accurate
 - user eligible for the session
@@ -449,6 +469,7 @@ The system must be able to distinguish:
 ### Future institutional tracking model
 
 An administrator may define:
+
 - session center
 - geofence radius
 - allowed accuracy
@@ -466,6 +487,7 @@ The center and policy are server-controlled configuration.
 GPS alone cannot prove physical presence with cryptographic certainty. A production system should therefore use layered evidence and anomaly detection rather than claiming that geolocation is unforgeable.
 
 Future anti-spoofing signals may include:
+
 - impossible travel detection
 - accuracy and sensor consistency
 - repeated suspicious coordinates
@@ -496,6 +518,7 @@ CHECKED_IN
 If the device leaves the authorized region, the server must record the transition and apply the institution's configured policy.
 
 Possible policy outcomes:
+
 - warning
 - grace period
 - temporary status
@@ -512,6 +535,7 @@ The policy must be explicit and auditable.
 The map is a projection of actual coordinates and institutional configuration.
 
 It must never:
+
 - generate random attendance coordinates
 - simulate member movement
 - report fake GPS
@@ -527,6 +551,7 @@ The server stores authoritative attendance/session events. The frontend visualiz
 Security is part of the architecture, not a later UI feature.
 
 Required controls:
+
 - Supabase RLS
 - organization boundaries
 - membership authorization
@@ -544,6 +569,7 @@ Required controls:
 - audit logging
 
 Browser code must never contain:
+
 - Resend secret keys
 - privileged Supabase service-role credentials
 - LiveKit API secrets
@@ -587,6 +613,7 @@ PostgreSQL schema
 ```
 
 Rules:
+
 - avoid `any`
 - avoid `as any`
 - avoid hardcoded production IDs
@@ -602,6 +629,7 @@ Rules:
 Important event families:
 
 ### Calls
+
 - CALL_STARTED
 - CALL_INVITE_SENT
 - CALL_ACCEPTED
@@ -612,6 +640,7 @@ Important event families:
 - CALL_FAILED
 
 ### Attendance
+
 - ATTENDANCE_REQUESTED
 - GPS_ACQUIRED
 - GPS_VALIDATED
@@ -622,6 +651,7 @@ Important event families:
 - ATTENDANCE_INVALIDATED
 
 ### Security
+
 - AUTHORIZATION_DENIED
 - RATE_LIMITED
 - SUSPICIOUS_LOCATION
@@ -639,6 +669,7 @@ The product should be technically discoverable, but no architecture can guarante
 ### Google/indexing readiness
 
 Maintain:
+
 - canonical URLs
 - sitemap.xml
 - robots.txt
@@ -662,6 +693,7 @@ The public identity should consistently describe:
 ### AI discoverability
 
 For systems that consume public web content:
+
 - publish authoritative architecture/product documentation
 - keep terminology consistent
 - identify the project owner
@@ -691,6 +723,7 @@ Supabase/API ───┼── iOS
 ```
 
 All clients share:
+
 - authentication
 - database contracts
 - entitlement model
@@ -701,6 +734,7 @@ All clients share:
 - backend services
 
 Platform-specific code handles:
+
 - notifications
 - permissions
 - background execution
@@ -733,6 +767,7 @@ Desktop distribution must preserve secure credential handling and native media/d
 Azure is a future infrastructure option, not a reason to prematurely duplicate the current backend.
 
 If future requirements justify Azure, evaluate:
+
 - regional requirements
 - institutional enterprise contracts
 - identity federation
@@ -775,14 +810,14 @@ No later phase should be used to conceal an unresolved earlier architectural def
 
 ## 21. Phase grading standard
 
-| Grade | Meaning |
-|---|---|
-| A+ | Production-ready, hardened, observable, tested, documented |
-| A | Production-capable with no known critical blockers |
-| B | Functional but material hardening or reliability work remains |
-| C | Partial/demo-capable; important production controls missing |
-| D | Placeholder, simulated, or structurally unsafe |
-| F | Broken or security-blocking |
+| Grade | Meaning                                                       |
+| ----- | ------------------------------------------------------------- |
+| A+    | Production-ready, hardened, observable, tested, documented    |
+| A     | Production-capable with no known critical blockers            |
+| B     | Functional but material hardening or reliability work remains |
+| C     | Partial/demo-capable; important production controls missing   |
+| D     | Placeholder, simulated, or structurally unsafe                |
+| F     | Broken or security-blocking                                   |
 
 Grades are evidence-based and must be attached to a specific phase or subsystem, not used as marketing claims.
 
@@ -793,6 +828,7 @@ Grades are evidence-based and must be attached to a specific phase or subsystem,
 Phase 2 is complete only when:
 
 ### Communication
+
 - incoming/outgoing calls work
 - ringing/ringback is state-driven
 - accept/decline/missed calls work
@@ -805,6 +841,7 @@ Phase 2 is complete only when:
 - notifications correspond to real events
 
 ### Code Room
+
 - membership is authorized
 - entitlements are enforced
 - private realtime channels are authorized
@@ -816,6 +853,7 @@ Phase 2 is complete only when:
 - UI follows DB/realtime/media state
 
 ### Production integrity
+
 - no fake media
 - no simulated call mode
 - no fake push success
@@ -826,6 +864,7 @@ Phase 2 is complete only when:
 - failure and recovery paths are observable
 
 ### Verification
+
 - local tests pass
 - type checking passes
 - build passes
@@ -862,6 +901,7 @@ The current architecture branch remains an audit/remediation branch until all Ph
 ## 24. Repository documentation contract
 
 The repository should maintain:
+
 - README.md — public project and architecture overview
 - docs/PRODUCTION_ARCHITECTURE_PHASE_2.md — master architecture contract
 - CONTRIBUTING.md — contribution and ownership rules
