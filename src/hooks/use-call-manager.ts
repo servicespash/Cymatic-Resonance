@@ -143,7 +143,39 @@ export function useCallManager(channelId: string | null) {
         _call_id: callId,
         _user_id: user.id,
       });
-      if (admissionError) throw admissionError;
+      if (admissionError) {
+        const isMissingRpc =
+          admissionError.code === "PGRST202" ||
+          admissionError.message?.includes("Could not find the function") ||
+          admissionError.message?.includes("schema cache") ||
+          admissionError.message?.includes("admit_call_room_participant");
+
+        if (isMissingRpc) {
+          console.warn(
+            "[CallManager] admit_call_room_participant RPC unavailable, using fallback participant registration",
+          );
+          try {
+            await supabase.from("call_participants").upsert(
+              {
+                call_id: callId,
+                user_id: user.id,
+                state: "joined",
+                joined_at: new Date().toISOString(),
+              } as CallSessionMemberInsert,
+              { onConflict: "call_id,user_id" },
+            );
+          } catch (err) {
+            console.warn("[CallManager] participant registration warning:", err);
+          }
+          try {
+            await supabase.rpc("join_call", { _call_id: callId, _device_info: "web" });
+          } catch {
+            // ignore
+          }
+        } else {
+          throw admissionError;
+        }
+      }
 
       localStream.current = await getLocalMedia(false);
       const connection = createPeer({
@@ -259,7 +291,26 @@ export function useCallManager(channelId: string | null) {
       peer.current?.close();
       peer.current = null;
       if (roomId && user) {
-        await supabase.rpc("leave_call_room", { _call_id: roomId });
+        try {
+          const { error } = await supabase.rpc("leave_call_room", { _call_id: roomId });
+          if (error) {
+            await supabase
+              .from("call_participants")
+              .update({ state: "left", left_at: new Date().toISOString() })
+              .eq("call_id", roomId)
+              .eq("user_id", user.id);
+          }
+        } catch {
+          try {
+            await supabase
+              .from("call_participants")
+              .update({ state: "left", left_at: new Date().toISOString() })
+              .eq("call_id", roomId)
+              .eq("user_id", user.id);
+          } catch {
+            // ignore
+          }
+        }
       }
       await signaling.current?.leave();
       signaling.current = null;

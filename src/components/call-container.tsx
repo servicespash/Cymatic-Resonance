@@ -178,9 +178,30 @@ export function CallContainer({
 
   const leave = async () => {
     try {
-      await supabase.rpc("leave_call_room", { _call_id: callId });
+      const { error } = await supabase.rpc("leave_call_room", { _call_id: callId });
+      if (error) {
+        try {
+          await supabase.rpc("leave_call", { _call_id: callId });
+        } catch {
+          // ignore
+        }
+        await supabase
+          .from("call_participants")
+          .update({ state: "left", left_at: new Date().toISOString() })
+          .eq("call_id", callId)
+          .eq("user_id", selfId);
+      }
     } catch (e) {
       console.error(e);
+      try {
+        await supabase
+          .from("call_participants")
+          .update({ state: "left", left_at: new Date().toISOString() })
+          .eq("call_id", callId)
+          .eq("user_id", selfId);
+      } catch {
+        // ignore
+      }
     }
     onLeave();
   };

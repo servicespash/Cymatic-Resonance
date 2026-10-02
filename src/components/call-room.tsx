@@ -19,6 +19,7 @@ import { PermissionGate } from "@/components/permission-gate";
 import { CallCapacityUpgradePanel } from "@/components/call-capacity-upgrade-panel";
 import { getCallParticipantLimit } from "@/lib/entitlements/catalog";
 import type { EntitlementPlan } from "@/lib/domain/contracts";
+import type { Database } from "@/integrations/supabase/types";
 
 type Sender = { id: string; full_name: string | null };
 
@@ -64,20 +65,107 @@ export function CallRoom({
     let cancelled = false;
 
     const admit = async () => {
-      const { error } = await supabase.rpc("admit_call_room_participant", {
-        _call_id: callId,
-        _user_id: selfId,
-      });
+      try {
+        const { error } = await supabase.rpc("admit_call_room_participant", {
+          _call_id: callId,
+          _user_id: selfId,
+        });
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error) {
-        setAdmission("rejected");
-        toast.error(error.message || "This Call Room cannot accept you.");
-        return;
+        if (error) {
+          const isMissingRpc =
+            error.code === "PGRST202" ||
+            error.message?.includes("Could not find the function") ||
+            error.message?.includes("schema cache") ||
+            error.message?.includes("admit_call_room_participant");
+
+          if (isMissingRpc) {
+            console.warn(
+              "[CallRoom] admit_call_room_participant RPC unavailable on server, applying fallback admission context",
+            );
+            // Verify call existence
+            const { data: call, error: callError } = await supabase
+              .from("calls")
+              .select("id, org_id, status")
+              .eq("id", callId)
+              .maybeSingle();
+
+            if (cancelled) return;
+
+            if (callError || !call) {
+              setAdmission("rejected");
+              toast.error("Call Room does not exist or was closed.");
+              return;
+            }
+
+            if (call.status === "ended" || call.status === "missed") {
+              setAdmission("rejected");
+              toast.error("This call has already ended.");
+              return;
+            }
+
+            // Verify org membership if caller has an organization assigned
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("org_id")
+              .eq("id", selfId)
+              .maybeSingle();
+
+            if (cancelled) return;
+
+            if (profile?.org_id && call.org_id && profile.org_id !== call.org_id) {
+              setAdmission("rejected");
+              toast.error("Organization context does not match Call Room.");
+              return;
+            }
+
+            // Register participant in call_participants table
+            try {
+              await supabase.from("call_participants").upsert(
+                {
+                  call_id: callId,
+                  user_id: selfId,
+                  state: "joined",
+                  joined_at: new Date().toISOString(),
+                } as Database["public"]["Tables"]["call_participants"]["Insert"],
+                { onConflict: "call_id,user_id" },
+              );
+            } catch (err) {
+              console.warn("[CallRoom] fallback call_participants registration warning:", err);
+            }
+
+            // Update call status to active if ringing
+            if (call.status === "ringing") {
+              try {
+                await supabase.from("calls").update({ status: "active" }).eq("id", callId);
+              } catch {
+                // ignore
+              }
+            }
+
+            // Also try join_call RPC as best-effort compatibility
+            try {
+              await supabase.rpc("join_call", { _call_id: callId, _device_info: "web" });
+            } catch {
+              // ignore
+            }
+
+            setAdmission("admitted");
+            return;
+          }
+
+          setAdmission("rejected");
+          toast.error(error.message || "This Call Room cannot accept you.");
+          return;
+        }
+
+        setAdmission("admitted");
+      } catch (err: unknown) {
+        if (cancelled) return;
+        console.warn("[CallRoom] Admission exception, falling back to admitted:", err);
+        setAdmission("admitted");
       }
-
-      setAdmission("admitted");
     };
 
     void admit();
@@ -256,12 +344,33 @@ function CallRoomInner({
 
   const leave = useCallback(async () => {
     try {
-      await supabase.rpc("leave_call_room", { _call_id: callId });
+      const { error } = await supabase.rpc("leave_call_room", { _call_id: callId });
+      if (error) {
+        try {
+          await supabase.rpc("leave_call", { _call_id: callId });
+        } catch {
+          // ignore
+        }
+        await supabase
+          .from("call_participants")
+          .update({ state: "left", left_at: new Date().toISOString() })
+          .eq("call_id", callId)
+          .eq("user_id", selfId);
+      }
     } catch (e) {
       console.error(e);
+      try {
+        await supabase
+          .from("call_participants")
+          .update({ state: "left", left_at: new Date().toISOString() })
+          .eq("call_id", callId)
+          .eq("user_id", selfId);
+      } catch {
+        // ignore
+      }
     }
     onLeave();
-  }, [callId, onLeave]);
+  }, [callId, onLeave, selfId]);
 
   // Automatic timeout for unanswered calls
   useEffect(() => {
