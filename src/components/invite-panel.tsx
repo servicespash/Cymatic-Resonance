@@ -10,7 +10,6 @@ import { sendSecureEmail } from "@/lib/email";
 type Invite = {
   id: string;
   email: string;
-  role: string;
   token: string;
   category: string | null;
   expires_at: string;
@@ -53,7 +52,7 @@ export function InvitePanel() {
     const resendResult = await sendSecureEmail({
       to: invite.email,
       subject: "You've been invited to join Cymatic Resonance",
-      message: `You have been invited to join the organization as a ${invite.role}. Click the button below to accept your invitation.`,
+      message: `You have been invited to join the organization as a ${role}. Click the button below to accept your invitation.`,
       actionUrl: inviteUrl,
       actionText: "Accept Invitation",
       category: "invites",
@@ -140,7 +139,7 @@ export function InvitePanel() {
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{i.email}</div>
                 <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {i.role} {i.category ? `· ${i.category}` : ""} ·{" "}
+                  {i.category ? `${i.category} ·` : ""}{" "}
                   {accepted ? (
                     <span className="text-accent">accepted</span>
                   ) : expired ? (
