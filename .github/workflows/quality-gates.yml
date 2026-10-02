@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Generate TanStack route tree
+        run: npm run build:dev
+
       - name: Type check
         run: npm run type-check
 
