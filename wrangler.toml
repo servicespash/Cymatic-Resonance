@@ -1,3 +1,4 @@
+# Cloudflare Pages Configuration (Workers are disabled — this project deploys strictly to Cloudflare Pages)
 name = "cymatic-resonance"
 pages_build_output_dir = "dist"
 

@@ -144,7 +144,8 @@ function AuthPage() {
       const email = String(fd.get("email") || "")
         .trim()
         .toLowerCase();
-      const password = String(fd.get("password") || "").trim();
+      // Never trim passwords — whitespace may be intentional or part of credentials
+      const password = String(fd.get("password") || "");
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -167,7 +168,15 @@ function AuthPage() {
       }
     } catch (error: unknown) {
       console.error("[auth.tsx] handleSignIn error", error);
-      toast.error(error instanceof Error ? error.message : String(error));
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.toLowerCase().includes("invalid login credentials")) {
+        toast.error("Invalid email or password", {
+          description:
+            "Please verify your credentials (click 'Show' to check for typos) or use 'Forgot password?' below to reset.",
+        });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -781,18 +790,35 @@ function Field({
   label,
   id,
   className,
+  type,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; id: string }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const effectiveType = isPassword ? (showPassword ? "text" : "password") : type;
+
   return (
     <div className="space-y-1.5">
-      <Label
-        htmlFor={id}
-        className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
-      >
-        {label}
-      </Label>
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor={id}
+          className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+        >
+          {label}
+        </Label>
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        )}
+      </div>
       <Input
         id={id}
+        type={effectiveType}
         className={`bg-white/5 border-white/10 focus-visible:ring-primary/60 ${className ?? ""}`}
         {...props}
       />

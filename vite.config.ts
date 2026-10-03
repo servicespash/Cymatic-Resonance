@@ -56,14 +56,21 @@ export default defineConfig(({ mode }) => {
   // the host exposes VITE_SUPABASE_*, SUPABASE_* or *_PUBLISHABLE_KEY names.
   const env = loadEnv(mode, process.cwd(), "");
   const pick = (...keys: string[]) => keys.map((k) => env[k]).find((v) => !!v) ?? "";
-  const supabaseUrl = pick("VITE_SUPABASE_URL", "SUPABASE_URL");
-  const supabaseKey = pick(
-    "VITE_SUPABASE_ANON_KEY",
-    "VITE_SUPABASE_PUBLISHABLE_KEY",
-    "SUPABASE_ANON_KEY",
-    "SUPABASE_PUBLISHABLE_KEY",
-  );
-  const livekitUrl = pick("VITE_LIVEKIT_URL", "LIVEKIT_URL");
+
+  const DEFAULT_SUPABASE_URL = "https://umsgecaeozngdejwvcsu.supabase.co";
+  const DEFAULT_SUPABASE_ANON_KEY =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVtc2dlY2Flb3puZ2Rland2Y3N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTg4OTIsImV4cCI6MjA5NzYzNDg5Mn0.Zbp6Db69rSBI2egkPt6Puk0vTScVek7wF47HUT02-sQ";
+  const DEFAULT_LIVEKIT_URL = "wss://project-1-x16opd98.livekit.cloud";
+
+  const supabaseUrl = pick("VITE_SUPABASE_URL", "SUPABASE_URL") || DEFAULT_SUPABASE_URL;
+  const supabaseKey =
+    pick(
+      "VITE_SUPABASE_ANON_KEY",
+      "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_PUBLISHABLE_KEY",
+    ) || DEFAULT_SUPABASE_ANON_KEY;
+  const livekitUrl = pick("VITE_LIVEKIT_URL", "LIVEKIT_URL") || DEFAULT_LIVEKIT_URL;
 
   return {
     define: {

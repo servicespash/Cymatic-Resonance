@@ -10,6 +10,8 @@
     "dev-spa": "vite dev -c vite.dev-spa.config.ts --host 0.0.0.0 --port 3000",
     "build": "vite build && npm run type-check && npm run lint && cp dist/index.html dist/200.html && node scripts/verify-build.js",
     "deploy": "npm run build && wrangler pages deploy dist --project-name cymatic-resonance",
+    "deploy:pages": "npm run build && wrangler pages deploy dist --project-name cymatic-resonance",
+    "deploy:workers": "echo '[Workers Disabled] Cloudflare Workers deployment is disabled. Only Cloudflare Pages is deployed.' && exit 0",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
     "type-check": "tsc --noEmit",
