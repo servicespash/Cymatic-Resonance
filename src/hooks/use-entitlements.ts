@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useCallback, useEffect, useState } from "react";
 import type { EntitlementPlan } from "@/lib/domain/contracts";
 import {
@@ -66,7 +67,7 @@ export function useEntitlements(organizationId: string | null, userId: string | 
 
     setLoading(true);
     const [effectiveResult, entitlementResult, requestResult] = await Promise.all([
-      supabase.rpc("get_effective_entitlement", { _organization_id: organizationId }),
+      db.rpc("get_effective_entitlement", { _organization_id: organizationId }),
       supabase
         .from("entitlements")
         .select("feature, enabled, limit_value, plan, user_id")
@@ -121,7 +122,7 @@ export function useEntitlements(organizationId: string | null, userId: string | 
   const startTrial = useCallback(
     async (trialPlan: "SILVER" | "GOLD", durationDays: number) => {
       try {
-        const { data, error } = await supabase.rpc("start_entitlement_trial", {
+        const { data, error } = await db.rpc("start_entitlement_trial", {
           _plan: trialPlan,
           _duration_days: durationDays,
         });
@@ -136,7 +137,7 @@ export function useEntitlements(organizationId: string | null, userId: string | 
         if (organizationId) {
           const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: directError } = await (supabase.from("organizations") as any)
+          const { error: directError } = await (db.from("organizations") as any)
             .update({
               has_used_trial: true,
               trial_plan: trialPlan,

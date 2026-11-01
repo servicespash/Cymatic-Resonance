@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useState } from "react";
 import { ArrowUpRight, Building2, Check, Crown, Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ export function EntitlementUpgradeCard({
     if (!userId) return toast.error("Your session is no longer active.");
 
     setBusy(plan);
-    const { error } = await supabase.from("entitlement_upgrade_requests").insert({
+    const { error } = await db.from("entitlement_upgrade_requests").insert({
       organization_id: organizationId,
       requested_by: userId,
       requested_plan: plan,

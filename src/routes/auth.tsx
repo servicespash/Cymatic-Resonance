@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { z } from "zod";
@@ -108,7 +109,7 @@ function AuthPage() {
     if (user && inviteToken && !invitePreview?.accepted) {
       navigatedRef.current = true;
       (async () => {
-        const { error } = await supabase.rpc("accept_invite", { _token: inviteToken });
+        const { error } = await db.rpc("accept_invite", { _token: inviteToken });
         if (error) {
           navigatedRef.current = false;
           return toast.error(error.message);
@@ -270,7 +271,7 @@ function AuthPage() {
         setBusy(false);
         return toast.error("Your session is no longer active.");
       }
-      const { error: requestError } = await supabase.from("entitlement_upgrade_requests").insert({
+      const { error: requestError } = await db.from("entitlement_upgrade_requests").insert({
         organization_id: (org as { org_id: string }).org_id,
         requested_by: currentUser.user.id,
         requested_plan: parsed.data.requested_plan,

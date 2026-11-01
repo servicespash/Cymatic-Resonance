@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import React, { useRef } from "react";
 import { FileSpreadsheet, FileText, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +48,7 @@ export const RegistryExport = ({
   React.useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data: orgId } = await supabase.rpc("current_org_id");
+      const { data: orgId } = await db.rpc("current_org_id");
       if (!orgId) return;
       const { data } = await supabase
         .from("organizations")
@@ -125,7 +126,7 @@ export const RegistryExport = ({
       const documentHash = Array.from(new Uint8Array(digest))
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
-      const { data: verificationId, error: verificationError } = await supabase.rpc(
+      const { data: verificationId, error: verificationError } = await db.rpc(
         "register_document_verification",
         {
           _document_type: exportFormat === "pdf" ? "ATTENDANCE_LEDGER" : "REGISTRY_EXPORT",

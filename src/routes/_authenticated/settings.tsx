@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,8 +108,8 @@ function SettingsPage() {
       });
     if (p?.org_id) {
       const [{ data: o }, { data: mem }] = await Promise.all([
-        supabase.from("organizations").select("*").eq("id", p.org_id).maybeSingle(),
-        supabase.from("profiles").select("id, full_name, role, position").eq("org_id", p.org_id),
+        db.from("organizations").select("*").eq("id", p.org_id).maybeSingle(),
+        db.from("profiles").select("id, full_name, role, position").eq("org_id", p.org_id),
       ]);
       if (o) setOrg(o as Org);
       setMembers((mem ?? []) as Member[]);
@@ -150,7 +151,7 @@ function SettingsPage() {
 
     try {
       // 1. Attempt primary update via RPC
-      const { data, error } = await supabase.rpc("update_org_settings", {
+      const { data, error } = await db.rpc("update_org_settings", {
         _name: org.name,
         _org_type: org.org_type,
         _cutoff: org.day_start_cutoff,
@@ -199,7 +200,7 @@ function SettingsPage() {
   };
 
   const rotate = async () => {
-    const { data, error } = await supabase.rpc("rotate_access_code");
+    const { data, error } = await db.rpc("rotate_access_code");
     if (error) return toast.error(error.message);
     if (org) setOrg({ ...org, access_code: data as string });
     toast.success("Access code rotated");
@@ -215,21 +216,21 @@ function SettingsPage() {
     });
   }, []);
   const setRole = async (uid: string, role: "admin" | "member") => {
-    const { error } = await supabase.rpc("set_member_role", { _user: uid, _role: role });
+    const { error } = await db.rpc("set_member_role", { _user: uid, _role: role });
     if (error) return toast.error(error.message);
     setMembers((m) => m.map((x) => (x.id === uid ? { ...x, role } : x)));
     toast.success(`Role set to ${role}`);
   };
 
   const remove = async (uid: string) => {
-    const { error } = await supabase.rpc("remove_member", { _user: uid });
+    const { error } = await db.rpc("remove_member", { _user: uid });
     if (error) return toast.error(error.message);
     setMembers((m) => m.filter((x) => x.id !== uid));
     toast.success("Member removed");
   };
 
   const resolveUpgradeRequest = async (requestId: string, approved: boolean) => {
-    const { error } = await supabase.rpc("resolve_entitlement_upgrade_request", {
+    const { error } = await db.rpc("resolve_entitlement_upgrade_request", {
       _request_id: requestId,
       _approved: approved,
     });
@@ -240,7 +241,7 @@ function SettingsPage() {
 
   const deleteOrg = async () => {
     if (!org || confirmName !== org.name) return toast.error("Workspace name does not match");
-    const { error } = await supabase.rpc("delete_org");
+    const { error } = await db.rpc("delete_org");
     if (error) return toast.error(error.message);
     toast.success("Workspace deleted");
     window.location.href = "/";
