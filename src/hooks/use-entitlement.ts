@@ -49,7 +49,7 @@ export function useEntitlement(
         db.rpc("get_effective_entitlement", {
           _organization_id: organizationId,
         }),
-        supabase
+        db
           .from("service_controls")
           .select("status, source")
           .eq("organization_id", organizationId)

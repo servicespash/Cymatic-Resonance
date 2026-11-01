@@ -68,12 +68,12 @@ export function useEntitlements(organizationId: string | null, userId: string | 
     setLoading(true);
     const [effectiveResult, entitlementResult, requestResult] = await Promise.all([
       db.rpc("get_effective_entitlement", { _organization_id: organizationId }),
-      supabase
+      db
         .from("entitlements")
         .select("feature, enabled, limit_value, plan, user_id")
         .eq("organization_id", organizationId)
         .or("user_id.is.null,user_id.eq." + userId),
-      supabase
+      db
         .from("entitlement_upgrade_requests")
         .select("id, requested_by, requested_plan, status, created_at")
         .eq("organization_id", organizationId)
