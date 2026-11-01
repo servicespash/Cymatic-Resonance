@@ -49,7 +49,7 @@ export function EntitlementTrialCard({
     setBusy(true);
     try {
       await startTrial("GOLD", 7);
-      toast.success("7-day Gold trial started successfully");
+      toast.success("7-day Frequency trial started successfully");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to start trial");
     } finally {
@@ -66,10 +66,10 @@ export function EntitlementTrialCard({
             One-time trial offer
           </p>
           <h3 className="mt-1 font-display text-lg font-semibold">
-            7-Day Gold Institutional Trial
+            7-Day Frequency Trial
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Redeem your one-time 7-day Gold trial to unlock full institutional execution
+            Redeem your one-time 7-day Frequency trial to unlock full institutional execution
             capabilities. Automatically reverts to Free upon expiry.
           </p>
         </div>
@@ -77,11 +77,11 @@ export function EntitlementTrialCard({
 
       <div className="mt-5 flex items-center justify-between">
         <span className="font-mono text-xs text-muted-foreground">
-          Duration: Exactly 7 days (Gold Tier)
+          Duration: Exactly 7 days (Frequency tier)
         </span>
         <Button type="button" disabled={busy} onClick={submit} className="min-h-10">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-          Start 7-day Gold trial
+          Start 7-day Frequency trial
         </Button>
       </div>
     </section>
