@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useEffect, useState } from "react";
 import {
   ENTITLEMENT_FEATURES,
@@ -45,10 +46,10 @@ export function useEntitlement(
       }
 
       const [effectiveResult, controlResult] = await Promise.all([
-        supabase.rpc("get_effective_entitlement", {
+        db.rpc("get_effective_entitlement", {
           _organization_id: organizationId,
         }),
-        supabase
+        db
           .from("service_controls")
           .select("status, source")
           .eq("organization_id", organizationId)

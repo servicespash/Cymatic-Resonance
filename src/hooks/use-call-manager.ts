@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
@@ -139,7 +140,7 @@ export function useCallManager(channelId: string | null) {
       setRoomId(callId);
       setState(existing ? "ringing" : "dialing");
 
-      const { error: admissionError } = await supabase.rpc("admit_call_room_participant", {
+      const { error: admissionError } = await db.rpc("admit_call_room_participant", {
         _call_id: callId,
         _user_id: user.id,
       });
@@ -155,7 +156,7 @@ export function useCallManager(channelId: string | null) {
             "[CallManager] admit_call_room_participant RPC unavailable, using fallback participant registration",
           );
           try {
-            await supabase.from("call_participants").upsert(
+            await db.from("call_participants").upsert(
               {
                 call_id: callId,
                 user_id: user.id,
@@ -168,7 +169,7 @@ export function useCallManager(channelId: string | null) {
             console.warn("[CallManager] participant registration warning:", err);
           }
           try {
-            await supabase.rpc("join_call", { _call_id: callId, _device_info: "web" });
+            await db.rpc("join_call", { _call_id: callId, _device_info: "web" });
           } catch {
             // ignore
           }
@@ -292,7 +293,7 @@ export function useCallManager(channelId: string | null) {
       peer.current = null;
       if (roomId && user) {
         try {
-          const { error } = await supabase.rpc("leave_call_room", { _call_id: roomId });
+          const { error } = await db.rpc("leave_call_room", { _call_id: roomId });
           if (error) {
             await supabase
               .from("call_participants")

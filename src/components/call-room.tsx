@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Mic,
@@ -66,7 +67,7 @@ export function CallRoom({
 
     const admit = async () => {
       try {
-        const { error } = await supabase.rpc("admit_call_room_participant", {
+        const { error } = await db.rpc("admit_call_room_participant", {
           _call_id: callId,
           _user_id: selfId,
         });
@@ -122,7 +123,7 @@ export function CallRoom({
 
             // Register participant in call_participants table
             try {
-              await supabase.from("call_participants").upsert(
+              await db.from("call_participants").upsert(
                 {
                   call_id: callId,
                   user_id: selfId,
@@ -138,7 +139,7 @@ export function CallRoom({
             // Update call status to active if ringing
             if (call.status === "ringing") {
               try {
-                await supabase.from("calls").update({ status: "active" }).eq("id", callId);
+                await db.from("calls").update({ status: "active" }).eq("id", callId);
               } catch {
                 // ignore
               }
@@ -146,7 +147,7 @@ export function CallRoom({
 
             // Also try join_call RPC as best-effort compatibility
             try {
-              await supabase.rpc("join_call", { _call_id: callId, _device_info: "web" });
+              await db.rpc("join_call", { _call_id: callId, _device_info: "web" });
             } catch {
               // ignore
             }
@@ -314,7 +315,7 @@ function CallRoomInner({
 
       if (!call?.org_id) return;
 
-      const { data, error } = await supabase.rpc("get_effective_entitlement", {
+      const { data, error } = await db.rpc("get_effective_entitlement", {
         _organization_id: call.org_id,
       });
 
@@ -344,10 +345,10 @@ function CallRoomInner({
 
   const leave = useCallback(async () => {
     try {
-      const { error } = await supabase.rpc("leave_call_room", { _call_id: callId });
+      const { error } = await db.rpc("leave_call_room", { _call_id: callId });
       if (error) {
         try {
-          await supabase.rpc("leave_call", { _call_id: callId });
+          await db.rpc("leave_call", { _call_id: callId });
         } catch {
           // ignore
         }

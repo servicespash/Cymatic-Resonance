@@ -23,22 +23,22 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Elite real-time attendance, workspace presence, DMs and group video calls. One workspace, one CYM access code, total clarity. Designed by Isabirye Latif (cymatichub.xyz).",
+          "Cymatic Resonance is a workspace platform for real-time team presence, attendance tracking, direct messaging and group calls for schools, companies and field teams.",
       },
-      { property: "og:title", content: "Cymatic Resonance — Team presence, in resonance" },
+      { property: "og:title", content: "Cymatic Resonance — Team attendance, presence & calls" },
       {
         property: "og:description",
         content:
-          "Track team presence in real-time, run elite internal comms, and host group calls. Built by Isabirye Latif at cymatichub.xyz.",
+          "Cymatic Resonance is a workspace platform for real-time team presence, attendance tracking, direct messaging and group calls for schools, companies and field teams.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://resonance.cymatichub.xyz/" },
       { property: "og:image", content: ogAsset.url },
       { property: "og:image:alt", content: "Cymatic Resonance — workspace presence platform" },
-      { name: "twitter:title", content: "Cymatic Resonance — Team presence, in resonance" },
+      { name: "twitter:title", content: "Cymatic Resonance — Team attendance, presence & calls" },
       {
         name: "twitter:description",
-        content: "Real-time attendance, DMs, and group calls for elite teams.",
+        content: "Real-time team presence, attendance, direct messaging and group calls in one workspace.",
       },
       { name: "twitter:image", content: ogAsset.url },
     ],
@@ -188,7 +188,7 @@ function LandingPage() {
           custom={1}
           className="mt-8 font-display text-5xl font-bold tracking-tight md:text-7xl"
         >
-          Presence, <span className="text-gradient">in resonance.</span>
+          Team attendance, presence <span className="text-gradient">&amp; communications.</span>
         </motion.h1>
 
         <motion.p

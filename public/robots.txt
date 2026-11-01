@@ -7,4 +7,4 @@ Allow: /
 Allow: /auth
 Allow: /legal
 
-Sitemap: https://resonance.cymatichub.xyz/sitemap.xml
+Sitemap: https://cymatic-resonance.lovable.app/sitemap.xml

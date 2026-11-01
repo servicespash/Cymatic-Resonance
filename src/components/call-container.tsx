@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Users, WifiOff } from "lucide-react";
 import { ConnectionQuality } from "livekit-client";
@@ -178,10 +179,10 @@ export function CallContainer({
 
   const leave = async () => {
     try {
-      const { error } = await supabase.rpc("leave_call_room", { _call_id: callId });
+      const { error } = await db.rpc("leave_call_room", { _call_id: callId });
       if (error) {
         try {
-          await supabase.rpc("leave_call", { _call_id: callId });
+          await db.rpc("leave_call", { _call_id: callId });
         } catch {
           // ignore
         }

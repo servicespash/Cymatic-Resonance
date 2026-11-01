@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
@@ -90,7 +91,7 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
     e.preventDefault();
     if (!code.trim()) return;
     setBusy(true);
-    const { error } = await supabase.rpc("join_org_with_code", {
+    const { error } = await db.rpc("join_org_with_code", {
       _code: code.trim().toUpperCase(),
       _category: category,
     });
@@ -121,7 +122,7 @@ function WorkspaceGate({ onLinked }: { onLinked: () => void }) {
         setBusy(false);
         return toast.error("Your session is no longer active.");
       }
-      const { error: requestError } = await supabase.from("entitlement_upgrade_requests").insert({
+      const { error: requestError } = await db.from("entitlement_upgrade_requests").insert({
         organization_id: (createdOrg as { org_id: string }).org_id,
         requested_by: currentUser.user.id,
         requested_plan: requestedPlan,

@@ -1,3 +1,4 @@
+import { db } from "@/lib/untyped-db";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +27,7 @@ function DocumentVerificationPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data, error: rpcError } = await supabase.rpc("verify_document", {
+      const { data, error: rpcError } = await db.rpc("verify_document", {
         _verification_id: verificationId,
       });
 
