@@ -4,7 +4,7 @@ import { ArrowUpRight, Building2, Check, Crown, Loader2, Zap } from "lucide-reac
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { PLAN_LABELS } from "@/lib/entitlements/catalog";
+import { PLAN_LABELS, tierPrice } from "@/lib/entitlements/catalog";
 import type { EntitlementPlan } from "@/lib/domain/contracts";
 
 type RequestablePlan = Exclude<EntitlementPlan, "FREE">;
@@ -37,7 +37,7 @@ export function EntitlementUpgradeCard({
           <Building2 className="mt-0.5 size-5 text-accent" />
           <div>
             <h3 className="font-display text-lg font-semibold">
-              Premium / Custom institution plan
+              Enterprise institution plan
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               This workspace uses institution-specific capabilities, quotas, and policy
@@ -93,7 +93,7 @@ export function EntitlementUpgradeCard({
           <div>
             <h3 className="font-display text-lg font-semibold">Expanded institutional capacity</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ask your workspace administrator to request Silver, Gold, or Premium / Custom.
+              Ask your workspace administrator to request Resonance, Frequency, or Enterprise.
             </p>
           </div>
         </div>
@@ -136,7 +136,7 @@ export function EntitlementUpgradeCard({
                 <span>
                   <span className="block text-sm font-semibold">{PLAN_LABELS[plan]}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {plan === "SILVER" ? "~$15" : plan === "GOLD" ? "~$40" : "Custom"}
+                    {tierPrice(plan)}
                   </span>
                 </span>
               </span>

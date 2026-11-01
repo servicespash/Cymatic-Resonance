@@ -1,3 +1,4 @@
+import { ENTITLEMENT_TIERS, tierHighlights } from "@/lib/entitlements/catalog";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/use-auth";
@@ -290,34 +291,15 @@ function LandingPage() {
             Simple. Scaled to your signal.
           </h2>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {[
-            {
-              name: "Pulse",
-              price: "Free",
-              desc: "For tight teams just getting in sync.",
-              feats: ["Up to 10 members", "Sync Pulse check-in", "1 broadcast channel"],
-            },
-            {
-              name: "Resonance",
-              price: "$12",
-              suffix: "/seat",
-              featured: true,
-              desc: "For organizations running on rhythm.",
-              feats: [
-                "Unlimited members",
-                "Full Command Center",
-                "Unlimited channels & DMs",
-                "CSV exports",
-              ],
-            },
-            {
-              name: "Frequency",
-              price: "Custom",
-              desc: "For enterprise with strict isolation needs.",
-              feats: ["SSO & SAML", "Audit log", "Dedicated success engineer"],
-            },
-          ].map((p, i) => (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {ENTITLEMENT_TIERS.map((t) => ({
+            name: t.label,
+            price: t.priceLabel,
+            featured: t.plan === "SILVER",
+            desc: t.description,
+            feats: tierHighlights(t.plan),
+            plan: t.plan,
+          })).map((p, i) => (
             <motion.div
               key={p.name}
               variants={fadeUp}
@@ -335,9 +317,6 @@ function LandingPage() {
               <h3 className="font-display text-lg font-semibold">{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-1">
                 <span className="font-display text-4xl font-bold">{p.price}</span>
-                {p.suffix && (
-                  <span className="font-mono text-xs text-muted-foreground">{p.suffix}</span>
-                )}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{p.desc}</p>
               <ul className="mt-5 space-y-2.5">
@@ -348,16 +327,26 @@ function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/auth"
+              <a
+                href={
+                  p.plan === "CUSTOM_INSTITUTION"
+                    ? "mailto:cymatichubevolution@gmail.com?subject=Schedule%20an%20Enterprise%20demo"
+                    : "/auth"
+                }
                 className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                   p.featured
                     ? "bg-frequency text-primary-foreground resonance-glow hover:brightness-110"
                     : "glass hover:bg-white/5"
                 }`}
               >
-                Get started
-              </Link>
+                {p.plan === "FREE"
+                  ? "Start free"
+                  : p.plan === "CUSTOM_INSTITUTION"
+                    ? "Schedule a demo"
+                    : p.plan === "GOLD"
+                      ? "Start 7-day trial"
+                      : "Get started"}
+              </a>
             </motion.div>
           ))}
         </div>

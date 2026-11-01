@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Check, LockKeyhole, Sparkles } from "lucide-react";
 import { ENTITLEMENT_FEATURES, ENTITLEMENT_TIERS, planIncludes } from "@/lib/entitlements/catalog";
 import type { EntitlementPlan } from "@/lib/domain/contracts";
@@ -40,8 +41,9 @@ export function EntitlementMatrix({ currentPlan }: { currentPlan?: EntitlementPl
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full min-w-[1040px] table-fixed text-sm">
+      <MobileMatrix currentPlan={currentPlan} />
+      <div className="hidden overflow-x-auto rounded-xl border border-white/10 md:block">
+        <table className="w-full min-w-[760px] table-fixed text-sm">
           <thead className="bg-white/5">
             <tr className="border-b border-white/10">
               <th className="w-[34%] px-5 py-4 text-left font-medium">Capability</th>
@@ -90,5 +92,47 @@ export function EntitlementMatrix({ currentPlan }: { currentPlan?: EntitlementPl
         </table>
       </div>
     </section>
+  );
+}
+
+function MobileMatrix({ currentPlan }: { currentPlan?: EntitlementPlan }) {
+  const [plan, setPlan] = useState<EntitlementPlan>(currentPlan ?? "FREE");
+  const tier = ENTITLEMENT_TIERS.find((t) => t.plan === plan)!;
+  return (
+    <div className="md:hidden">
+      <div className="grid grid-cols-2 gap-1.5" role="tablist">
+        {ENTITLEMENT_TIERS.map((t) => (
+          <button
+            key={t.plan}
+            role="tab"
+            aria-selected={plan === t.plan}
+            onClick={() => setPlan(t.plan)}
+            className={`rounded-lg border px-2 py-2 text-left text-xs ${
+              plan === t.plan ? "border-accent/50 bg-accent/10" : "border-white/10 bg-white/5"
+            }`}
+          >
+            <span className="block font-semibold">{t.label}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">{t.priceLabel}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">{tier.description}</p>
+      <ul className="mt-3 divide-y divide-white/5 rounded-xl border border-white/10">
+        {ENTITLEMENT_FEATURES.map((f) => {
+          const on = planIncludes(plan, f);
+          return (
+            <li key={f.key} className="flex items-start justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <div className={`text-sm ${on ? "" : "text-muted-foreground"}`}>{f.label}</div>
+                <div className="text-[11px] leading-4 text-muted-foreground">{f.description}</div>
+              </div>
+              <div className="shrink-0 pt-0.5">
+                <CapabilityCell enabled={on} availability={f.availability} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

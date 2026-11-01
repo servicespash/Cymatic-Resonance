@@ -72,26 +72,26 @@ const available = (
 export const ENTITLEMENT_TIERS: readonly TierDefinition[] = [
   {
     plan: "FREE",
-    label: "Free",
+    label: "Pulse",
     priceLabel: "$0",
     description: "Core institutional attendance, presence, messaging, and small calls.",
   },
   {
     plan: "SILVER",
-    label: "Silver",
-    priceLabel: "~$15",
+    label: "Resonance",
+    priceLabel: "$15/mo",
     description: "Enhanced presence, live execution channels, and small-group execution sync.",
   },
   {
     plan: "GOLD",
-    label: "Gold",
-    priceLabel: "~$40",
+    label: "Frequency",
+    priceLabel: "$40/mo",
     description:
       "Full registers, execution charts, unlimited presence tracking, and higher call capacity.",
   },
   {
     plan: "CUSTOM_INSTITUTION",
-    label: "Premium / Custom",
+    label: "Enterprise",
     priceLabel: "Custom",
     description:
       "Institution-specific infrastructure, meeting limits, signaling, and SLA controls.",
@@ -339,10 +339,10 @@ export const ENTITLEMENT_FEATURES: readonly EntitlementFeatureDefinition[] = [
 ];
 
 export const PLAN_LABELS: Record<EntitlementPlan, string> = {
-  FREE: "Free",
-  SILVER: "Silver",
-  GOLD: "Gold",
-  CUSTOM_INSTITUTION: "Premium / Custom",
+  FREE: "Pulse",
+  SILVER: "Resonance",
+  GOLD: "Frequency",
+  CUSTOM_INSTITUTION: "Enterprise",
 };
 
 export const PLAN_RANK: Record<EntitlementPlan, number> = {
@@ -382,4 +382,18 @@ export function planRank(plan: EntitlementPlan): number {
 
 export function isPaidPlan(plan: EntitlementPlan): plan is TrialPlan {
   return plan !== "FREE";
+}
+
+export function tierPrice(plan: EntitlementPlan): string {
+  return ENTITLEMENT_TIERS.find((t) => t.plan === plan)?.priceLabel ?? "Custom";
+}
+
+export function tierHighlights(plan: EntitlementPlan, max = 6): string[] {
+  const calls = CALL_LIMITS[plan].video;
+  const feats = ENTITLEMENT_FEATURES.filter(
+    (f) => f.availability === "available" && planIncludes(plan, f) && f.key !== "group_calls",
+  );
+  const prev = plan === "FREE" ? null : (Object.keys(PLAN_RANK) as EntitlementPlan[])[PLAN_RANK[plan] - 1];
+  const fresh = prev ? feats.filter((f) => !planIncludes(prev, f)) : feats;
+  return [`Calls up to ${calls} participants`, ...fresh.map((f) => f.label)].slice(0, max);
 }
